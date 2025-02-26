@@ -1,73 +1,44 @@
-# React + TypeScript + Vite
+# _Solar Punk City_ – Building a Sustainable City
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+## Vision
 
-Currently, two official plugins are available:
+[_Solar Punk City_](https://arnelimburg.github.io/solarpunkcity/)
+is a city-building simulation game inspired by titles like SimCity, but with a focus on sustainability, renewable energy, and community-driven design. The aim is not endless growth, but to build a balanced and resilient city where people and nature coexist in harmony.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## Core Idea
 
-## React Compiler
+The player starts with a plot of land and limited resources. Over time, they build a settlement that grows into a sustainable city. Unlike traditional city builders, the main challenge is not maximizing population or revenue but balancing energy, food, housing, and ecological well-being.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Gameplay
 
-## Expanding the ESLint configuration
+### Resource Management:
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+The key resources are energy, water, food, materials, and ecological balance.
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+### Buildings:
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+Players can build farms, solar power plants, wind turbines, residential houses, cultural centers, research institutes, etc. Each building consumes and produces resources.
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+### Technology & Research:
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+Players can unlock sustainable technologies that improve efficiency and unlock new buildings.
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+### Events & Challenges:
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+Environmental disasters, social unrest, or resource bottlenecks test the player’s ability to react flexibly.
+
+## Unique Features
+
+Focus on Sustainability – success is measured not by growth, but by long-term stability and harmony.
+
+Positive Vision of the Future – instead of dystopias, the game paints a hopeful picture of a livable, ecological future.
+
+Scenarios & Sandbox – the game can be played either as open-ended sandbox or in scenarios with specific goals (e.g., “create a carbon-neutral city in 20 years”).
+
+## Long-Term Goals
+
+Achieve a city that sustains itself for generations.
+
+Reach a state where people, technology, and environment are in balance.
+
+Explore different architectural and societal visions of the solar punk aesthetic.
