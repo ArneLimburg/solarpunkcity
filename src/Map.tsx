@@ -1,4 +1,4 @@
-import { useRef, useEffect, type FC } from "react";
+import { useRef, useEffect, forwardRef, useImperativeHandle } from "react";
 import {
   Engine,
   Scene,
@@ -13,25 +13,39 @@ import {
   Observer,
   CubeTexture,
   Texture,
+  ImportMeshAsync,
 } from "@babylonjs/core";
 import "@babylonjs/loaders"; // ensures loaders are initialized (if you later import models)
-import type { HexCoordinates, HexLocation } from "./game";
+import { GRID_RADIUS, type HexCoordinates, type HexLocation } from "./game";
 
 const HEX_SIZE = 1; // side length of hex (in scene units)
-const GRID_RADIUS = 6; // how many rings around center
 
-export const Map: FC<{ onSelected: (coordinates: HexCoordinates) => void }> = ({
-  onSelected,
-}) => {
+export const Map = forwardRef<
+  { addBuilding: (coords: HexCoordinates) => void },
+  { onSelected: (coordinates: HexCoordinates) => void }
+>(({ onSelected }, ref) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const engineRef = useRef<Engine | null>(null);
+  const sceneRef = useRef<Scene | null>(null);
+
+  useImperativeHandle(ref, () => ({
+    addBuilding: (coords: HexCoordinates) => {
+      if (sceneRef.current) {
+        const position = hexToPixel(coords.q, coords.r);
+        position.y += 0.05;
+        loadFarm(sceneRef.current, position);
+      }
+    },
+  }));
 
   useEffect(() => {
     if (!canvasRef.current) {
       return;
     }
-
     const engine = new Engine(canvasRef.current, true);
     const scene = new Scene(engine);
+    engineRef.current = engine;
+    sceneRef.current = scene;
     //scene.clearColor = new Color4(0.4, 0.8, 0.5);
     createSkybox(scene);
 
@@ -45,8 +59,10 @@ export const Map: FC<{ onSelected: (coordinates: HexCoordinates) => void }> = ({
       scene,
     );
     camera.attachControl(canvasRef.current, true);
-    camera.lowerRadiusLimit = 10;
-    camera.upperRadiusLimit = 120;
+    camera.lowerRadiusLimit = 2;
+    camera.upperRadiusLimit = 100;
+    camera.lowerBetaLimit = 0;
+    camera.upperBetaLimit = 1.5;
 
     // Light
     new HemisphericLight("hemi", new Vector3(0, 1, 0), scene);
@@ -63,24 +79,23 @@ export const Map: FC<{ onSelected: (coordinates: HexCoordinates) => void }> = ({
     );
     const highlightMaterial = makeMaterial(
       "hexHighlight",
-      new Color3(1, 0.8, 0.2),
+      Color3.Black(),
       scene,
     );
+    highlightMaterial.alpha = 0.1;
 
     // store created hex meshes so we can interact with them
     const hexMeshes: Mesh[] = [];
 
-    /*
     const ground = MeshBuilder.CreateGround(
       "ground",
       {
-        width: GRID_RADIUS * HEX_SIZE * 4,
-        height: GRID_RADIUS * HEX_SIZE * 4,
+        width: 1000,
+        height: 1000,
       },
       scene,
     );
     ground.material = altMaterial;
-    */
     // generate grid (axial coordinates)
     for (let q = -GRID_RADIUS; q <= GRID_RADIUS; q++) {
       for (let r = -GRID_RADIUS; r <= GRID_RADIUS; r++) {
@@ -97,10 +112,15 @@ export const Map: FC<{ onSelected: (coordinates: HexCoordinates) => void }> = ({
         }
       }
     }
+    console.log("fields: " + hexMeshes.length);
 
     // Picking / Highlight logic
-    const selectedMesh = createHexTile(0, 0, scene, highlightMaterial);
-    selectedMesh.position.y = 0.3;
+    const selectedMesh = MeshBuilder.CreateTorus(
+      "ring",
+      { thickness: 0.1, diameter: 2, tessellation: 64 },
+      scene,
+    );
+    selectedMesh.position.y = 0.01;
     selectedMesh.material = highlightMaterial;
 
     const pointerObserver = scene.onPointerObservable.add(
@@ -117,7 +137,7 @@ export const Map: FC<{ onSelected: (coordinates: HexCoordinates) => void }> = ({
     window.addEventListener("resize", handle);
 
     return createCleanupMethod(engine, scene, pointerObserver, handle);
-  }, [canvasRef, onSelected]);
+  }, [onSelected]);
 
   return (
     <canvas
@@ -125,10 +145,10 @@ export const Map: FC<{ onSelected: (coordinates: HexCoordinates) => void }> = ({
       style={{ width: "100%", height: "100%", display: "block" }}
     />
   );
-};
+});
 
 function createSkybox(scene: Scene) {
-  const skybox = MeshBuilder.CreateBox("skyBox", { size: 1000.0 }, scene);
+  const skybox = MeshBuilder.CreateBox("skyBox", { size: 200.0 }, scene);
 
   // Create the skybox material
   const skyboxMaterial = new StandardMaterial("skyBoxMaterial", scene);
@@ -159,6 +179,14 @@ function makeMaterial(name: string, color: Color3, scene: Scene) {
   return m;
 }
 
+async function loadFarm(scene: Scene, position: Vector3) {
+  const farm = await ImportMeshAsync("base_basic_pbr.glb", scene, {
+    rootUrl: "farm/",
+  });
+  farm.meshes[0].position = position;
+  farm.meshes[0].position.y += 0.05;
+}
+
 function createHexTile(
   q: number,
   r: number,
@@ -181,7 +209,7 @@ function createHexTile(
     scene,
   );
   hex.position = hexToPixel(q, r);
-  hex.position.y = 0.2;
+  hex.position.y = 0.1;
   hex.material = material;
 
   // store axial coords on the mesh
@@ -196,22 +224,51 @@ function createPointerHandler(
 ): (pointerInfo: PointerInfo) => void {
   return (pointerInfo: PointerInfo) => {
     const pick = pointerInfo.pickInfo;
-    if (!pick || !pick.hit) {
+    if (!pick || !pick.hit || !pick.pickedPoint) {
       return;
     }
+    // world pos to hex coords
+    const coordinates = pixelToHex(pick.pickedPoint);
 
-    const picked = pick.pickedMesh as Mesh | null;
-    if (!picked || !picked.name?.startsWith("hex_")) {
-      // something else picked
-      return;
-    }
+    // hex coords to snapped center
+    const center = hexToPixel(coordinates.q, coordinates.r);
 
-    selectedMesh.position.x = picked.position.x;
-    selectedMesh.position.z = picked.position.z;
+    // move selection ring to the center
+    selectedMesh.position.set(center.x, 0.1, center.z);
 
-    const coordinates = (picked as unknown as HexLocation).coordinates;
+    // notify listener
     onSelected(coordinates);
   };
+}
+
+function pixelToHex(position: Vector3) {
+  const qf =
+    ((Math.sqrt(3) / 3) * position.x - (1 / 3) * position.z) / HEX_SIZE;
+  const rf = ((2 / 3) * position.z) / HEX_SIZE;
+
+  // cube coords
+  const xCube = qf;
+  const zCube = rf;
+  const yCube = -xCube - zCube;
+
+  // round to nearest cube
+  let rx = Math.round(xCube);
+  let ry = Math.round(yCube);
+  let rz = Math.round(zCube);
+
+  const dx = Math.abs(rx - xCube);
+  const dy = Math.abs(ry - yCube);
+  const dz = Math.abs(rz - zCube);
+
+  if (dx > dy && dx > dz) {
+    rx = -ry - rz;
+  } else if (dy > dz) {
+    ry = -rx - rz;
+  } else {
+    rz = -rx - ry;
+  }
+
+  return { q: rx, r: rz };
 }
 
 function hexToPixel(q: number, r: number): Vector3 {
@@ -233,6 +290,7 @@ function createCleanupMethod(
       scene.dispose();
       engine.dispose();
     } catch (e) {
+      console.error(e);
       // swallow errors during fast HMR / dev shutdown
     }
   };
