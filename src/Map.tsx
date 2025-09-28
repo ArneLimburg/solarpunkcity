@@ -16,12 +16,13 @@ import {
   ImportMeshAsync,
 } from "@babylonjs/core";
 import "@babylonjs/loaders"; // ensures loaders are initialized (if you later import models)
-import { GRID_RADIUS, type HexCoordinates, type HexLocation } from "./game";
+import { GRID_RADIUS, type HexCoordinates, type HexLocation } from "./board";
+import type { Model } from "./game";
 
 const HEX_SIZE = 1; // side length of hex (in scene units)
 
 export const Map = forwardRef<
-  { addBuilding: (coords: HexCoordinates) => void },
+  { addBuilding: (coords: HexCoordinates, model: Model) => void },
   { onSelected: (coordinates: HexCoordinates) => void }
 >(({ onSelected }, ref) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -29,11 +30,11 @@ export const Map = forwardRef<
   const sceneRef = useRef<Scene | null>(null);
 
   useImperativeHandle(ref, () => ({
-    addBuilding: (coords: HexCoordinates) => {
+    addBuilding: (coords: HexCoordinates, model: Model) => {
       if (sceneRef.current) {
         const position = hexToPixel(coords.q, coords.r);
         position.y += 0.05;
-        loadFarm(sceneRef.current, position);
+        loadModel(model, sceneRef.current, position);
       }
     },
   }));
@@ -174,10 +175,8 @@ function makeMaterial(name: string, color: Color3, scene: Scene) {
   return m;
 }
 
-async function loadFarm(scene: Scene, position: Vector3) {
-  const farm = await ImportMeshAsync("farm.glb", scene, {
-    rootUrl: "farm/",
-  });
+async function loadModel(model: Model, scene: Scene, position: Vector3) {
+  const farm = await ImportMeshAsync(model, scene);
   farm.meshes[0].position = position;
   farm.meshes[0].position.y += 0.05;
 }
