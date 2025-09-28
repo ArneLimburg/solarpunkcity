@@ -4,7 +4,7 @@ import {
   BuildingTypes,
   type BuildingCategory,
   type BuildingType,
-} from "./game";
+} from "./gameDefinitions";
 
 export const Menu: FC<{
   selected: BuildingType | undefined;

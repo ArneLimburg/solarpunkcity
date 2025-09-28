@@ -15,8 +15,8 @@ import {
   Texture,
 } from "@babylonjs/core";
 import "@babylonjs/loaders"; // ensures loaders are initialized (if you later import models)
-import { GRID_RADIUS, type HexCoordinates, type HexLocation } from "./board";
-import type { Model } from "./game";
+import { GRID_RADIUS, type HexCoordinates } from "./board";
+import type { Model } from "./gameDefinitions";
 import { loadCachedModel, preloadModels } from "./ModelLoader";
 
 const HEX_SIZE = 1; // side length of hex (in scene units)
@@ -206,9 +206,6 @@ function createHexTile(
   hex.position.y = 0.1;
   hex.material = material;
 
-  // store axial coords on the mesh
-  (hex as unknown as HexLocation).coordinates = { q, r };
-
   return hex;
 }
 
@@ -231,7 +228,6 @@ function createPointerHandler(
     selectedMesh.position.set(center.x, 0.1, center.z);
 
     // notify listener
-    console.log("selected");
     onSelected(coordinates);
   };
 }
