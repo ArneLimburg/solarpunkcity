@@ -60,7 +60,7 @@ export const Map = forwardRef<
     );
     camera.attachControl(canvasRef.current, true);
     camera.lowerRadiusLimit = 2;
-    camera.upperRadiusLimit = 100;
+    camera.upperRadiusLimit = 120;
     camera.lowerBetaLimit = 0;
     camera.upperBetaLimit = 1.5;
 
@@ -137,14 +137,9 @@ export const Map = forwardRef<
     window.addEventListener("resize", handle);
 
     return createCleanupMethod(engine, scene, pointerObserver, handle);
-  }, [onSelected]);
+  }, []);
 
-  return (
-    <canvas
-      ref={canvasRef}
-      style={{ width: "100%", height: "100%", display: "block" }}
-    />
-  );
+  return <canvas ref={canvasRef} />;
 });
 
 function createSkybox(scene: Scene) {
@@ -180,7 +175,7 @@ function makeMaterial(name: string, color: Color3, scene: Scene) {
 }
 
 async function loadFarm(scene: Scene, position: Vector3) {
-  const farm = await ImportMeshAsync("base_basic_pbr.glb", scene, {
+  const farm = await ImportMeshAsync("farm.glb", scene, {
     rootUrl: "farm/",
   });
   farm.meshes[0].position = position;
@@ -237,6 +232,7 @@ function createPointerHandler(
     selectedMesh.position.set(center.x, 0.1, center.z);
 
     // notify listener
+    console.log("selected");
     onSelected(coordinates);
   };
 }
