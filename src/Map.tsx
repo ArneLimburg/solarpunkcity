@@ -13,11 +13,11 @@ import {
   Observer,
   CubeTexture,
   Texture,
-  ImportMeshAsync,
 } from "@babylonjs/core";
 import "@babylonjs/loaders"; // ensures loaders are initialized (if you later import models)
 import { GRID_RADIUS, type HexCoordinates, type HexLocation } from "./board";
 import type { Model } from "./game";
+import { loadCachedModel, preloadModels } from "./ModelLoader";
 
 const HEX_SIZE = 1; // side length of hex (in scene units)
 
@@ -33,7 +33,7 @@ export const Map = forwardRef<
     addBuilding: (coords: HexCoordinates, model: Model) => {
       if (sceneRef.current) {
         const position = hexToPixel(coords.q, coords.r);
-        position.y += 0.05;
+        position.y += 0.1;
         loadModel(model, sceneRef.current, position);
       }
     },
@@ -47,6 +47,7 @@ export const Map = forwardRef<
     const scene = new Scene(engine);
     engineRef.current = engine;
     sceneRef.current = scene;
+    preloadModels(scene);
     //scene.clearColor = new Color4(0.4, 0.8, 0.5);
     createSkybox(scene);
 
@@ -176,9 +177,8 @@ function makeMaterial(name: string, color: Color3, scene: Scene) {
 }
 
 async function loadModel(model: Model, scene: Scene, position: Vector3) {
-  const farm = await ImportMeshAsync(model, scene);
-  farm.meshes[0].position = position;
-  farm.meshes[0].position.y += 0.05;
+  const instance = await loadCachedModel(model, scene, position);
+  return instance;
 }
 
 function createHexTile(
