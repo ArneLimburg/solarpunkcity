@@ -51,7 +51,7 @@ export const BuildingTypes = {
   Forest: {
     category: "FOREST",
     icon: "forest.png",
-    model: "forest.glb",
+    model: "forest/forest.glb",
   },
 } as const satisfies Record<
   string,

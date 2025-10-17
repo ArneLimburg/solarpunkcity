@@ -2,7 +2,7 @@ import "beercss/dist/cdn/beer.min.css";
 import { useCallback, useEffect, useRef, useState, type FC } from "react";
 import { Map } from "./Map";
 import { Menu } from "./Menu";
-import { GRID_RADIUS, type HexCoordinates } from "./board";
+import { getBuildingLocations, getBuildings, GRID_RADIUS, type HexCoordinates } from "./board";
 import {
   BuildingTypes,
   type BuildingType,
@@ -67,6 +67,15 @@ export const App: FC = () => {
       }
     });
   }, []);
+    useEffect(() => {
+if (mapRef.current) {
+  getBuildingLocations().forEach((coordinates, building) => {
+    console.log("Adding building at", coordinates, building.type);
+    mapRef.current?.addBuilding(coordinates, BuildingTypes[building.type].model);
+  });
+}
+}, [mapRef]);
+
   return (
     <>
       <Menu

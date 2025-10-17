@@ -69,26 +69,6 @@ export const Map = forwardRef<
     // Light
     new HemisphericLight("hemi", new Vector3(0, 1, 0), scene);
 
-    const baseMaterial = makeMaterial(
-      "hexBase",
-      new Color3(0.6, 0.8, 0.6),
-      scene,
-    );
-    const altMaterial = makeMaterial(
-      "hexAlt",
-      new Color3(0.5, 0.7, 0.9),
-      scene,
-    );
-    const highlightMaterial = makeMaterial(
-      "hexHighlight",
-      Color3.Black(),
-      scene,
-    );
-    highlightMaterial.alpha = 0.1;
-
-    // store created hex meshes so we can interact with them
-    const hexMeshes: Mesh[] = [];
-
     const ground = MeshBuilder.CreateGround(
       "ground",
       {
@@ -97,26 +77,23 @@ export const Map = forwardRef<
       },
       scene,
     );
-    ground.material = altMaterial;
-    // generate grid (axial coordinates)
-    for (let q = -GRID_RADIUS; q <= GRID_RADIUS; q++) {
-      for (let r = -GRID_RADIUS; r <= GRID_RADIUS; r++) {
-        if (Math.abs(q + r) <= GRID_RADIUS) {
-          const useAlt = ((q + r) & 1) === 0;
+    const groundMaterial = new StandardMaterial("groundMat", scene);
+const grassTexture = new Texture("textures/grass.png", scene);
+groundMaterial.diffuseTexture = grassTexture;
+grassTexture.uScale = 200;
+grassTexture.vScale = 200;
+groundMaterial.opacityTexture = new Texture("textures/transparent-circle.png", scene);
+groundMaterial.backFaceCulling = false;
 
-          const hex = createHexTile(
-            q,
-            r,
-            scene,
-            useAlt ? altMaterial : baseMaterial,
-          );
-          hexMeshes.push(hex);
-        }
-      }
-    }
-    console.log("fields: " + hexMeshes.length);
+// Assign material to ground
+ground.material = groundMaterial;
 
     // Picking / Highlight logic
+    const highlightMaterial = makeMaterial(
+      "highlightRing",
+      Color3.Black(),
+      scene,
+    );
     const selectedMesh = MeshBuilder.CreateTorus(
       "ring",
       { thickness: 0.1, diameter: 2, tessellation: 64 },
@@ -179,34 +156,6 @@ function makeMaterial(name: string, color: Color3, scene: Scene) {
 async function loadModel(model: Model, scene: Scene, position: Vector3) {
   const instance = await loadCachedModel(model, scene, position);
   return instance;
-}
-
-function createHexTile(
-  q: number,
-  r: number,
-  scene: Scene,
-  material: StandardMaterial,
-) {
-  // build hex polygon corners (flat top)
-  const corners: Vector3[] = [];
-  for (let i = 0; i < 6; i++) {
-    const angle = (Math.PI / 180) * (60 * i + 30); // +30 for flat-top orientation
-    corners.push(
-      new Vector3(HEX_SIZE * Math.cos(angle), 0, HEX_SIZE * Math.sin(angle)),
-    );
-  }
-
-  const name = `hex_${q}_${r}`;
-  const hex = MeshBuilder.ExtrudePolygon(
-    name,
-    { shape: corners, depth: 0.2 },
-    scene,
-  );
-  hex.position = hexToPixel(q, r);
-  hex.position.y = 0.1;
-  hex.material = material;
-
-  return hex;
 }
 
 function createPointerHandler(

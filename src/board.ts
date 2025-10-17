@@ -10,6 +10,15 @@ export type HexCoordinates = {
 const buildings = initBoard();
 type HexLocation = string;
 
+export function getBuildingLocations(): ReadonlyMap<Building, HexCoordinates> {
+  const buildingLocations = new Map<Building, HexCoordinates>();
+  for (const [key, value] of buildings.entries()) {
+      const [q, r] = key.split(",").map(Number);
+      buildingLocations.set(value, { q, r });
+  }
+  return buildingLocations;
+}
+
 export function getBuildings(): Building[] {
   return [...buildings.values()];
 }
