@@ -74,7 +74,11 @@ export const App: FC = () => {
         onSelect={buildingTypeSelectionListener}
       />
       <main className="no-padding py-1">
-        <Map ref={mapRef} onSelected={mapSelectionListener} />
+        <Map
+          ref={mapRef}
+          onInitialized={() => {}}
+          onSelected={mapSelectionListener}
+        />
       </main>
     </>
   );

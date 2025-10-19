@@ -1,4 +1,11 @@
-import { useRef, useEffect, forwardRef, useImperativeHandle } from "react";
+import {
+  useRef,
+  useEffect,
+  forwardRef,
+  useImperativeHandle,
+  useState,
+  use,
+} from "react";
 import {
   Engine,
   Scene,
@@ -10,7 +17,6 @@ import {
   Vector3,
   Mesh,
   PointerInfo,
-  Observer,
   CubeTexture,
   Texture,
 } from "@babylonjs/core";
@@ -21,10 +27,26 @@ import { loadCachedModel, preloadModels } from "./ModelLoader";
 
 const HEX_SIZE = 1; // side length of hex (in scene units)
 
+const LoadingState = {
+  Initalizing: "Initializing",
+  SceneReady: "SceneReady",
+  PreloadingModels: "PreloadingModels",
+  ModelsLoaded: "ModelsLoaded",
+  Initialized: "Initialized",
+} as const;
+
+type LoadingState = (typeof LoadingState)[keyof typeof LoadingState];
+
 export const Map = forwardRef<
   { addBuilding: (coords: HexCoordinates, model: Model) => void },
-  { onSelected: (coordinates: HexCoordinates) => void }
->(({ onSelected }, ref) => {
+  {
+    onInitialized: () => void;
+    onSelected: (coordinates: HexCoordinates) => void;
+  }
+>(({ onInitialized, onSelected }, ref) => {
+  const [loadingState, setLoadingState] = useState<LoadingState>(
+    LoadingState.Initalizing,
+  );
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const engineRef = useRef<Engine | null>(null);
   const sceneRef = useRef<Scene | null>(null);
@@ -39,7 +61,42 @@ export const Map = forwardRef<
     },
   }));
 
+  useInitializeScene(
+    canvasRef,
+    engineRef,
+    sceneRef,
+    loadingState,
+    setLoadingState,
+  );
+  usePreloadModels(sceneRef, loadingState, setLoadingState);
+  useInitializeLandscape(
+    canvasRef,
+    engineRef,
+    sceneRef,
+    onSelected,
+    loadingState,
+    setLoadingState,
+  );
   useEffect(() => {
+    if (loadingState === LoadingState.Initialized) {
+      onInitialized();
+    }
+  }, [loadingState, onInitialized]);
+
+  return <canvas ref={canvasRef} />;
+});
+
+function useInitializeScene(
+  canvasRef: React.RefObject<HTMLCanvasElement | null>,
+  engineRef: React.RefObject<Engine | null>,
+  sceneRef: React.RefObject<Scene | null>,
+  loadingState: LoadingState,
+  setLoadingState: React.Dispatch<React.SetStateAction<LoadingState>>,
+) {
+  useEffect(() => {
+    if (loadingState !== LoadingState.Initalizing) {
+      return;
+    }
     if (!canvasRef.current) {
       return;
     }
@@ -47,7 +104,65 @@ export const Map = forwardRef<
     const scene = new Scene(engine);
     engineRef.current = engine;
     sceneRef.current = scene;
-    preloadModels(scene);
+
+    scene.whenReadyAsync().then(() => {
+      setLoadingState(LoadingState.SceneReady);
+    });
+
+    return () => {
+      try {
+        scene.dispose();
+        engine.dispose();
+      } catch (e) {
+        console.error(e);
+        // swallow errors during fast HMR / dev shutdown
+      }
+    };
+  }, [canvasRef, engineRef, sceneRef, loadingState, setLoadingState]);
+}
+
+function usePreloadModels(
+  sceneRef: React.RefObject<Scene | null>,
+  loadingState: LoadingState,
+  setLoadingState: React.Dispatch<React.SetStateAction<LoadingState>>,
+) {
+  useEffect(() => {
+    if (loadingState !== LoadingState.SceneReady) {
+      return;
+    }
+    if (!sceneRef.current) {
+      return;
+    }
+    setLoadingState(LoadingState.PreloadingModels);
+    preloadModels(sceneRef.current).then(() => {
+      setLoadingState(LoadingState.ModelsLoaded);
+    });
+  }, [sceneRef, loadingState, setLoadingState]);
+}
+
+function useInitializeLandscape(
+  canvasRef: React.RefObject<HTMLCanvasElement | null>,
+  engineRef: React.RefObject<Engine | null>,
+  sceneRef: React.RefObject<Scene | null>,
+  onSelected: (coordinates: HexCoordinates) => void,
+  loadingState: LoadingState,
+  setLoadingState: React.Dispatch<React.SetStateAction<LoadingState>>,
+) {
+  useEffect(() => {
+    if (loadingState !== LoadingState.ModelsLoaded) {
+      return;
+    }
+    if (!canvasRef.current) {
+      return;
+    }
+    if (!engineRef.current) {
+      return;
+    }
+    if (!sceneRef.current) {
+      return;
+    }
+    const engine = engineRef.current;
+    const scene = sceneRef.current;
     //scene.clearColor = new Color4(0.4, 0.8, 0.5);
     createSkybox(scene);
 
@@ -114,7 +229,6 @@ export const Map = forwardRef<
         }
       }
     }
-    console.log("fields: " + hexMeshes.length);
 
     // Picking / Highlight logic
     const selectedMesh = MeshBuilder.CreateTorus(
@@ -135,14 +249,23 @@ export const Map = forwardRef<
     });
 
     // resize handling
-    const handle = () => engine.resize();
-    window.addEventListener("resize", handle);
+    const resizeListener = () => engine.resize();
+    window.addEventListener("resize", resizeListener);
+    setLoadingState(LoadingState.Initialized);
 
-    return createCleanupMethod(engine, scene, pointerObserver, handle);
-  }, []);
-
-  return <canvas ref={canvasRef} />;
-});
+    return () => {
+      window.removeEventListener("resize", resizeListener);
+      scene.onPointerObservable.remove(pointerObserver);
+    };
+  }, [
+    canvasRef,
+    engineRef,
+    sceneRef,
+    onSelected,
+    loadingState,
+    setLoadingState,
+  ]);
+}
 
 function createSkybox(scene: Scene) {
   const skybox = MeshBuilder.CreateBox("skyBox", { size: 200.0 }, scene);
@@ -266,23 +389,4 @@ function hexToPixel(q: number, r: number): Vector3 {
   const x = HEX_SIZE * (Math.sqrt(3) * q + (Math.sqrt(3) / 2) * r);
   const z = HEX_SIZE * (1.5 * r);
   return new Vector3(x, 0, z);
-}
-
-function createCleanupMethod(
-  engine: Engine,
-  scene: Scene,
-  pointerObserver: Observer<PointerInfo>,
-  resizeListener: () => void,
-) {
-  return () => {
-    window.removeEventListener("resize", resizeListener);
-    scene.onPointerObservable.remove(pointerObserver);
-    try {
-      scene.dispose();
-      engine.dispose();
-    } catch (e) {
-      console.error(e);
-      // swallow errors during fast HMR / dev shutdown
-    }
-  };
 }
