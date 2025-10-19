@@ -10,11 +10,11 @@ export type HexCoordinates = {
 const buildings = initBoard();
 type HexLocation = string;
 
-export function getBuildingLocations(): ReadonlyMap<Building, HexCoordinates> {
-  const buildingLocations = new Map<Building, HexCoordinates>();
+export function getBuildingLocations(): ReadonlyMap<HexCoordinates, Building> {
+  const buildingLocations = new Map<HexCoordinates, Building>();
   for (const [key, value] of buildings.entries()) {
-      const [q, r] = key.split(",").map(Number);
-      buildingLocations.set(value, { q, r });
+    const [q, r] = key.split(",").map(Number);
+    buildingLocations.set({ q, r }, value);
   }
   return buildingLocations;
 }
@@ -44,5 +44,6 @@ function initBoard() {
       }
     }
   }
+  console.log("Initialized board with " + board.size + " entries.");
   return board;
 }

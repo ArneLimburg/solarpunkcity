@@ -6,7 +6,7 @@ import {
   Vector3,
 } from "@babylonjs/core";
 import { registerBuiltInLoaders } from "@babylonjs/loaders/dynamic";
-import { BuildingTypes } from "./gameDefinitions";
+import { BuildingTypes } from "../gameDefinitions";
 
 registerBuiltInLoaders();
 
