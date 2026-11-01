@@ -59,6 +59,10 @@ Tickets become pull requests without manual steps; the repository owner reviews 
 3. After each Build, `.github/workflows/agent-review.yaml` (Opus) reviews it. `review:changes`
    sends it back to step 2 (at most 3 times), `review:approved` or `review:max-rounds` requests
    a review from the owner. `agent-blocked` means an agent gave up and a human must take over.
+4. A "changes requested" review by the owner on an agent pull request starts `implement.yaml`
+   again: it addresses that review (which wins over agent reviews), pushes and requests the
+   owner's review again. The label `review:owner` keeps the Opus review out from then on; this
+   does not count as a review round.
 
 Agents run as the GitHub App from `AGENT_APP_ID` / `AGENT_APP_PRIVATE_KEY` so their pushes,
 pull requests and labels trigger the next workflow. They must not change files in `.github/`.

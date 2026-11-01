@@ -3,6 +3,8 @@
 # - Build passed: Opus reviews against the issue's acceptance criteria.
 # Verdict CHANGES labels `review:changes`, which starts implement.yaml again. After
 # MAX_PING_PONG change requests, or on APPROVE, the repository owner is asked to review.
+# Skips pull requests already handed over to a human (`review:approved`, `review:max-rounds`,
+# `agent-blocked`) or under owner review (`review:owner`, set by implement.yaml).
 name: Agent Review
 
 on:
@@ -67,7 +69,7 @@ jobs:
           labels=$(echo "$info" | jq -r '.labels[].name')
           sha=$(echo "$info" | jq -r .headRefOid)
           echo "$labels" | grep -qx 'agent-pr' || skip "#$pr is not an agent pull request"
-          if echo "$labels" | grep -qxE 'review:approved|review:max-rounds|agent-blocked'; then
+          if echo "$labels" | grep -qxE 'review:approved|review:max-rounds|review:owner|agent-blocked'; then
             skip "#$pr is already handed over to a human"
           fi
 
