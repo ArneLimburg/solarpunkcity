@@ -184,6 +184,9 @@ jobs:
           elif [ "$verdict" = "CHANGES" ] && [ "$ROUND" -le "$MAX_PING_PONG" ]; then
             gh label create review:changes --color FBCA04 --description "Review agent requests changes" --force
             gh pr edit "$PR" --add-label review:changes
+          elif [ "$verdict" = "ERROR" ]; then
+            handover agent-blocked B60205 "Agent needs a human" \
+              "Der Review-Agent hat in Runde $ROUND kein gültiges Ergebnis geliefert. Bitte den Lauf prüfen; für einen neuen Versuch das Label agent-blocked entfernen und Agent Review manuell mit dieser PR-Nummer starten."
           else
             handover review:max-rounds D93F0B "Agents did not converge" \
               "Implementierungs- und Review-Agent sind nach Runde $ROUND nicht fertig geworden. Bitte übernehmen."
