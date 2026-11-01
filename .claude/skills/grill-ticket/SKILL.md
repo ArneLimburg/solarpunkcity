@@ -29,7 +29,7 @@ are settled:
 
 The implementation agent cannot change `.github/` or `.claude/`, and cannot change `CLAUDE.md`
 once its pull request is open. If the ticket needs such a change, list it under
-`## Technische Hinweise` as "Nachzuziehen durch einen Menschen" instead of making it an
+`## Technical notes` as "To be done by a human" instead of making it an
 acceptance criterion.
 
 Push back on vague answers ("better", "nicer", "some") and on tickets that are too big:
@@ -40,28 +40,29 @@ one ticket should be one pull request. Offer to split large ideas into several t
 Show the full issue to the user before creating it:
 
 ```markdown
-## Ziel
+## Goal
 
 <one paragraph>
 
-## Verhalten
+## Behavior
 
 - <rule>
 
-## Akzeptanzkriterien
+## Acceptance criteria
 
 - [ ] <checkable criterion>
 
-## Nicht im Umfang
+## Out of scope
 
 - <item>
 
-## Technische Hinweise
+## Technical notes
 
 - <files, functions, constraints>
 ```
 
-Write the issue in the language the user used. The title is a short imperative sentence.
+Write the issue in English, the project language (see `CLAUDE.md`), even when the conversation
+is in another language. The title is a short imperative sentence.
 
 ## 4. Create
 
