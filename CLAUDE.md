@@ -8,7 +8,7 @@ Deployed to GitHub Pages at https://arnelimburg.github.io/solarpunkcity/ on ever
 - React 19 + TypeScript (strict) + Vite 7
 - Babylon.js 8 for the 3D hex map, BeerCSS for UI
 - Prettier + ESLint (`npm run lint`), type check + bundle via `npm run build`
-- No test framework yet
+- Playwright (`@playwright/test`, Chromium only) for e2e smoke tests in `e2e/`
 
 ## Commands
 
@@ -17,6 +17,8 @@ Deployed to GitHub Pages at https://arnelimburg.github.io/solarpunkcity/ on ever
 - `npm run lint` – prettier check + eslint (CI runs this)
 - `npm run prettier` – format all files
 - `npm run build` – `tsc -b` + `vite build` (CI runs this)
+- `npx playwright install chromium` – install the test browser (once)
+- `npm run test:e2e` – Playwright smoke tests (starts the dev server itself)
 
 Always run `npm run lint` and `npm run build` before considering a change done.
 
