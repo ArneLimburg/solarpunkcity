@@ -3,6 +3,10 @@
 #   labeled `agent-pr`.
 # - Agent pull request labeled `review:changes` (set by agent-review.yaml): addresses the
 #   latest agent review and pushes to the same branch.
+# - The repository owner submits a "changes requested" review on an agent pull request:
+#   addresses that review (it takes precedence over agent reviews), pushes, and requests the
+#   owner's review again. The label `review:owner` makes agent-review.yaml skip the pull
+#   request; this mode is not a review round and leaves the `review-round-*` labels alone.
 # Runs as the GitHub App from AGENT_APP_ID so that its pushes and pull requests trigger
 # Build and Agent Review.
 name: Agent Implement
@@ -13,6 +17,8 @@ on:
     types: [labeled]
   pull_request:
     types: [labeled]
+  pull_request_review:
+    types: [submitted]
   workflow_dispatch:
     inputs:
       issue:
@@ -33,6 +39,10 @@ jobs:
       (github.event_name == 'issues' && github.event.label.name == 'ready') ||
       (github.event_name == 'pull_request' && github.event.label.name == 'review:changes' &&
         contains(github.event.pull_request.labels.*.name, 'agent-pr')) ||
+      (github.event_name == 'pull_request_review' && github.event.review.state == 'changes_requested' &&
+        github.event.review.user.login == github.repository_owner &&
+        github.event.pull_request.head.repo.full_name == github.repository &&
+        contains(github.event.pull_request.labels.*.name, 'agent-pr')) ||
       github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 45
@@ -52,12 +62,22 @@ jobs:
           ISSUE_NUMBER: ${{ github.event.issue.number || inputs.issue }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           PR_BRANCH: ${{ github.event.pull_request.head.ref }}
+          REVIEW_ID: ${{ github.event.review.id }}
         run: |
-          if [ "$EVENT" = "pull_request" ]; then
-            gh pr edit "$PR_NUMBER" --remove-label "review:changes"
+          if [ "$EVENT" = "pull_request" ] || [ "$EVENT" = "pull_request_review" ]; then
+            if [ "$EVENT" = "pull_request" ]; then
+              mode=pr
+              gh pr edit "$PR_NUMBER" --remove-label "review:changes"
+            else
+              mode=owner-review
+              # The owner reviews the result directly; keep agent-review.yaml out of it.
+              gh label create review:owner --color 1D76DB --description "Owner reviews; no agent review" --force
+              gh pr edit "$PR_NUMBER" --add-label review:owner
+              echo "review=$REVIEW_ID" >> "$GITHUB_OUTPUT"
+            fi
             issue=$(gh pr view "$PR_NUMBER" --json body --jq .body | grep -oiE '(closes|fixes|resolves) #[0-9]+' | head -1 | grep -oE '[0-9]+' || true)
             {
-              echo "mode=pr"
+              echo "mode=$mode"
               echo "pr=$PR_NUMBER"
               echo "issue=$issue"
               echo "branch=$PR_BRANCH"
@@ -84,7 +104,7 @@ jobs:
       - if: steps.ctx.outputs.skip == 'false'
         uses: actions/checkout@v4
         with:
-          ref: ${{ steps.ctx.outputs.mode == 'pr' && steps.ctx.outputs.branch || 'main' }}
+          ref: ${{ steps.ctx.outputs.mode != 'issue' && steps.ctx.outputs.branch || 'main' }}
           token: ${{ steps.app.outputs.token }}
 
       - if: steps.ctx.outputs.skip == 'false'
@@ -124,7 +144,7 @@ jobs:
             REPO: ${{ github.repository }}
             You are the implementation agent for Solar Punk City. Follow CLAUDE.md.
 
-            ${{ steps.ctx.outputs.mode == 'issue' && format('TASK: Implement issue #{0}. Read it with `gh issue view {0} --comments`.', steps.ctx.outputs.issue) || format('TASK: Pull request #{0} (issue #{1}) received change requests from the review agent. Read the issue with `gh issue view {1}` and the pull request with `gh pr view {0} --comments`; the latest comment starting with `<!-- agent-review` is the review to address. If it reports a failed build, inspect the run with `gh run view <run-id> --log-failed`. Address every valid point; if you disagree with a point, explain why in the commit body.', steps.ctx.outputs.pr, steps.ctx.outputs.issue) }}
+            ${{ steps.ctx.outputs.mode == 'issue' && format('TASK: Implement issue #{0}. Read it with `gh issue view {0} --comments`.', steps.ctx.outputs.issue) || '' }}${{ steps.ctx.outputs.mode == 'pr' && format('TASK: Pull request #{0} (issue #{1}) received change requests from the review agent. Read the issue with `gh issue view {1}` and the pull request with `gh pr view {0} --comments`; the latest comment starting with `<!-- agent-review` is the review to address. If it reports a failed build, inspect the run with `gh run view <run-id> --log-failed`. Address every valid point; if you disagree with a point, explain why in the commit body.', steps.ctx.outputs.pr, steps.ctx.outputs.issue) || '' }}${{ steps.ctx.outputs.mode == 'owner-review' && format('TASK: The repository owner requested changes on pull request #{0} (issue #{1}). Read the issue with `gh issue view {1}` and the pull request with `gh pr view {0} --comments`. Read the owner''s review with exactly `gh api repos/{2}/pulls/{0}/reviews/{3}` and its inline comments (see `path`, `line` and `body`) with exactly `gh api --paginate repos/{2}/pulls/{0}/reviews/{3}/comments`. Where the owner''s review conflicts with earlier agent reviews (comments starting with `<!-- agent-review`), the owner''s review wins. Address every point of the owner''s review; if you disagree with a point, explain why in the commit body instead of skipping it silently.', steps.ctx.outputs.pr, steps.ctx.outputs.issue, github.repository, steps.ctx.outputs.review) || '' }}
 
             Rules:
             - The working tree is already on the right branch. Do not switch branches and do not push;
@@ -141,7 +161,7 @@ jobs:
           claude_args: |
             --model claude-sonnet-5-5
             --max-turns 80
-            --allowedTools "Edit,Write,Read,Glob,Grep,Bash(npm ci),Bash(npm install:*),Bash(npx playwright install:*),Bash(npm run test:e2e),Bash(npm run lint),Bash(npm run prettier),Bash(npm run build),Bash(npx tsc:*),Bash(git add:*),Bash(git commit:*),Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(gh issue view:*),Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh run view:*)"
+            --allowedTools "Edit,Write,Read,Glob,Grep,Bash(npm ci),Bash(npm install:*),Bash(npx playwright install:*),Bash(npm run test:e2e),Bash(npm run lint),Bash(npm run prettier),Bash(npm run build),Bash(npx tsc:*),Bash(git add:*),Bash(git commit:*),Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(gh issue view:*),Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh run view:*)${{ steps.ctx.outputs.mode == 'owner-review' && format(',Bash(gh api repos/{0}/pulls/{1}/reviews/{2}),Bash(gh api --paginate repos/{0}/pulls/{1}/reviews/{2}/comments)', github.repository, steps.ctx.outputs.pr, steps.ctx.outputs.review) || '' }}"
 
       - if: steps.ctx.outputs.skip == 'false'
         name: Push and open pull request
@@ -156,7 +176,7 @@ jobs:
           BEFORE: ${{ steps.git.outputs.before }}
         run: |
           run_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
-          target=$([ "$MODE" = "pr" ] && echo "$PR" || echo "$ISSUE")
+          target=$([ "$MODE" = "issue" ] && echo "$ISSUE" || echo "$PR")
 
           # The prompt forbids changes to .github/; enforce it before anything is pushed.
           if git diff --name-only "$BEFORE" HEAD | grep -q '^\.github/'; then
@@ -176,6 +196,18 @@ jobs:
           fi
 
           git push origin "HEAD:$BRANCH"
+
+          if [ "$MODE" = "owner-review" ]; then
+            # Straight back to the owner, without another agent review (review:owner stays set).
+            if gh pr view "$PR" --json labels --jq '.labels[].name' | grep -qx agent-blocked; then
+              gh pr edit "$PR" --remove-label agent-blocked
+            fi
+            gh pr edit "$PR" --add-reviewer "$OWNER"
+            git log --format='- %s' "$BEFORE..HEAD" > "$RUNNER_TEMP/commits.md"
+            printf '🤖 Review von @%s umgesetzt ([Lauf](%s)):\n\n%s\n\nBitte erneut reviewen.\n' \
+              "$OWNER" "$run_url" "$(cat "$RUNNER_TEMP/commits.md")" | gh pr comment "$PR" --body-file -
+            exit 0
+          fi
 
           if [ "$MODE" = "pr" ]; then
             git log --format='- %s' "$BEFORE..HEAD" > "$RUNNER_TEMP/commits.md"
