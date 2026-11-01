@@ -142,7 +142,7 @@ jobs:
           claude_args: |
             --model claude-sonnet-5-5
             --max-turns 80
-            --allowedTools Edit,Write,Read,Glob,Grep,Bash(npm ci),Bash(npm run lint),Bash(npm run prettier),Bash(npm run build),Bash(npx tsc:*),Bash(git add:*),Bash(git commit:*),Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(gh issue view:*),Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh run view:*)
+            --allowedTools "Edit,Write,Read,Glob,Grep,Bash(npm ci),Bash(npm run lint),Bash(npm run prettier),Bash(npm run build),Bash(npx tsc:*),Bash(git add:*),Bash(git commit:*),Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(gh issue view:*),Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh run view:*)"
 
       - if: steps.ctx.outputs.skip == 'false'
         name: Push and open pull request
