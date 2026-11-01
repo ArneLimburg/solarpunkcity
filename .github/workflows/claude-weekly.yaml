@@ -70,8 +70,8 @@ jobs:
                d. a dependency patch/minor update via `npm update` that keeps lint and build green
             2. Create a branch `claude/weekly-<short-topic>` from main and implement it with a
                minimal diff.
-            3. Run `npm run lint` and `npm run build`; fix failures. If you cannot get both
-               green, stop without opening a pull request.
+            3. Run `npm run lint`, `npm run build` and `npm test` (if the project has a `test`
+               script); fix failures. If you cannot get all of them green, stop without opening a pull request.
             4. Commit using Conventional Commits, push the branch and open a pull request
                against main with `gh pr create --label claude-weekly --label agent-pr`. Describe what you
                changed, why, and how it was verified. Reference the issue if there is one.
@@ -79,4 +79,4 @@ jobs:
           claude_args: |
             --model claude-sonnet-5-5
             --max-turns 60
-            --allowedTools "Edit,Write,Read,Glob,Grep,Bash(git:*),Bash(gh issue list:*),Bash(gh issue view:*),Bash(gh pr list:*),Bash(gh pr create:*),Bash(npm ci),Bash(npm update:*),Bash(npm run lint),Bash(npm run prettier),Bash(npm run build),Bash(npx tsc:*)"
+            --allowedTools "Edit,Write,Read,Glob,Grep,Bash(git:*),Bash(gh issue list:*),Bash(gh issue view:*),Bash(gh pr list:*),Bash(gh pr create:*),Bash(npm ci),Bash(npm update:*),Bash(npm test),Bash(npm run lint),Bash(npm run prettier),Bash(npm run build),Bash(npx tsc:*)"
