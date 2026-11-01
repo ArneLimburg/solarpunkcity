@@ -131,6 +131,7 @@ jobs:
               the workflow pushes and opens the pull request.
             - Implement exactly the acceptance criteria with a minimal diff. Do not change files under
               `.github/`.
+            - Add or update dependencies only with `npm install`, never by editing `package-lock.json`.
             - Run `npm run lint` and `npm run build` and fix all failures before committing.
             - Make exactly ONE commit (`git add -A && git commit`). Subject: Conventional Commits.
               Body: what changed and why, and how each acceptance criterion (or review point) is met.
@@ -140,7 +141,7 @@ jobs:
           claude_args: |
             --model claude-sonnet-5-5
             --max-turns 80
-            --allowedTools "Edit,Write,Read,Glob,Grep,Bash(npm ci),Bash(npm run lint),Bash(npm run prettier),Bash(npm run build),Bash(npx tsc:*),Bash(git add:*),Bash(git commit:*),Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(gh issue view:*),Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh run view:*)"
+            --allowedTools "Edit,Write,Read,Glob,Grep,Bash(npm ci),Bash(npm install:*),Bash(npx playwright install:*),Bash(npm run test:e2e),Bash(npm run lint),Bash(npm run prettier),Bash(npm run build),Bash(npx tsc:*),Bash(git add:*),Bash(git commit:*),Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(gh issue view:*),Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh run view:*)"
 
       - if: steps.ctx.outputs.skip == 'false'
         name: Push and open pull request
