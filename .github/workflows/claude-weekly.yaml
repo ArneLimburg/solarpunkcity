@@ -35,6 +35,8 @@ jobs:
         run: |
           gh label create claude-weekly --repo "${{ github.repository }}" --color 0E8A16 \
             --description "Weekly pull request by Claude" --force
+          gh label create agent-pr --repo "${{ github.repository }}" --color 5319E7 \
+            --description "Pull request by the implementation agent" --force
           count=$(gh pr list --repo "${{ github.repository }}" --label claude-weekly --state open --json number --jq length)
           echo "count=$count" >> "$GITHUB_OUTPUT"
       - if: steps.open.outputs.count == '0'

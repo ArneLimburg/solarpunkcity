@@ -159,6 +159,12 @@ jobs:
           run_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
           target=$([ "$MODE" = "pr" ] && echo "$PR" || echo "$ISSUE")
 
+          # The prompt forbids changes to .github/; enforce it before anything is pushed.
+          if git diff --name-only "$BEFORE" HEAD | grep -q '^\.github/'; then
+            echo "Der Agent hat Dateien unter \`.github/\` geändert. Das ist nicht erlaubt, deshalb wurde nichts gepusht." > agent-blocked.md
+            git reset --hard -q "$BEFORE"
+          fi
+
           if [ "$(git rev-parse HEAD)" = "$BEFORE" ]; then
             reason=$(cat agent-blocked.md 2>/dev/null || echo "Der Agent hat keine Änderungen erzeugt.")
             gh label create agent-blocked --color B60205 --description "Agent needs a human" --force
