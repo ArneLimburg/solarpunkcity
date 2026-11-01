@@ -1,4 +1,4 @@
-# Lint and build every branch and every pull request against main
+# Lint, build and run the e2e smoke tests for every branch and every pull request against main
 name: Build
 
 on:
@@ -27,3 +27,14 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          if-no-files-found: ignore
+          retention-days: 7

@@ -18,7 +18,7 @@ Deployed to GitHub Pages at https://arnelimburg.github.io/solarpunkcity/ on ever
 - `npm run prettier` – format all files
 - `npm run build` – `tsc -b` + `vite build` (CI runs this)
 - `npx playwright install chromium` – install the test browser (once)
-- `npm run test:e2e` – Playwright smoke tests (starts the dev server itself)
+- `npm run test:e2e` – Playwright smoke tests (starts the dev server itself, CI runs this)
 
 Always run `npm run lint` and `npm run build` before considering a change done.
 
