@@ -27,6 +27,11 @@ are settled:
 - **Out of scope** – what must not change
 - **Constraints** – files or areas to touch or avoid, assets, performance
 
+The implementation agent cannot change `.github/` or `.claude/`, and cannot change `CLAUDE.md`
+once its pull request is open. If the ticket needs such a change, list it under
+`## Technische Hinweise` as "Nachzuziehen durch einen Menschen" instead of making it an
+acceptance criterion.
+
 Push back on vague answers ("better", "nicer", "some") and on tickets that are too big:
 one ticket should be one pull request. Offer to split large ideas into several tickets.
 

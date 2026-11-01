@@ -67,4 +67,6 @@ Tickets become pull requests without manual steps; the repository owner reviews 
    does not count as a review round.
 
 Agents run as the GitHub App from `AGENT_APP_ID` / `AGENT_APP_PRIVATE_KEY` so their pushes,
-pull requests and labels trigger the next workflow. They must not change files in `.github/`.
+pull requests and labels trigger the next workflow. They must not change files in `.github/` or
+`.claude/`, and not `CLAUDE.md` while fixing an open pull request (claude-code-action resets these
+files to `main` there); `implement.yaml` rejects such commits.
