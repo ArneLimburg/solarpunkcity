@@ -1,4 +1,4 @@
-# Lint, build and run the e2e smoke tests for every branch and every pull request against main
+# Lint, build and run the unit and e2e tests for every branch and every pull request against main
 name: Build
 
 on:
@@ -27,6 +27,7 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm run build
+      - run: npm run test --if-present
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e
       - if: failure()
