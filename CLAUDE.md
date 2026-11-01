@@ -44,6 +44,8 @@ Game state currently lives in module-level variables in `board.ts` and `game.ts`
 - Keep game rules in `game.ts` / `board.ts` free of React and Babylon imports.
 - Hex math uses axial coordinates; a tile is on the board iff
   `max(|q|, |r|, |q + r|) <= GRID_RADIUS`.
+- The project language is English: code, comments, test names, commit messages, pull request
+  descriptions, issues and documentation are all written in English.
 - Use `type` imports (`verbatimModuleSyntax` is on).
 - Commit messages follow Conventional Commits (`feat:`, `fix:`, `chore:` …).
 - Work on a branch and open a pull request against `main`; never push to `main` directly.

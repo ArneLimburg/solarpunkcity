@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { BuildingCategories, BuildingTypes } from "../src/gameDefinitions";
 
-test("App lädt", async ({ page }) => {
+test("app loads", async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(`pageerror: ${error.message}`));
   page.on("console", (message) => {
@@ -22,7 +22,7 @@ test("App lädt", async ({ page }) => {
   expect(errors).toEqual([]);
 });
 
-test("Menü zeigt Kategorien", async ({ page }) => {
+test("menu shows categories", async ({ page }) => {
   await page.goto("./");
   const expected = Object.values(BuildingCategories).filter(
     (category) => category.buildable,
@@ -32,7 +32,7 @@ test("Menü zeigt Kategorien", async ({ page }) => {
   );
 });
 
-test("Kategorie öffnet Gebäudeliste", async ({ page }) => {
+test("category opens building list", async ({ page }) => {
   await page.goto("./");
   await page.getByRole("button", { name: "FARM", exact: true }).click();
   const expected = Object.values(BuildingTypes).filter(
