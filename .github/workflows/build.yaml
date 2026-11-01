@@ -1,31 +1,29 @@
-# Simple workflow for deploying static content to GitHub Pages
-name: Deploy static content to Pages
+# Lint and build every branch and every pull request against main
+name: Build
 
 on:
   push:
     branches-ignore:
       - main
   pull_request:
-    branches-ignore:
+    branches:
       - main
 
   workflow_dispatch:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Use Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v3
+      - name: Use Node.js
+        uses: actions/setup-node@v4
         with:
-          node-version: ${{ matrix.node-version }}
+          node-version-file: ".nvmrc"
           cache: "npm"
-      - run: npm install
+      - run: npm ci
       - run: npm run lint
       - run: npm run build

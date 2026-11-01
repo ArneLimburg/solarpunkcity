@@ -1,0 +1,49 @@
+# Claude reviews every pull request against main and comments; it does not change code.
+name: Claude Review
+
+on:
+  pull_request:
+    branches: ["main"]
+    types: [opened, synchronize, ready_for_review, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: read
+  id-token: write
+
+concurrency:
+  group: claude-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          use_sticky_comment: true
+          prompt: |
+            REPO: ${{ github.repository }}
+            PR NUMBER: ${{ github.event.pull_request.number }}
+
+            Review this pull request for Solar Punk City. Follow the conventions in CLAUDE.md.
+            Focus on, in this order:
+            1. Correctness bugs in game rules (src/game.ts, src/board.ts, src/resources.ts),
+               including hex bounds and resource accounting
+            2. React issues (side effects in state updaters, stale closures, effect cleanup)
+            3. Babylon.js issues (disposal, picking, performance with many meshes)
+            4. Missing or oversized assets in public/
+            Only report concrete problems with file and line. Skip style nits that prettier
+            or eslint already enforce. If nothing significant is wrong, say so briefly.
+            Use inline comments for specific lines and one summary comment.
+          claude_args: |
+            --model claude-sonnet-5-5
+            --max-turns 20
+            --allowedTools mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*)

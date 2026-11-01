@@ -1,0 +1,72 @@
+# Once a week Claude picks one small improvement and proposes it as a pull request.
+# It skips the run while a previous weekly pull request is still open.
+name: Claude Weekly
+
+on:
+  schedule:
+    - cron: "0 6 * * 1" # Mondays 06:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+  id-token: write
+
+concurrency:
+  group: claude-weekly
+  cancel-in-progress: false
+
+jobs:
+  improve:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Skip if a weekly pull request is still open
+        id: open
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh label create claude-weekly --repo "${{ github.repository }}" --color 0E8A16 \
+            --description "Weekly pull request by Claude" --force
+          count=$(gh pr list --repo "${{ github.repository }}" --label claude-weekly --state open --json number --jq length)
+          echo "count=$count" >> "$GITHUB_OUTPUT"
+      - if: steps.open.outputs.count == '0'
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - if: steps.open.outputs.count == '0'
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: ".nvmrc"
+          cache: "npm"
+      - if: steps.open.outputs.count == '0'
+        run: npm ci
+      - if: steps.open.outputs.count == '0'
+        uses: anthropics/claude-code-action@v1
+        env:
+          GH_TOKEN: ${{ github.token }}
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            REPO: ${{ github.repository }}
+
+            You are the weekly maintenance agent for Solar Punk City. Follow CLAUDE.md.
+
+            1. Pick exactly ONE small, self-contained improvement, in this priority:
+               a. the oldest open issue labeled `agent` that has no linked pull request
+               b. a bug in src/ (game rules, hex bounds, React or Babylon misuse)
+               c. a TODO comment in src/
+               d. a dependency patch/minor update via `npm update` that keeps lint and build green
+            2. Create a branch `claude/weekly-<short-topic>` from main and implement it with a
+               minimal diff.
+            3. Run `npm run lint` and `npm run build`; fix failures. If you cannot get both
+               green, stop without opening a pull request.
+            4. Commit using Conventional Commits, push the branch and open a pull request
+               against main with `gh pr create --label claude-weekly`. Describe what you
+               changed, why, and how it was verified. Reference the issue if there is one.
+            Never push to main.
+          claude_args: |
+            --model claude-sonnet-5-5
+            --max-turns 60
+            --allowedTools Edit,Write,Read,Glob,Grep,Bash(git:*),Bash(gh issue list:*),Bash(gh issue view:*),Bash(gh pr list:*),Bash(gh pr create:*),Bash(npm ci),Bash(npm update:*),Bash(npm run lint),Bash(npm run prettier),Bash(npm run build),Bash(npx tsc:*)
