@@ -21,6 +21,7 @@ export const Menu: FC<{
               <div key={category.name} className="details">
                 <button
                   className={`border button extra circle ${selected && BuildingTypes[selected].category === category.name ? "large-elevate" : "small-elevate"}`}
+                  aria-label={category.name}
                   onClick={() => setOpen(category.name)}
                 >
                   <img className="responsive" src={category.icon} />
@@ -35,6 +36,7 @@ export const Menu: FC<{
                         <button
                           key={type}
                           className={`border button extra circle ${selected && BuildingTypes[selected].category === category.name ? "large-elevate" : "small-elevate"}`}
+                          aria-label={type}
                           onClick={() => {
                             setOpen(undefined);
                             onSelect(type as BuildingType);

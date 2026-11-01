@@ -8,7 +8,8 @@
     "build": "tsc -b && vite build",
     "lint": "prettier --check . && eslint .",
     "prettier": "prettier --check --write .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@babylonjs/core": "^8.29.0",
@@ -20,7 +21,9 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.36.0",
+    "@playwright/test": "^1.64.1",
     "@types/earcut": "^3.0.0",
+    "@types/node": "^26.6.6",
     "@types/react": "^19.1.13",
     "@types/react-dom": "^19.1.9",
     "@vitejs/plugin-react": "^5.0.3",

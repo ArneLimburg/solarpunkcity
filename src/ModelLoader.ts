@@ -6,22 +6,37 @@ import {
   Vector3,
 } from "@babylonjs/core";
 import { registerBuiltInLoaders } from "@babylonjs/loaders/dynamic";
-import { BuildingTypes } from "./gameDefinitions";
+import { BuildingCategories, BuildingTypes } from "./gameDefinitions";
 
 registerBuiltInLoaders();
 
 const cache = new Map<string, AssetContainer>();
-let preloadDone = false;
+const preloadedScenes = new WeakSet<Scene>();
 
 export async function preloadModels(scene: Scene) {
-  if (preloadDone) {
+  if (preloadedScenes.has(scene)) {
     return;
   }
-  preloadDone = true;
+  preloadedScenes.add(scene);
 
   for (const building of Object.values(BuildingTypes)) {
-    const result = await LoadAssetContainerAsync(building.model, scene);
-    cache.set(building.model, result);
+    // Not buildable categories (forest) have no model file yet
+    if (
+      !BuildingCategories[building.category].buildable ||
+      cache.has(building.model)
+    ) {
+      continue;
+    }
+    try {
+      const result = await LoadAssetContainerAsync(building.model, scene);
+      cache.set(building.model, result);
+    } catch (error) {
+      // The scene may be disposed while loading (e.g. React StrictMode remount)
+      if (scene.isDisposed) {
+        return;
+      }
+      throw error;
+    }
   }
 }
 
