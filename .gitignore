@@ -33,3 +33,4 @@ playwright/.cache/
 agent-blocked.md
 agent-review.md
 agent-verdict.txt
+.claude-pr/

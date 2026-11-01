@@ -149,12 +149,15 @@ jobs:
             Rules:
             - The working tree is already on the right branch. Do not switch branches and do not push;
               the workflow pushes and opens the pull request.
-            - Implement exactly the acceptance criteria with a minimal diff. Do not change files under
-              `.github/`.
+            - Implement exactly the acceptance criteria with a minimal diff. Do not change `.github/`
+              or `.claude/`; the workflow rejects such commits.${{ steps.ctx.outputs.mode != 'issue' && ' This is a pull request, so `CLAUDE.md` and `.claude/` have been reset to their state on main and may show up as modified: leave them alone and do not change `CLAUDE.md` either.' || '' }}
+              If the task needs a change there, implement everything else and describe the exact
+              change for a human in the commit body.
             - Add or update dependencies only with `npm install`, never by editing `package-lock.json`.
             - Run `npm run lint`, `npm run build` and `npm test` (if the project has a `test` script)
               and fix all failures before committing.
-            - Make exactly ONE commit (`git add -A && git commit`). Subject: Conventional Commits.
+            - Make exactly ONE commit. Stage only the files you changed (`git add <path>...`), never
+              `git add -A` or `git add .`. Subject: Conventional Commits.
               Body: what changed and why, and how each acceptance criterion (or review point) is met.
               The body becomes the pull request description.
             - If the task is unclear, contradictory or not implementable, do not commit. Instead write
@@ -179,9 +182,18 @@ jobs:
           run_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
           target=$([ "$MODE" = "issue" ] && echo "$ISSUE" || echo "$PR")
 
-          # The prompt forbids changes to .github/; enforce it before anything is pushed.
-          if git diff --name-only "$BEFORE" HEAD | grep -q '^\.github/'; then
-            echo "Der Agent hat Dateien unter \`.github/\` geändert. Das ist nicht erlaubt, deshalb wurde nichts gepusht." > agent-blocked.md
+          # The prompt forbids changes to workflows and agent configuration; enforce it before
+          # anything is pushed. On pull requests claude-code-action resets .claude/ and CLAUDE.md
+          # to main and copies the PR's version to .claude-pr/, so committing them reverts the PR.
+          pattern='^(\.github/|\.claude/|\.claude-pr/)'
+          [ "$MODE" = "issue" ] || pattern='^(\.github/|\.claude/|\.claude-pr/|CLAUDE\.md$|CLAUDE\.local\.md$)'
+          protected=$(git diff --name-only "$BEFORE" HEAD | grep -E "$pattern" || true)
+          if [ -n "$protected" ]; then
+            {
+              echo "Der Agent hat geschützte Dateien geändert. Das ist nicht erlaubt, deshalb wurde nichts gepusht:"
+              echo
+              echo "$protected" | sed 's/^/- `/; s/$/`/'
+            } > agent-blocked.md
             git reset --hard -q "$BEFORE"
           fi
 
