@@ -1,0 +1,188 @@
+# Implementation agent (Sonnet).
+# - Issue labeled `ready`: implements it on branch `agent/issue-<n>` and opens a pull request
+#   labeled `agent-pr`.
+# - Agent pull request labeled `review:changes` (set by agent-review.yaml): addresses the
+#   latest agent review and pushes to the same branch.
+# Runs as the GitHub App from AGENT_APP_ID so that its pushes and pull requests trigger
+# Build and Agent Review.
+name: Agent Implement
+
+on:
+  issues:
+    types: [opened, labeled]
+  pull_request:
+    types: [labeled]
+  workflow_dispatch:
+    inputs:
+      issue:
+        description: Issue number to implement
+        required: true
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: agent-implement-${{ github.event.issue.number || github.event.pull_request.number || inputs.issue }}
+  cancel-in-progress: false
+
+jobs:
+  implement:
+    if: |
+      (github.event_name == 'issues' && github.event.action == 'labeled' && github.event.label.name == 'ready') ||
+      (github.event_name == 'issues' && github.event.action == 'opened' &&
+        contains(github.event.issue.labels.*.name, 'ready') &&
+        contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.issue.author_association)) ||
+      (github.event_name == 'pull_request' && github.event.label.name == 'review:changes' &&
+        contains(github.event.pull_request.labels.*.name, 'agent-pr')) ||
+      github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/create-github-app-token@v2
+        id: app
+        with:
+          app-id: ${{ vars.AGENT_APP_ID }}
+          private-key: ${{ secrets.AGENT_APP_PRIVATE_KEY }}
+
+      - name: Determine task
+        id: ctx
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          GH_REPO: ${{ github.repository }}
+          EVENT: ${{ github.event_name }}
+          ISSUE_NUMBER: ${{ github.event.issue.number || inputs.issue }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_BRANCH: ${{ github.event.pull_request.head.ref }}
+        run: |
+          if [ "$EVENT" = "pull_request" ]; then
+            gh pr edit "$PR_NUMBER" --remove-label "review:changes"
+            issue=$(gh pr view "$PR_NUMBER" --json body --jq .body | grep -oiE '(closes|fixes|resolves) #[0-9]+' | head -1 | grep -oE '[0-9]+' || true)
+            {
+              echo "mode=pr"
+              echo "pr=$PR_NUMBER"
+              echo "issue=$issue"
+              echo "branch=$PR_BRANCH"
+              echo "skip=false"
+            } >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          branch="agent/issue-$ISSUE_NUMBER"
+          existing=$(gh pr list --head "$branch" --state open --json number --jq '.[0].number // empty')
+          if [ -n "$existing" ]; then
+            echo "Pull request #$existing already exists for issue #$ISSUE_NUMBER"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          gh issue comment "$ISSUE_NUMBER" --body "🤖 Der Implementierungs-Agent hat mit diesem Ticket begonnen ([Lauf](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}))."
+          {
+            echo "mode=issue"
+            echo "issue=$ISSUE_NUMBER"
+            echo "branch=$branch"
+            echo "skip=false"
+          } >> "$GITHUB_OUTPUT"
+
+      - if: steps.ctx.outputs.skip == 'false'
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.ctx.outputs.mode == 'pr' && steps.ctx.outputs.branch || 'main' }}
+          token: ${{ steps.app.outputs.token }}
+
+      - if: steps.ctx.outputs.skip == 'false'
+        name: Prepare branch
+        id: git
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          SLUG: ${{ steps.app.outputs.app-slug }}
+          MODE: ${{ steps.ctx.outputs.mode }}
+          BRANCH: ${{ steps.ctx.outputs.branch }}
+        run: |
+          bot_id=$(gh api "users/${SLUG}%5Bbot%5D" --jq .id)
+          git config user.name "${SLUG}[bot]"
+          git config user.email "${bot_id}+${SLUG}[bot]@users.noreply.github.com"
+          if [ "$MODE" = "issue" ]; then
+            git switch -c "$BRANCH"
+          fi
+          echo "before=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - if: steps.ctx.outputs.skip == 'false'
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: ".nvmrc"
+          cache: "npm"
+      - if: steps.ctx.outputs.skip == 'false'
+        run: npm ci
+
+      - if: steps.ctx.outputs.skip == 'false'
+        uses: anthropics/claude-code-action@v1
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ steps.app.outputs.token }}
+          allowed_bots: "*"
+          prompt: |
+            REPO: ${{ github.repository }}
+            You are the implementation agent for Solar Punk City. Follow CLAUDE.md.
+
+            ${{ steps.ctx.outputs.mode == 'issue' && format('TASK: Implement issue #{0}. Read it with `gh issue view {0} --comments`.', steps.ctx.outputs.issue) || format('TASK: Pull request #{0} (issue #{1}) received change requests from the review agent. Read the issue with `gh issue view {1}` and the pull request with `gh pr view {0} --comments`; the latest comment starting with `<!-- agent-review` is the review to address. If it reports a failed build, inspect the run with `gh run view <run-id> --log-failed`. Address every valid point; if you disagree with a point, explain why in the commit body.', steps.ctx.outputs.pr, steps.ctx.outputs.issue) }}
+
+            Rules:
+            - The working tree is already on the right branch. Do not switch branches and do not push;
+              the workflow pushes and opens the pull request.
+            - Implement exactly the acceptance criteria with a minimal diff. Do not change files under
+              `.github/`.
+            - Run `npm run lint` and `npm run build` and fix all failures before committing.
+            - Make exactly ONE commit (`git add -A && git commit`). Subject: Conventional Commits.
+              Body: what changed and why, and how each acceptance criterion (or review point) is met.
+              The body becomes the pull request description.
+            - If the task is unclear, contradictory or not implementable, do not commit. Instead write
+              the reason and your open questions to `agent-blocked.md` in the repository root.
+          claude_args: |
+            --model claude-sonnet-5-5
+            --max-turns 80
+            --allowedTools Edit,Write,Read,Glob,Grep,Bash(npm ci),Bash(npm run lint),Bash(npm run prettier),Bash(npm run build),Bash(npx tsc:*),Bash(git add:*),Bash(git commit:*),Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(gh issue view:*),Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh run view:*)
+
+      - if: steps.ctx.outputs.skip == 'false'
+        name: Push and open pull request
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          GH_REPO: ${{ github.repository }}
+          OWNER: ${{ github.repository_owner }}
+          MODE: ${{ steps.ctx.outputs.mode }}
+          ISSUE: ${{ steps.ctx.outputs.issue }}
+          PR: ${{ steps.ctx.outputs.pr }}
+          BRANCH: ${{ steps.ctx.outputs.branch }}
+          BEFORE: ${{ steps.git.outputs.before }}
+        run: |
+          run_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          target=$([ "$MODE" = "pr" ] && echo "$PR" || echo "$ISSUE")
+
+          if [ "$(git rev-parse HEAD)" = "$BEFORE" ]; then
+            reason=$(cat agent-blocked.md 2>/dev/null || echo "Der Agent hat keine Änderungen erzeugt.")
+            gh label create agent-blocked --color B60205 --description "Agent needs a human" --force
+            # issues API works for both issues and pull requests
+            gh api "repos/$GH_REPO/issues/$target/labels" -f "labels[]=agent-blocked" > /dev/null
+            printf '🤖 **Implementierungs-Agent blockiert** ([Lauf](%s))\n\n%s\n\n@%s bitte übernehmen.\n' \
+              "$run_url" "$reason" "$OWNER" > "$RUNNER_TEMP/blocked.md"
+            gh api "repos/$GH_REPO/issues/$target/comments" -F "body=@$RUNNER_TEMP/blocked.md" > /dev/null
+            exit 0
+          fi
+
+          git push origin "HEAD:$BRANCH"
+
+          if [ "$MODE" = "pr" ]; then
+            git log --format='- %s' "$BEFORE..HEAD" > "$RUNNER_TEMP/commits.md"
+            printf '🤖 Review-Anmerkungen umgesetzt ([Lauf](%s)):\n\n%s\n' \
+              "$run_url" "$(cat "$RUNNER_TEMP/commits.md")" | gh pr comment "$PR" --body-file -
+            exit 0
+          fi
+
+          title=$(git log -1 --format=%s)
+          {
+            git log --format=%b "$BEFORE..HEAD"
+            printf '\nCloses #%s\n\n🤖 Generated by the implementation agent with [Claude Code](https://claude.com/claude-code) ([Lauf](%s))\n' "$ISSUE" "$run_url"
+          } > "$RUNNER_TEMP/body.md"
+          gh label create agent-pr --color 5319E7 --description "Pull request by the implementation agent" --force
+          gh pr create --base main --head "$BRANCH" --title "$title" --body-file "$RUNNER_TEMP/body.md" --label agent-pr

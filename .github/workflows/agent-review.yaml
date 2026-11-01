@@ -1,0 +1,189 @@
+# Review agent (Opus) for pull requests labeled `agent-pr`, run after every Build.
+# - Build failed: sends the pull request back without an Opus review.
+# - Build passed: Opus reviews against the issue's acceptance criteria.
+# Verdict CHANGES labels `review:changes`, which starts implement.yaml again. After
+# MAX_PING_PONG change requests, or on APPROVE, the repository owner is asked to review.
+name: Agent Review
+
+on:
+  workflow_run:
+    workflows: ["Build"]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      pr:
+        description: Pull request number to review
+        required: true
+
+permissions:
+  contents: read
+  actions: read
+  id-token: write
+
+env:
+  MAX_PING_PONG: 3
+
+concurrency:
+  group: agent-review-${{ github.event.workflow_run.head_branch || inputs.pr }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.event == 'pull_request' &&
+        github.event.workflow_run.head_repository.full_name == github.repository)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/create-github-app-token@v2
+        id: app
+        with:
+          app-id: ${{ vars.AGENT_APP_ID }}
+          private-key: ${{ secrets.AGENT_APP_PRIVATE_KEY }}
+
+      - name: Determine pull request and round
+        id: ctx
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          GH_REPO: ${{ github.repository }}
+          INPUT_PR: ${{ inputs.pr }}
+          HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          RUN_URL: ${{ github.event.workflow_run.html_url }}
+        run: |
+          skip() { echo "$1"; echo "skip=true" >> "$GITHUB_OUTPUT"; exit 0; }
+
+          if [ -n "$INPUT_PR" ]; then
+            pr="$INPUT_PR"
+          else
+            [ "$CONCLUSION" = "success" ] || [ "$CONCLUSION" = "failure" ] || skip "Build was $CONCLUSION"
+            pr=$(gh pr list --head "$HEAD_BRANCH" --state open --json number --jq '.[0].number // empty')
+            [ -n "$pr" ] || skip "No open pull request for $HEAD_BRANCH"
+          fi
+
+          info=$(gh pr view "$pr" --json labels,headRefOid,body)
+          labels=$(echo "$info" | jq -r '.labels[].name')
+          sha=$(echo "$info" | jq -r .headRefOid)
+          echo "$labels" | grep -qx 'agent-pr' || skip "#$pr is not an agent pull request"
+          if echo "$labels" | grep -qxE 'review:approved|review:max-rounds|agent-blocked'; then
+            skip "#$pr is already handed over to a human"
+          fi
+
+          if [ -n "$INPUT_PR" ]; then
+            run=$(gh run list --workflow Build --commit "$sha" --event pull_request --limit 1 --json conclusion,url --jq '.[0]')
+            CONCLUSION=$(echo "$run" | jq -r '.conclusion // "success"')
+            RUN_URL=$(echo "$run" | jq -r '.url // ""')
+          elif [ "$sha" != "$HEAD_SHA" ]; then
+            skip "Build ran for an outdated commit of #$pr"
+          fi
+
+          done_rounds=$(echo "$labels" | grep -c '^review-round-' || true)
+          issue=$(echo "$info" | jq -r .body | grep -oiE '(closes|fixes|resolves) #[0-9]+' | head -1 | grep -oE '[0-9]+' || true)
+          {
+            echo "skip=false"
+            echo "pr=$pr"
+            echo "sha=$sha"
+            echo "issue=$issue"
+            echo "round=$((done_rounds + 1))"
+            echo "build=$CONCLUSION"
+            echo "build_url=$RUN_URL"
+          } >> "$GITHUB_OUTPUT"
+
+      # Without persisted credentials nothing the reviewer writes can be pushed.
+      - if: steps.ctx.outputs.skip == 'false' && steps.ctx.outputs.build == 'success'
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.ctx.outputs.sha }}
+          persist-credentials: false
+
+      - if: steps.ctx.outputs.skip == 'false' && steps.ctx.outputs.build == 'success'
+        uses: anthropics/claude-code-action@v1
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ steps.app.outputs.token }}
+          allowed_bots: "*"
+          prompt: |
+            REPO: ${{ github.repository }}
+            PULL REQUEST: #${{ steps.ctx.outputs.pr }}
+            ISSUE: #${{ steps.ctx.outputs.issue }}
+            REVIEW ROUND: ${{ steps.ctx.outputs.round }} (after round ${{ env.MAX_PING_PONG }} a human takes over)
+
+            You are the review agent for Solar Punk City. The build (lint + type check + bundle) passed.
+            Review the pull request; do not change any code.
+
+            1. Read the issue (`gh issue view <n>`) and extract its acceptance criteria.
+            2. Read the diff (`gh pr diff <n>`), earlier reviews and replies (`gh pr view <n> --comments`)
+               and as much surrounding code as needed. Follow CLAUDE.md.
+            3. Check, in this order:
+               - every acceptance criterion is met (say for each one: met / not met / unclear)
+               - correctness: game rules, hex bounds, resource accounting, edge cases
+               - React (side effects in state updaters, effect dependencies and cleanup)
+               - Babylon.js (disposal, picking, per-mesh cost)
+               - scope: no unrelated changes, nothing listed as out of scope
+            4. Verdict:
+               - APPROVE if all criteria are met and there is no blocking problem. Mention minor
+                 suggestions as optional; they do not block.
+               - CHANGES otherwise. Every requested change must be concrete (file, line, what to do).
+               - In later rounds, do not raise new nits; focus on whether earlier points were fixed.
+            5. Write your review in German as Markdown to `agent-review.md` (no heading, the workflow
+               adds one) and write exactly one word, APPROVE or CHANGES, to `agent-verdict.txt`.
+          claude_args: |
+            --model claude-opus-5-5
+            --max-turns 40
+            --allowedTools Read,Glob,Grep,Write,Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh issue view:*),Bash(git diff:*),Bash(git log:*)
+
+      - if: steps.ctx.outputs.skip == 'false'
+        name: Post review and hand over
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          GH_REPO: ${{ github.repository }}
+          OWNER: ${{ github.repository_owner }}
+          PR: ${{ steps.ctx.outputs.pr }}
+          ROUND: ${{ steps.ctx.outputs.round }}
+          BUILD: ${{ steps.ctx.outputs.build }}
+          BUILD_URL: ${{ steps.ctx.outputs.build_url }}
+        run: |
+          body="$RUNNER_TEMP/review.md"
+          if [ "$BUILD" != "success" ]; then
+            verdict=CHANGES
+            printf 'Der Build ist fehlgeschlagen: %s\n\nBitte die Fehler beheben (`gh run view <run-id> --log-failed`).\n' "$BUILD_URL" > "$RUNNER_TEMP/text.md"
+          else
+            verdict=$(tr -d '[:space:]' < agent-verdict.txt 2>/dev/null || true)
+            if [ ! -s agent-review.md ] || { [ "$verdict" != "APPROVE" ] && [ "$verdict" != "CHANGES" ]; }; then
+              verdict=ERROR
+              echo "Der Review-Agent hat kein gültiges Ergebnis geliefert ([Lauf](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}))." > "$RUNNER_TEMP/text.md"
+            else
+              cp agent-review.md "$RUNNER_TEMP/text.md"
+            fi
+          fi
+
+          {
+            printf '<!-- agent-review round=%s verdict=%s -->\n' "$ROUND" "$verdict"
+            printf '## 🤖 Agent-Review – Runde %s: %s\n\n' "$ROUND" "$verdict"
+            cat "$RUNNER_TEMP/text.md"
+          } > "$body"
+          gh pr comment "$PR" --body-file "$body"
+
+          gh label create "review-round-$ROUND" --color C5DEF5 --description "Agent review round $ROUND" --force
+          gh pr edit "$PR" --add-label "review-round-$ROUND"
+
+          handover() {
+            gh label create "$1" --color "$2" --description "$3" --force
+            gh pr edit "$PR" --add-label "$1" --add-reviewer "$OWNER"
+            printf '@%s %s\n' "$OWNER" "$4" | gh pr comment "$PR" --body-file -
+          }
+
+          if [ "$verdict" = "APPROVE" ]; then
+            handover review:approved 0E8A16 "Approved by the review agent" \
+              "Der Review-Agent hat den Pull Request nach Runde $ROUND freigegeben. Bitte anschauen und mergen."
+          elif [ "$verdict" = "CHANGES" ] && [ "$ROUND" -le "$MAX_PING_PONG" ]; then
+            gh label create review:changes --color FBCA04 --description "Review agent requests changes" --force
+            gh pr edit "$PR" --add-label review:changes
+          else
+            handover review:max-rounds D93F0B "Agents did not converge" \
+              "Implementierungs- und Review-Agent sind nach Runde $ROUND nicht fertig geworden. Bitte übernehmen."
+          fi

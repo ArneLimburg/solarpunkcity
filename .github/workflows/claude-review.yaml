@@ -1,4 +1,6 @@
-# Claude reviews every pull request against main and comments; it does not change code.
+# Claude reviews human pull requests against main and comments; it does not change code.
+# Pull requests opened by bots (implementation agent, Dependabot) are skipped; agent pull
+# requests are reviewed by agent-review.yaml instead.
 name: Claude Review
 
 on:
@@ -18,7 +20,7 @@ concurrency:
 
 jobs:
   review:
-    if: github.event.pull_request.draft == false
+    if: github.event.pull_request.draft == false && github.event.pull_request.user.type != 'Bot'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
