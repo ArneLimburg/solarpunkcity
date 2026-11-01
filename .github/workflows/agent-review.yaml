@@ -115,7 +115,8 @@ jobs:
             You are the review agent for Solar Punk City. The build (lint + type check + bundle) passed.
             Review the pull request; do not change any code.
 
-            1. Read the issue (`gh issue view <n>`) and extract its acceptance criteria.
+            1. Read the issue (`gh issue view <n>`) and extract its acceptance criteria. If there is
+               no issue, use the goal stated in the pull request description instead.
             2. Read the diff (`gh pr diff <n>`), earlier reviews and replies (`gh pr view <n> --comments`)
                and as much surrounding code as needed. Follow CLAUDE.md.
             3. Check, in this order:

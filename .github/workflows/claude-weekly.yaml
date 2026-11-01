@@ -1,5 +1,6 @@
 # Once a week Claude picks one small improvement and proposes it as a pull request.
-# It skips the run while a previous weekly pull request is still open.
+# It skips the run while a previous weekly pull request is still open. Its pull requests are
+# labeled `agent-pr` and go through the agent review loop (agent-review.yaml).
 name: Claude Weekly
 
 on:
@@ -22,10 +23,15 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
+      - uses: actions/create-github-app-token@v2
+        id: app
+        with:
+          app-id: ${{ vars.AGENT_APP_ID }}
+          private-key: ${{ secrets.AGENT_APP_PRIVATE_KEY }}
       - name: Skip if a weekly pull request is still open
         id: open
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ steps.app.outputs.token }}
         run: |
           gh label create claude-weekly --repo "${{ github.repository }}" --color 0E8A16 \
             --description "Weekly pull request by Claude" --force
@@ -35,6 +41,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          token: ${{ steps.app.outputs.token }}
       - if: steps.open.outputs.count == '0'
         uses: actions/setup-node@v4
         with:
@@ -45,9 +52,10 @@ jobs:
       - if: steps.open.outputs.count == '0'
         uses: anthropics/claude-code-action@v1
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ steps.app.outputs.token }}
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ steps.app.outputs.token }}
           prompt: |
             REPO: ${{ github.repository }}
 
@@ -63,7 +71,7 @@ jobs:
             3. Run `npm run lint` and `npm run build`; fix failures. If you cannot get both
                green, stop without opening a pull request.
             4. Commit using Conventional Commits, push the branch and open a pull request
-               against main with `gh pr create --label claude-weekly`. Describe what you
+               against main with `gh pr create --label claude-weekly --label agent-pr`. Describe what you
                changed, why, and how it was verified. Reference the issue if there is one.
             Never push to main.
           claude_args: |
