@@ -77,4 +77,4 @@ jobs:
           claude_args: |
             --model claude-sonnet-5-5
             --max-turns 60
-            --allowedTools Edit,Write,Read,Glob,Grep,Bash(git:*),Bash(gh issue list:*),Bash(gh issue view:*),Bash(gh pr list:*),Bash(gh pr create:*),Bash(npm ci),Bash(npm update:*),Bash(npm run lint),Bash(npm run prettier),Bash(npm run build),Bash(npx tsc:*)
+            --allowedTools "Edit,Write,Read,Glob,Grep,Bash(git:*),Bash(gh issue list:*),Bash(gh issue view:*),Bash(gh pr list:*),Bash(gh pr create:*),Bash(npm ci),Bash(npm update:*),Bash(npm run lint),Bash(npm run prettier),Bash(npm run build),Bash(npx tsc:*)"
