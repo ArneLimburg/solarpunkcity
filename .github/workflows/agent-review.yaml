@@ -132,7 +132,7 @@ jobs:
                  suggestions as optional; they do not block.
                - CHANGES otherwise. Every requested change must be concrete (file, line, what to do).
                - In later rounds, do not raise new nits; focus on whether earlier points were fixed.
-            5. Write your review in German as Markdown to `agent-review.md` (no heading, the workflow
+            5. Write your review in English as Markdown to `agent-review.md` (no heading, the workflow
                adds one) and write exactly one word, APPROVE or CHANGES, to `agent-verdict.txt`.
           claude_args: |
             --model claude-opus-5-5
@@ -153,12 +153,12 @@ jobs:
           body="$RUNNER_TEMP/review.md"
           if [ "$BUILD" != "success" ]; then
             verdict=CHANGES
-            printf 'Der Build ist fehlgeschlagen: %s\n\nBitte die Fehler beheben (`gh run view <run-id> --log-failed`).\n' "$BUILD_URL" > "$RUNNER_TEMP/text.md"
+            printf 'The build failed: %s\n\nPlease fix the errors (`gh run view <run-id> --log-failed`).\n' "$BUILD_URL" > "$RUNNER_TEMP/text.md"
           else
             verdict=$(tr -d '[:space:]' < agent-verdict.txt 2>/dev/null || true)
             if [ ! -s agent-review.md ] || { [ "$verdict" != "APPROVE" ] && [ "$verdict" != "CHANGES" ]; }; then
               verdict=ERROR
-              echo "Der Review-Agent hat kein gültiges Ergebnis geliefert ([Lauf](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}))." > "$RUNNER_TEMP/text.md"
+              echo "The review agent did not return a valid result ([run](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}))." > "$RUNNER_TEMP/text.md"
             else
               cp agent-review.md "$RUNNER_TEMP/text.md"
             fi
@@ -166,7 +166,7 @@ jobs:
 
           {
             printf '<!-- agent-review round=%s verdict=%s -->\n' "$ROUND" "$verdict"
-            printf '## 🤖 Agent-Review – Runde %s: %s\n\n' "$ROUND" "$verdict"
+            printf '## 🤖 Agent review – round %s: %s\n\n' "$ROUND" "$verdict"
             cat "$RUNNER_TEMP/text.md"
           } > "$body"
           gh pr comment "$PR" --body-file "$body"
@@ -182,14 +182,14 @@ jobs:
 
           if [ "$verdict" = "APPROVE" ]; then
             handover review:approved 0E8A16 "Approved by the review agent" \
-              "Der Review-Agent hat den Pull Request nach Runde $ROUND freigegeben. Bitte anschauen und mergen."
+              "The review agent approved this pull request in round $ROUND. Please review and merge."
           elif [ "$verdict" = "CHANGES" ] && [ "$ROUND" -le "$MAX_PING_PONG" ]; then
             gh label create review:changes --color FBCA04 --description "Review agent requests changes" --force
             gh pr edit "$PR" --add-label review:changes
           elif [ "$verdict" = "ERROR" ]; then
             handover agent-blocked B60205 "Agent needs a human" \
-              "Der Review-Agent hat in Runde $ROUND kein gültiges Ergebnis geliefert. Bitte den Lauf prüfen; für einen neuen Versuch das Label agent-blocked entfernen und Agent Review manuell mit dieser PR-Nummer starten."
+              "The review agent did not return a valid result in round $ROUND. Please check the run; to retry, remove the agent-blocked label and run Agent Review manually with this PR number."
           else
             handover review:max-rounds D93F0B "Agents did not converge" \
-              "Implementierungs- und Review-Agent sind nach Runde $ROUND nicht fertig geworden. Bitte übernehmen."
+              "The implementation and review agents did not converge after round $ROUND. Please take it from here."
           fi
