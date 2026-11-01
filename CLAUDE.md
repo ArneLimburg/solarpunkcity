@@ -46,3 +46,17 @@ Game state currently lives in module-level variables in `board.ts` and `game.ts`
 - Commit messages follow Conventional Commits (`feat:`, `fix:`, `chore:` …).
 - Work on a branch and open a pull request against `main`; never push to `main` directly.
 - 3D models are large; do not add new `.glb` files without asking.
+
+## Agent workflow
+
+Tickets become pull requests without manual steps; the repository owner reviews at the end.
+
+1. `/grill-ticket` (local) specifies a ticket and creates the issue with label `ready`.
+2. `.github/workflows/implement.yaml` (Sonnet) implements it on `agent/issue-<n>` and opens a
+   pull request labeled `agent-pr`.
+3. After each Build, `.github/workflows/agent-review.yaml` (Opus) reviews it. `review:changes`
+   sends it back to step 2 (at most 3 times), `review:approved` or `review:max-rounds` requests
+   a review from the owner. `agent-blocked` means an agent gave up and a human must take over.
+
+Agents run as the GitHub App from `AGENT_APP_ID` / `AGENT_APP_PRIVATE_KEY` so their pushes,
+pull requests and labels trigger the next workflow. They must not change files in `.github/`.
