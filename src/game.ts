@@ -112,8 +112,8 @@ function getLaborForFood(): number {
 }
 
 function calculateDevelopment() {
-  let availableLabor = currentPopulation;
   currentPopulation += getGrowth(); // growth depends on available housing and potential food production
+  let availableLabor = currentPopulation; // the grown population is available as labor
   const laborForFood = getLaborForFood(); // only as much food as required is produced
   availableLabor -= laborForFood;
   if (availableLabor > 0) {
