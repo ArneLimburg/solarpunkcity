@@ -1,6 +1,7 @@
 import {
   getBuilding,
   getBuildings,
+  isOnBoard,
   setBuilding,
   type HexCoordinates,
 } from "./board";
@@ -20,6 +21,9 @@ export function canBuild(
   buildingType: BuildingType,
   coords: HexCoordinates,
 ): boolean {
+  if (!isOnBoard(coords)) {
+    return false;
+  }
   const oldBuilding = getBuilding(coords);
   if (oldBuilding && !oldBuilding.recycling) {
     return false; // cannot build on top of existing building without recycling

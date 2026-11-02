@@ -15,7 +15,7 @@ import {
   Texture,
 } from "@babylonjs/core";
 import "@babylonjs/loaders"; // ensures loaders are initialized (if you later import models)
-import { GRID_RADIUS, type HexCoordinates } from "./board";
+import { GRID_RADIUS, isOnBoard, type HexCoordinates } from "./board";
 import type { Model } from "./gameDefinitions";
 import { loadCachedModel, preloadModels } from "./ModelLoader";
 
@@ -101,7 +101,7 @@ export const Map = forwardRef<
     // generate grid (axial coordinates)
     for (let q = -GRID_RADIUS; q <= GRID_RADIUS; q++) {
       for (let r = -GRID_RADIUS; r <= GRID_RADIUS; r++) {
-        if (Math.abs(q + r) <= GRID_RADIUS) {
+        if (isOnBoard({ q, r })) {
           const useAlt = ((q + r) & 1) === 0;
 
           const hex = createHexTile(
@@ -221,11 +221,13 @@ function createPointerHandler(
     // world pos to hex coords
     const coordinates = pixelToHex(pick.pickedPoint);
 
-    // hex coords to snapped center
-    const center = hexToPixel(coordinates.q, coordinates.r);
+    if (isOnBoard(coordinates)) {
+      // hex coords to snapped center
+      const center = hexToPixel(coordinates.q, coordinates.r);
 
-    // move selection ring to the center
-    selectedMesh.position.set(center.x, 0.1, center.z);
+      // move selection ring to the center
+      selectedMesh.position.set(center.x, 0.1, center.z);
+    }
 
     // notify listener
     onSelected(coordinates);

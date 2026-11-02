@@ -22,6 +22,16 @@ export function setBuilding(location: HexCoordinates, building: Building) {
   buildings.set(toHexLocation(location), building);
 }
 
+export function isOnBoard(coords: HexCoordinates): boolean {
+  return (
+    Math.max(
+      Math.abs(coords.q),
+      Math.abs(coords.r),
+      Math.abs(coords.q + coords.r),
+    ) <= GRID_RADIUS
+  );
+}
+
 function toHexLocation(coords: HexCoordinates): HexLocation {
   return `${coords.q},${coords.r}`;
 }
@@ -30,7 +40,7 @@ function initBoard() {
   const board = new Map<HexLocation, Building>();
   for (let q = -GRID_RADIUS; q <= GRID_RADIUS; q++) {
     for (let r = -GRID_RADIUS; r <= GRID_RADIUS; r++) {
-      if (Math.abs(q + r) <= GRID_RADIUS) {
+      if (isOnBoard({ q, r })) {
         board.set(toHexLocation({ q, r }), BuildingDefinition.Forest);
       }
     }
