@@ -15,7 +15,8 @@ import {
 } from "./resources";
 
 let currentResources: Resources = { ...emptyResources };
-let currentPopulation = 1;
+export const INITIAL_POPULATION = 2;
+let currentPopulation = INITIAL_POPULATION;
 
 export function canBuild(
   buildingType: BuildingType,
@@ -73,12 +74,12 @@ function getPotentialProducedFood(): number {
   let producedFood = 0;
   // TODO sort building by efficiency
   for (const building of getBuildings()) {
-    if (building.produces.food > 0) {
+    if (
+      building.produces.food > 0 &&
+      availableLabor >= building.consumes.labor
+    ) {
       producedFood += building.produces.food;
       availableLabor -= building.consumes.labor;
-    }
-    if (availableLabor <= 0) {
-      break;
     }
   }
   return producedFood;
@@ -108,15 +109,20 @@ function getGrowth(): number {
 
 function getLaborForFood(): number {
   let requiredFood = currentPopulation;
+  let availableLabor = currentPopulation;
   let laborForFood = 0;
   // TODO sort building by efficiency
   for (const building of getBuildings()) {
-    if (building.produces.food > 0) {
-      requiredFood -= building.produces.food;
-      laborForFood += building.consumes.labor;
-    }
     if (requiredFood <= 0) {
       break;
+    }
+    if (
+      building.produces.food > 0 &&
+      availableLabor >= building.consumes.labor
+    ) {
+      requiredFood -= building.produces.food;
+      availableLabor -= building.consumes.labor;
+      laborForFood += building.consumes.labor;
     }
   }
   return laborForFood;
@@ -124,14 +130,10 @@ function getLaborForFood(): number {
 
 function calculateDevelopment() {
   currentPopulation += getGrowth(); // growth depends on available housing and potential food production
-  let availableLabor = currentPopulation; // the grown population is available as labor
   const laborForFood = getLaborForFood(); // only as much food as required is produced
-  availableLabor -= laborForFood;
-  if (availableLabor > 0) {
-    // if everybody is fed up, use remaining labor for other productions
-    currentResources.labor = availableLabor;
-    calculateOtherProductions();
-  }
+  // labor is not stockpiled: the grown population minus labor for food is available
+  currentResources.labor = Math.max(currentPopulation - laborForFood, 0);
+  calculateOtherProductions();
 }
 
 function calculateOtherProductions() {
@@ -140,11 +142,10 @@ function calculateOtherProductions() {
     if (building.produces.food > 0) {
       continue; // food is already produced in getPotentialProducedFood
     }
-    currentResources = addResources(currentResources, building.produces);
-    currentResources = subtractResources(currentResources, building.consumes);
-    if (currentResources.labor <= 0) {
-      currentResources.labor = 0;
-      break;
+    if (!hasEnoughResources(currentResources, building.consumes)) {
+      continue; // no partial production
     }
+    currentResources = subtractResources(currentResources, building.consumes);
+    currentResources = addResources(currentResources, building.produces);
   }
 }

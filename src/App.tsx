@@ -8,11 +8,12 @@ import {
   type BuildingType,
   type Model,
 } from "./gameDefinitions";
-import { build, calculateWeek, canBuild } from "./game";
+import { build, calculateWeek, canBuild, INITIAL_POPULATION } from "./game";
 import { emptyResources } from "./resources";
 
 export const App: FC = () => {
-  const [currentPopulation, setCurrentPopulation] = useState(0);
+  const [currentPopulation, setCurrentPopulation] =
+    useState(INITIAL_POPULATION);
   const [currentResources, setCurrentResources] = useState({
     ...emptyResources,
   });
