@@ -2,7 +2,7 @@ import "beercss/dist/cdn/beer.min.css";
 import { useCallback, useEffect, useRef, useState, type FC } from "react";
 import { Map } from "./Map";
 import { Menu } from "./Menu";
-import { GRID_RADIUS, type HexCoordinates } from "./board";
+import { type HexCoordinates } from "./board";
 import {
   BuildingTypes,
   type BuildingType,
@@ -51,11 +51,7 @@ export const App: FC = () => {
   );
   const mapSelectionListener = useCallback((coords: HexCoordinates) => {
     setSelectedBuildingType((selectedBuildingType) => {
-      if (
-        selectedBuildingType &&
-        Math.abs(coords.q + coords.r) <= GRID_RADIUS &&
-        canBuild(selectedBuildingType, coords)
-      ) {
+      if (selectedBuildingType && canBuild(selectedBuildingType, coords)) {
         build(selectedBuildingType, coords);
         mapRef.current?.addBuilding(
           coords,
