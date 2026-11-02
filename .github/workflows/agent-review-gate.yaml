@@ -1,0 +1,46 @@
+# Keeps the commit status `agent-review` of every pull request up to date; a ruleset on main
+# requires it. Pull requests labeled `agent-pr` need an approval by Agent Review
+# (agent-review.yaml) or an approving review by the repository owner, and every new commit
+# resets them to pending. All other pull requests pass immediately.
+# pull_request_target runs the workflow from main and never checks out pull request code.
+name: Agent Review Gate
+
+on:
+  pull_request_target:
+    types: [opened, reopened, synchronize, labeled, unlabeled]
+  pull_request_review:
+    types: [submitted]
+
+permissions:
+  statuses: write
+
+jobs:
+  gate:
+    if: |
+      (github.event_name == 'pull_request_target' &&
+        (github.event.action == 'opened' || github.event.action == 'reopened' ||
+         github.event.action == 'synchronize' || github.event.label.name == 'agent-pr')) ||
+      (github.event_name == 'pull_request_review' &&
+        github.event.review.state == 'approved' &&
+        github.event.review.user.login == github.repository_owner &&
+        contains(github.event.pull_request.labels.*.name, 'agent-pr'))
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set agent-review status
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          EVENT: ${{ github.event_name }}
+          AGENT_PR: ${{ contains(github.event.pull_request.labels.*.name, 'agent-pr') }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          REVIEW_SHA: ${{ github.event.review.commit_id }}
+        run: |
+          if [ "$EVENT" = "pull_request_review" ]; then
+            sha=$REVIEW_SHA state=success desc="Approved by the repository owner"
+          elif [ "$AGENT_PR" = "true" ]; then
+            sha=$HEAD_SHA state=pending desc="Waiting for the review agent or the repository owner"
+          else
+            sha=$HEAD_SHA state=success desc="Not an agent pull request"
+          fi
+          gh api "repos/$GH_REPO/statuses/$sha" -f state="$state" -f context=agent-review \
+            -f description="$desc" > /dev/null
