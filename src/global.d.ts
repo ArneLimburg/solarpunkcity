@@ -13,6 +13,7 @@ declare global {
       tileToScreen(coords: HexCoordinates): { x: number; y: number } | null;
       getBuildingType(coords: HexCoordinates): BuildingType | undefined;
       getRingTile(): HexCoordinates | null;
+      getModelCount(coords: HexCoordinates): number;
       addResources(resources: Partial<Resources>): void;
     };
   }
