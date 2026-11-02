@@ -36,6 +36,13 @@ export function canBuild(
   return hasEnoughResources(newResources, buildingDefinition.cost);
 }
 
+export function grantResources(resources: Partial<Resources>) {
+  currentResources = addResources(currentResources, {
+    ...emptyResources,
+    ...resources,
+  });
+}
+
 export function build(buildingType: BuildingType, coords: HexCoordinates) {
   const oldBuilding = getBuilding(coords);
   const newBuilding = BuildingDefinition[buildingType];
