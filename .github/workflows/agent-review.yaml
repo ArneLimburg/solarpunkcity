@@ -5,6 +5,8 @@
 # MAX_PING_PONG change requests, or on APPROVE, the repository owner is asked to review.
 # Skips pull requests already handed over to a human (`review:approved`, `review:max-rounds`,
 # `agent-blocked`) or under owner review (`review:owner`, set by implement.yaml).
+# Sets the required commit status `agent-review`: success on APPROVE, pending while changes are
+# being made, failure when a human has to take over (see agent-review-gate.yaml).
 name: Agent Review
 
 on:
@@ -21,13 +23,10 @@ permissions:
   contents: read
   actions: read
   id-token: write
+  statuses: write
 
 env:
   MAX_PING_PONG: 3
-
-concurrency:
-  group: agent-review-${{ github.event.workflow_run.head_branch || inputs.pr }}
-  cancel-in-progress: true
 
 jobs:
   review:
@@ -37,6 +36,10 @@ jobs:
         github.event.workflow_run.head_repository.full_name == github.repository)
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    # Job level, so that the skipped run for a push Build does not cancel the pull request review.
+    concurrency:
+      group: agent-review-${{ github.event.workflow_run.head_branch || inputs.pr }}
+      cancel-in-progress: true
     steps:
       - uses: actions/create-github-app-token@v2
         id: app
@@ -145,7 +148,9 @@ jobs:
           GH_TOKEN: ${{ steps.app.outputs.token }}
           GH_REPO: ${{ github.repository }}
           OWNER: ${{ github.repository_owner }}
+          STATUS_TOKEN: ${{ github.token }}
           PR: ${{ steps.ctx.outputs.pr }}
+          SHA: ${{ steps.ctx.outputs.sha }}
           ROUND: ${{ steps.ctx.outputs.round }}
           BUILD: ${{ steps.ctx.outputs.build }}
           BUILD_URL: ${{ steps.ctx.outputs.build_url }}
@@ -170,6 +175,17 @@ jobs:
             cat "$RUNNER_TEMP/text.md"
           } > "$body"
           gh pr comment "$PR" --body-file "$body"
+
+          run_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          if [ "$verdict" = "APPROVE" ]; then
+            state=success desc="Approved by the review agent in round $ROUND"
+          elif [ "$verdict" = "CHANGES" ] && [ "$ROUND" -le "$MAX_PING_PONG" ]; then
+            state=pending desc="Changes requested in round $ROUND"
+          else
+            state=failure desc="Needs an approving review by the repository owner"
+          fi
+          GH_TOKEN="$STATUS_TOKEN" gh api "repos/$GH_REPO/statuses/$SHA" -f state="$state" \
+            -f context=agent-review -f description="$desc" -f target_url="$run_url" > /dev/null
 
           gh label create "review-round-$ROUND" --color C5DEF5 --description "Agent review round $ROUND" --force
           gh pr edit "$PR" --add-label "review-round-$ROUND"
