@@ -46,30 +46,26 @@ export const App: FC = () => {
   const [selectedBuildingType, setSelectedBuildingType] = useState<
     BuildingType | undefined
   >();
-  const buildingTypeSelectionListener = useCallback(
-    (buildingType: BuildingType) => setSelectedBuildingType(buildingType),
-    [setSelectedBuildingType],
-  );
-  const mapSelectionListener = useCallback((coords: HexCoordinates) => {
-    setSelectedBuildingType((selectedBuildingType) => {
-      if (selectedBuildingType && canBuild(selectedBuildingType, coords)) {
-        build(selectedBuildingType, coords);
-        mapRef.current?.addBuilding(
-          coords,
-          BuildingTypes[selectedBuildingType].model,
-        );
-        return undefined;
-      } else {
-        return selectedBuildingType;
-      }
-    });
+  // mirrors the state so that the stable map listener can read it
+  const selectedBuildingTypeRef = useRef<BuildingType | undefined>(undefined);
+  const selectBuildingType = useCallback((type: BuildingType | undefined) => {
+    selectedBuildingTypeRef.current = type;
+    setSelectedBuildingType(type);
   }, []);
+  const mapSelectionListener = useCallback(
+    (coords: HexCoordinates) => {
+      const type = selectedBuildingTypeRef.current;
+      if (type && canBuild(type, coords)) {
+        build(type, coords);
+        mapRef.current?.addBuilding(coords, BuildingTypes[type].model);
+        selectBuildingType(undefined);
+      }
+    },
+    [selectBuildingType],
+  );
   return (
     <>
-      <Menu
-        selected={selectedBuildingType}
-        onSelect={buildingTypeSelectionListener}
-      />
+      <Menu selected={selectedBuildingType} onSelect={selectBuildingType} />
       <main className="no-padding py-1">
         <Map ref={mapRef} onSelected={mapSelectionListener} />
       </main>

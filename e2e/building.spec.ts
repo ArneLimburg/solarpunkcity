@@ -122,3 +122,23 @@ test.describe("touch", () => {
     expect(await buildingAt(page, next)).toBe("Forest");
   });
 });
+
+test("a click builds exactly once", async ({ page }) => {
+  await setup(page);
+  const first = await tilePosition(page, origin);
+  await page.mouse.move(first.x, first.y, { steps: 5 });
+  await page.mouse.click(first.x, first.y);
+  await expect.poll(() => buildingAt(page, origin)).toBe("OrganicHomestead");
+  const modelCount = () =>
+    page.evaluate((c) => window.__solarpunk?.getModelCount(c), origin);
+  await expect.poll(modelCount).toBe(1);
+  await page.waitForTimeout(1000);
+  expect(await modelCount()).toBe(1);
+
+  // the selection was cleared, so a second click builds nothing
+  const second = await tilePosition(page, next);
+  await page.mouse.move(second.x, second.y, { steps: 5 });
+  await page.mouse.click(second.x, second.y);
+  await page.waitForTimeout(500);
+  expect(await buildingAt(page, next)).toBe("Forest");
+});

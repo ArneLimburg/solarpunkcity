@@ -36,13 +36,19 @@ export const Map = forwardRef<
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const engineRef = useRef<Engine | null>(null);
   const sceneRef = useRef<Scene | null>(null);
+  // number of placed building models per tile ("q,r"), used by the e2e tests
+  const modelCountsRef = useRef<Record<string, number>>({});
 
   useImperativeHandle(ref, () => ({
     addBuilding: (coords: HexCoordinates, model: Model) => {
       if (sceneRef.current) {
         const position = hexToPixel(coords.q, coords.r);
         position.y += 0.1;
-        loadModel(model, sceneRef.current, position);
+        loadModel(model, sceneRef.current, position).then(() => {
+          const key = `${coords.q},${coords.r}`;
+          const counts = modelCountsRef.current;
+          counts[key] = (counts[key] ?? 0) + 1;
+        });
       }
     },
   }));
@@ -177,6 +183,8 @@ export const Map = forwardRef<
         },
         getBuildingType: (coords) => getBuilding(coords)?.type,
         getRingTile: () => ring.tile,
+        getModelCount: (coords) =>
+          modelCountsRef.current[`${coords.q},${coords.r}`] ?? 0,
         addResources: grantResources,
       };
     }
