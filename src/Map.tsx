@@ -10,12 +10,20 @@ import {
   Vector3,
   Mesh,
   PointerInfo,
+  PointerEventTypes,
+  Matrix,
   Observer,
   CubeTexture,
   Texture,
 } from "@babylonjs/core";
 import "@babylonjs/loaders"; // ensures loaders are initialized (if you later import models)
-import { GRID_RADIUS, isOnBoard, type HexCoordinates } from "./board";
+import {
+  GRID_RADIUS,
+  getBuilding,
+  isOnBoard,
+  type HexCoordinates,
+} from "./board";
+import { grantResources } from "./game";
 import type { Model } from "./gameDefinitions";
 import { loadCachedModel, preloadModels } from "./ModelLoader";
 
@@ -124,10 +132,54 @@ export const Map = forwardRef<
     );
     selectedMesh.position.y = 0.01;
     selectedMesh.material = highlightMaterial;
+    selectedMesh.isPickable = false;
+    const ring = createRing(selectedMesh);
 
     const pointerObserver = scene.onPointerObservable.add(
-      createPointerHandler(selectedMesh, onSelected),
+      createPointerHandler(scene, ring, onSelected),
     );
+    const canvas = canvasRef.current;
+    const hideOnLeave = (event: PointerEvent) => {
+      // a touch pointer always leaves the canvas after the finger is lifted
+      if (event.pointerType !== "touch") {
+        ring.hide();
+      }
+    };
+    canvas.addEventListener("pointerleave", hideOnLeave);
+
+    if (import.meta.env.DEV) {
+      window.__solarpunk = {
+        tileToScreen: (coords) => {
+          const world = hexToPixel(coords.q, coords.r);
+          world.y = 0.1;
+          const width = engine.getRenderWidth();
+          const height = engine.getRenderHeight();
+          const projected = Vector3.Project(
+            world,
+            Matrix.IdentityReadOnly,
+            scene.getTransformMatrix(),
+            camera.viewport.toGlobal(width, height),
+          );
+          if (
+            projected.z < 0 ||
+            projected.z > 1 ||
+            projected.x < 0 ||
+            projected.x > width ||
+            projected.y < 0 ||
+            projected.y > height
+          ) {
+            return null;
+          }
+          return {
+            x: (projected.x * canvas.clientWidth) / width,
+            y: (projected.y * canvas.clientHeight) / height,
+          };
+        },
+        getBuildingType: (coords) => getBuilding(coords)?.type,
+        getRingTile: () => ring.tile,
+        addResources: grantResources,
+      };
+    }
 
     // render loop
     engine.runRenderLoop(() => {
@@ -138,7 +190,14 @@ export const Map = forwardRef<
     const handle = () => engine.resize();
     window.addEventListener("resize", handle);
 
-    return createCleanupMethod(engine, scene, pointerObserver, handle);
+    const cleanup = createCleanupMethod(engine, scene, pointerObserver, handle);
+    return () => {
+      canvas.removeEventListener("pointerleave", hideOnLeave);
+      if (import.meta.env.DEV) {
+        delete window.__solarpunk;
+      }
+      cleanup();
+    };
   }, []);
 
   return <canvas ref={canvasRef} />;
@@ -209,28 +268,77 @@ function createHexTile(
   return hex;
 }
 
+type Ring = {
+  tile: HexCoordinates | null;
+  show: (coordinates: HexCoordinates) => void;
+  hide: () => void;
+};
+
+function createRing(mesh: Mesh): Ring {
+  mesh.setEnabled(false);
+  const ring: Ring = {
+    tile: null,
+    show: (coordinates) => {
+      const center = hexToPixel(coordinates.q, coordinates.r);
+      mesh.position.set(center.x, 0.1, center.z);
+      mesh.setEnabled(true);
+      ring.tile = { q: coordinates.q, r: coordinates.r };
+    },
+    hide: () => {
+      mesh.setEnabled(false);
+      ring.tile = null;
+    },
+  };
+  return ring;
+}
+
 function createPointerHandler(
-  selectedMesh: Mesh,
+  scene: Scene,
+  ring: Ring,
   onSelected: (coordinates: HexCoordinates) => void,
 ): (pointerInfo: PointerInfo) => void {
   return (pointerInfo: PointerInfo) => {
-    const pick = pointerInfo.pickInfo;
-    if (!pick || !pick.hit || !pick.pickedPoint) {
+    const type = pointerInfo.type;
+    if (
+      type !== PointerEventTypes.POINTERMOVE &&
+      type !== PointerEventTypes.POINTERTAP
+    ) {
       return;
     }
-    // world pos to hex coords
-    const coordinates = pixelToHex(pick.pickedPoint);
-
-    if (isOnBoard(coordinates)) {
-      // hex coords to snapped center
-      const center = hexToPixel(coordinates.q, coordinates.r);
-
-      // move selection ring to the center
-      selectedMesh.position.set(center.x, 0.1, center.z);
+    const event = pointerInfo.event as PointerEvent;
+    const isTouch = event.pointerType === "touch";
+    if (type === PointerEventTypes.POINTERMOVE && isTouch) {
+      return; // touch only moves the ring by tapping
+    }
+    if (type === PointerEventTypes.POINTERTAP && event.button !== 0) {
+      return;
     }
 
-    // notify listener
-    onSelected(coordinates);
+    // Babylon does not pick on pointer move, so pick explicitly
+    const pick =
+      type === PointerEventTypes.POINTERMOVE
+        ? scene.pick(scene.pointerX, scene.pointerY)
+        : pointerInfo.pickInfo;
+    const coordinates =
+      pick && pick.hit && pick.pickedPoint
+        ? pixelToHex(pick.pickedPoint)
+        : undefined;
+    if (!coordinates || !isOnBoard(coordinates)) {
+      ring.hide();
+      return;
+    }
+
+    if (type === PointerEventTypes.POINTERMOVE) {
+      ring.show(coordinates);
+      return;
+    }
+
+    const ringIsHere =
+      ring.tile?.q === coordinates.q && ring.tile?.r === coordinates.r;
+    ring.show(coordinates);
+    if (!isTouch || ringIsHere) {
+      onSelected(coordinates);
+    }
   };
 }
 
