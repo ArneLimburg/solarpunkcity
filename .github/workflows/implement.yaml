@@ -133,6 +133,7 @@ jobs:
         run: npm ci
 
       - if: steps.ctx.outputs.skip == 'false'
+        id: claude
         uses: anthropics/claude-code-action@v1
         env:
           GH_TOKEN: ${{ steps.app.outputs.token }}
@@ -165,7 +166,7 @@ jobs:
           claude_args: |
             --model claude-sonnet-5-5
             --max-turns 80
-            --allowedTools "Edit,Write,Read,Glob,Grep,Bash(npm ci),Bash(npm install:*),Bash(npx playwright install:*),Bash(npm test),Bash(npm run test:e2e),Bash(npm run lint),Bash(npm run prettier),Bash(npm run build),Bash(npx tsc:*),Bash(git add:*),Bash(git commit:*),Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(gh issue view:*),Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh run view:*)${{ steps.ctx.outputs.mode == 'owner-review' && format(',Bash(gh api repos/{0}/pulls/{1}/reviews/{2}),Bash(gh api --paginate repos/{0}/pulls/{1}/reviews/{2}/comments)', github.repository, steps.ctx.outputs.pr, steps.ctx.outputs.review) || '' }}"
+            --allowedTools "Edit,Write,Read,Glob,Grep,Bash(npm ci),Bash(npm install:*),Bash(npx playwright install:*),Bash(npm test),Bash(npm run test:e2e:*),Bash(npm run lint),Bash(npm run prettier),Bash(npm run build),Bash(npx tsc:*),Bash(git add:*),Bash(git commit:*),Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(gh issue view:*),Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh run view:*)${{ steps.ctx.outputs.mode == 'owner-review' && format(',Bash(gh api repos/{0}/pulls/{1}/reviews/{2}),Bash(gh api --paginate repos/{0}/pulls/{1}/reviews/{2}/comments)', github.repository, steps.ctx.outputs.pr, steps.ctx.outputs.review) || '' }}"
 
       - if: steps.ctx.outputs.skip == 'false'
         name: Push and open pull request
@@ -178,6 +179,7 @@ jobs:
           PR: ${{ steps.ctx.outputs.pr }}
           BRANCH: ${{ steps.ctx.outputs.branch }}
           BEFORE: ${{ steps.git.outputs.before }}
+          EXECUTION_FILE: ${{ steps.claude.outputs.execution_file }}
         run: |
           run_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
           target=$([ "$MODE" = "issue" ] && echo "$ISSUE" || echo "$PR")
@@ -199,6 +201,13 @@ jobs:
 
           if [ "$(git rev-parse HEAD)" = "$BEFORE" ]; then
             reason=$(cat agent-blocked.md 2>/dev/null || echo "The agent made no changes.")
+            # Name the tool calls that were denied, so that missing permissions are easy to spot.
+            denied=$(jq -r '[.[] | select(.type == "result") | .permission_denials[]?] | .[]
+              | "- `\(.tool_name)`: `\((.tool_input.command // .tool_input.file_path // "") | .[0:200])`"' \
+              "$EXECUTION_FILE" 2>/dev/null || true)
+            if [ -n "$denied" ]; then
+              reason=$(printf '%s\n\nDenied tool calls:\n\n%s' "$reason" "$denied")
+            fi
             gh label create agent-blocked --color B60205 --description "Agent needs a human" --force
             # issues API works for both issues and pull requests
             gh api "repos/$GH_REPO/issues/$target/labels" -f "labels[]=agent-blocked" > /dev/null
