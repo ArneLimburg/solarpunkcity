@@ -14,12 +14,12 @@ export const BuildingCategories = {
   FARM: {
     name: "FARM",
     buildable: true,
-    icon: "farm/farm-icon.png",
+    icon: "farm/farm.svg",
   },
   RESIDENTIAL: {
     name: "RESIDENTIAL",
     buildable: true,
-    icon: "residential/residential-icon.png",
+    icon: "residential/residential.svg",
   },
   FOREST: {
     name: "FOREST",
@@ -30,24 +30,24 @@ export type BuildingCategory = keyof typeof BuildingCategories;
 export const BuildingTypes = {
   OrganicHomestead: {
     category: "FARM",
-    icon: "farm/farm-icon.png",
+    icon: "farm/organic-homestead.svg",
   },
   Farm: {
     category: "FARM",
-    icon: "farm/farm-icon.png",
+    icon: "farm/farm-medium.svg",
   },
   AgroIndustrial: {
     category: "FARM",
-    icon: "farm/farm-icon.png",
+    icon: "farm/agro-industrial.svg",
   },
   AppartmentBuilding: {
     category: "RESIDENTIAL",
-    icon: "residential/residential-icon.png",
+    icon: "residential/appartment-building.svg",
     model: "residential/residential.glb",
   },
   Forest: {
     category: "FOREST",
-    icon: "forest.png",
+    icon: "forest/forest.svg",
   },
 } as const satisfies Record<
   string,
