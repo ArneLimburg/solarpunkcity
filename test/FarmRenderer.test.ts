@@ -51,7 +51,7 @@ vi.mock("@babylonjs/core", () => {
   };
 });
 
-import { createFarmRenderer } from "../src/FarmRenderer";
+import { createFarmRenderer, isModelType } from "../src/FarmRenderer";
 
 test("each farm type is built once and shown with instances", () => {
   const renderer = createFarmRenderer({} as Scene, 1);
@@ -81,4 +81,19 @@ test("glass parts go into a separate transparent mesh", () => {
   expect(model.triangles).toBeGreaterThan(0);
   model.dispose();
   expect(meshes[1].instances[0].dispose).toHaveBeenCalled();
+});
+
+test("the apartment building is built from code with one opaque mesh", () => {
+  meshes.length = 0;
+  const renderer = createFarmRenderer({} as Scene, 1);
+  const model = renderer.create("AppartmentBuilding", { x: 0, z: 0 });
+  expect(meshes).toHaveLength(1);
+  expect(model.triangles).toBeGreaterThan(0);
+  expect(model.triangles).toBeLessThanOrEqual(1000);
+});
+
+test("isModelType accepts the farms and the apartment building only", () => {
+  expect(isModelType("Farm")).toBe(true);
+  expect(isModelType("AppartmentBuilding")).toBe(true);
+  expect(isModelType("Forest")).toBe(false);
 });

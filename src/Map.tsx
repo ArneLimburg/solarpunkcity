@@ -15,9 +15,7 @@ import {
   Observer,
   CubeTexture,
   Texture,
-  TransformNode,
 } from "@babylonjs/core";
-import "@babylonjs/loaders"; // ensures loaders are initialized (if you later import models)
 import {
   GRID_RADIUS,
   getBuilding,
@@ -32,19 +30,16 @@ import {
   BuildingTypes,
   type BuildingType,
 } from "./gameDefinitions";
-import { createFarmRenderer, type FarmRenderer } from "./FarmRenderer";
-import { isFarmType } from "./farms";
+import {
+  createFarmRenderer,
+  isModelType,
+  type FarmRenderer,
+} from "./FarmRenderer";
 import { createForest, type ForestRenderer } from "./ForestRenderer";
-import { loadCachedModel, preloadModels } from "./ModelLoader";
 
 const HEX_SIZE = 1; // side length of hex (in scene units)
 
 const FARMLAND_COLOR = new Color3(0.55, 0.45, 0.3);
-
-// uniform scale of a .glb building model: it covers 2 * radius + 1 tiles in a row
-function getModelScale(radius: number): number {
-  return 2 * radius + 1;
-}
 
 // the model shown on a tile
 type PlacedModel = { dispose: () => void; triangles: number };
@@ -91,35 +86,13 @@ export const Map = forwardRef<
       for (const tile of farmland) {
         tileMeshesRef.current[tileKey(tile)].material = farmlandRef.current;
       }
-      if (isFarmType(type)) {
-        // farm models are built from code at scale 1
+      if (isModelType(type)) {
+        // models are built from code at scale 1
         modelsRef.current[tileKey(coords)] = farmsRef.current!.create(
           type,
           position,
         );
-        return;
       }
-      const model = (BuildingTypes[type] as { model?: string }).model;
-      if (!model) {
-        return;
-      }
-      position.y += 0.1;
-      loadModel(model, sceneRef.current!, position).then((instance) => {
-        let triangles = 0;
-        for (const node of instance.rootNodes) {
-          (node as TransformNode).scaling.scaleInPlace(getModelScale(radius));
-          for (const mesh of node.getChildMeshes()) {
-            triangles += mesh.getTotalIndices() / 3;
-          }
-        }
-        const key = tileKey(coords);
-        // a tile shows at most one model
-        modelsRef.current[key]?.dispose();
-        modelsRef.current[key] = {
-          dispose: instance.dispose.bind(instance),
-          triangles,
-        };
-      });
     },
   }));
 
@@ -129,7 +102,6 @@ export const Map = forwardRef<
     const scene = new Scene(engine);
     engineRef.current = engine;
     sceneRef.current = scene;
-    preloadModels(scene);
     //scene.clearColor = new Color4(0.4, 0.8, 0.5);
     createSkybox(scene);
 
@@ -327,11 +299,6 @@ function makeMaterial(name: string, color: Color3, scene: Scene) {
   m.diffuseColor = color;
   m.specularColor = Color3.Black();
   return m;
-}
-
-async function loadModel(model: string, scene: Scene, position: Vector3) {
-  const instance = await loadCachedModel(model, scene, position);
-  return instance;
 }
 
 function createHexTile(

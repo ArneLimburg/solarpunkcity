@@ -6,9 +6,29 @@ import {
   type Scene,
 } from "@babylonjs/core";
 import { buildGeometry } from "./farmGeometry";
-import { GLASS_ALPHA, getFarmLayout, type FarmType } from "./farms";
+import { getApartmentLayout } from "./apartment";
+import {
+  GLASS_ALPHA,
+  getFarmLayout,
+  isFarmType,
+  type FarmPart,
+  type FarmType,
+} from "./farms";
 
 const TILE_TOP = 0.1; // y of the top surface of a hex tile
+
+// building types whose model is built from code
+export type ModelType = FarmType | "AppartmentBuilding";
+
+export function isModelType(type: string): type is ModelType {
+  return isFarmType(type as FarmType) || type === "AppartmentBuilding";
+}
+
+function getLayout(type: ModelType, hexSize: number): FarmPart[] {
+  return isFarmType(type)
+    ? getFarmLayout(type, hexSize)
+    : getApartmentLayout(hexSize);
+}
 
 export type FarmModel = {
   dispose: () => void;
@@ -17,7 +37,7 @@ export type FarmModel = {
 
 export type FarmRenderer = {
   // shows a farm model on the given center tile
-  create: (type: FarmType, center: { x: number; z: number }) => FarmModel;
+  create: (type: ModelType, center: { x: number; z: number }) => FarmModel;
 };
 
 type Template = { meshes: Mesh[]; triangles: number };
@@ -52,14 +72,14 @@ export function createFarmRenderer(
   scene: Scene,
   hexSize: number,
 ): FarmRenderer {
-  const templates: Partial<Record<FarmType, Template>> = {};
+  const templates: Partial<Record<ModelType, Template>> = {};
 
-  const getTemplate = (type: FarmType): Template => {
+  const getTemplate = (type: ModelType): Template => {
     const existing = templates[type];
     if (existing) {
       return existing;
     }
-    const parts = getFarmLayout(type, hexSize);
+    const parts = getLayout(type, hexSize);
     const opaque = buildGeometry(parts.filter((p) => p.color !== "glass"));
     const glass = buildGeometry(parts.filter((p) => p.color === "glass"));
     const meshes = [createMesh(`${type}`, opaque, 1, scene)];
