@@ -10,9 +10,9 @@ Arguments: the building's name and, optionally, its purpose, category and number
 1. Read `src/gameDefinitions.ts` and `src/resources.ts` to see existing buildings and resources.
 2. Pick the category from `BuildingCategories`. If none fits, add a new category with
    `buildable: true` and an icon under `public/<category>/`.
-3. Add an entry to `BuildingTypes` (`category`, `icon`). Reuse an existing icon if no new asset was provided
-   — never invent paths to files that do not exist
-   in `public/`. A new model must be built from code and stay within the model budget in
+3. Add an entry to `BuildingTypes` (`category`, `icon`, `model`). Reuse an existing icon and
+   `.glb` model if no new asset was provided — never invent paths to files that do not exist
+   in `public/`. A new model, `.glb` or built from code, must stay within the model budget in
    `CLAUDE.md` (triangles per footprint tile, reused geometry, draw calls); state its triangle
    count in your summary.
 4. Add the matching entry to `BuildingDefinition` with `name`, `type`, `description`, `size`,
