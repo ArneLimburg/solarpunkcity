@@ -37,7 +37,7 @@ beforeEach(async () => {
 test("preloading loads each model of a buildable category once", async () => {
   await loader.preloadModels(fakeScene());
   const urls = loadAssetContainer.mock.calls.map((call) => call[0]);
-  expect(urls.sort()).toEqual(["farm/farm.glb", "residential/residential.glb"]);
+  expect(urls).toEqual(["residential/residential.glb"]);
 });
 
 test("preloading the same scene twice does nothing", async () => {

@@ -16,6 +16,7 @@ declare global {
       getRingTiles(): HexCoordinates[];
       getTileMaterial(coords: HexCoordinates): string | undefined;
       getModelCount(coords: HexCoordinates): number;
+      getModelTriangleCount(coords: HexCoordinates): number;
       getTreeCount(coords: HexCoordinates): number;
       addResources(resources: Partial<Resources>): void;
     };

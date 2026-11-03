@@ -31,17 +31,14 @@ export const BuildingTypes = {
   OrganicHomestead: {
     category: "FARM",
     icon: "farm/farm-icon.png",
-    model: "farm/farm.glb",
   },
   Farm: {
     category: "FARM",
     icon: "farm/farm-icon.png",
-    model: "farm/farm.glb",
   },
   AgroIndustrial: {
     category: "FARM",
     icon: "farm/farm-icon.png",
-    model: "farm/farm.glb",
   },
   AppartmentBuilding: {
     category: "RESIDENTIAL",
