@@ -82,6 +82,9 @@ Tickets become pull requests without manual steps; the repository owner reviews 
    again: it addresses that review (which wins over agent reviews), pushes and requests the
    owner's review again. The label `review:owner` keeps the Opus review out from then on; this
    does not count as a review round.
+   In both cases a branch that is behind `main` is first rebased onto it by the agent, which
+   also resolves conflicts; the workflow then force-pushes with lease. A ruleset allows force
+   pushes only on `agent/**` branches (admins bypass it).
 5. Merging into `main` requires the commit status `agent-review` (ruleset). For `agent-pr` pull
    requests it is set by Agent Review (success on approval) or by an approving review of the owner
    (`.github/workflows/agent-review-gate.yaml`); every new commit resets it to pending. All other
