@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./fixtures";
 import { BuildingCategories, BuildingTypes } from "../src/gameDefinitions";
 
 test("app loads", async ({ page }) => {

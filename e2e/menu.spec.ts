@@ -1,4 +1,5 @@
-import { test, expect, type Page } from "@playwright/test";
+import type { Page } from "@playwright/test";
+import { test, expect } from "./fixtures";
 import { buildingAt, tilePosition } from "./helpers";
 
 const origin = { q: 0, r: 0 };
@@ -43,6 +44,16 @@ test("highlights only the selected type and its category", async ({ page }) => {
   await button(page, "FARM").click();
   await expect(button(page, "FARM")).toHaveClass(/large-elevate/);
   await expect(button(page, "RESIDENTIAL")).not.toHaveClass(/large-elevate/);
+});
+
+test("reopening a category shows the selected building large", async ({
+  page,
+}) => {
+  await setup(page);
+  await selectHomestead(page);
+  await button(page, "FARM").click();
+  await expect(button(page, "OrganicHomestead")).toHaveClass(/large-elevate/);
+  await expect(button(page, "Farm")).toHaveClass(/small-elevate/);
 });
 
 test("a second click on the open category closes it", async ({ page }) => {

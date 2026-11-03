@@ -1,5 +1,7 @@
-import { test, expect, type Page } from "@playwright/test";
+import type { Page } from "@playwright/test";
+import { test, expect } from "./fixtures";
 import { buildingAt, tilePosition } from "./helpers";
+import { GRID_RADIUS } from "../src/board";
 
 const origin = { q: 0, r: 0 };
 const east = { q: 3, r: 0 };
@@ -55,7 +57,9 @@ test.describe("mouse", () => {
     expect(await buildingAt(page, origin)).toBe("Forest");
   });
 
-  test("ring is hidden outside the board", async ({ page }) => {
+  test("ring is hidden when the pointer leaves the canvas", async ({
+    page,
+  }) => {
     await setup(page);
     const { x, y } = await tilePosition(page, origin);
     await page.mouse.move(x, y, { steps: 5 });
@@ -65,6 +69,45 @@ test.describe("mouse", () => {
     await page.mouse.move(x, (box?.y ?? 0) + 2);
     await expect.poll(() => ringTile(page)).toBeNull();
   });
+});
+
+test("hovering the ground outside the board hides the ring", async ({
+  page,
+}) => {
+  await setup(page);
+  const { x, y } = await tilePosition(page, origin);
+  await page.mouse.move(x, y, { steps: 5 });
+  await expect.poll(() => ringTile(page)).toEqual(origin);
+  // zoom out until the ground beyond the board is visible
+  await page.mouse.wheel(0, 3000);
+  const outside = { q: GRID_RADIUS + 3, r: 0 };
+  await expect
+    .poll(() =>
+      page.evaluate((c) => window.__solarpunk?.tileToScreen(c), outside),
+    )
+    .not.toBeNull();
+  const target = await tilePosition(page, outside);
+  await page.mouse.move(target.x, target.y, { steps: 5 });
+  await expect.poll(() => ringTile(page)).toBeNull();
+});
+
+test("tileToScreen returns null for a tile outside the visible area", async ({
+  page,
+}) => {
+  await setup(page);
+  const position = await page.evaluate(() =>
+    window.__solarpunk?.tileToScreen({ q: 1000, r: 0 }),
+  );
+  expect(position).toBeNull();
+});
+
+test("resizing the viewport resizes the render size", async ({ page }) => {
+  await setup(page);
+  const width = () =>
+    page.evaluate(() => document.querySelector("canvas")?.width ?? 0);
+  const before = await width();
+  await page.setViewportSize({ width: 700, height: 500 });
+  await expect.poll(width).toBeLessThan(before);
 });
 
 test.describe("touch", () => {
@@ -129,9 +172,11 @@ test.describe("touch", () => {
     // send both taps at once so they stay within Babylon's double tap delay
     await Promise.all([page.touchscreen.tap(x, y), page.touchscreen.tap(x, y)]);
     await expect.poll(() => buildingAt(page, origin)).toBe("OrganicHomestead");
-    expect(
-      await page.evaluate((c) => window.__solarpunk?.getModelCount(c), origin),
-    ).toBe(1);
+    await expect
+      .poll(() =>
+        page.evaluate((c) => window.__solarpunk?.getModelCount(c), origin),
+      )
+      .toBe(1);
   });
 });
 
@@ -152,10 +197,11 @@ test("a click builds exactly once", async ({ page }) => {
   await setup(page);
   const first = await tilePosition(page, origin);
   await page.mouse.move(first.x, first.y, { steps: 5 });
-  await page.mouse.click(first.x, first.y);
-  await expect.poll(() => buildingAt(page, origin)).toBe("OrganicHomestead");
   const modelCount = () =>
     page.evaluate((c) => window.__solarpunk?.getModelCount(c), origin);
+  expect(await modelCount()).toBe(0);
+  await page.mouse.click(first.x, first.y);
+  await expect.poll(() => buildingAt(page, origin)).toBe("OrganicHomestead");
   await expect.poll(modelCount).toBe(1);
   await page.waitForTimeout(1000);
   expect(await modelCount()).toBe(1);

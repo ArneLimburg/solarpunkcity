@@ -41,23 +41,19 @@ export const Map = forwardRef<
 
   useImperativeHandle(ref, () => ({
     addBuilding: (coords: HexCoordinates, model: Model) => {
-      if (sceneRef.current) {
-        const position = hexToPixel(coords.q, coords.r);
-        position.y += 0.1;
-        loadModel(model, sceneRef.current, position).then(() => {
-          const key = `${coords.q},${coords.r}`;
-          const counts = modelCountsRef.current;
-          counts[key] = (counts[key] ?? 0) + 1;
-        });
-      }
+      const position = hexToPixel(coords.q, coords.r);
+      position.y += 0.1;
+      loadModel(model, sceneRef.current!, position).then(() => {
+        const key = `${coords.q},${coords.r}`;
+        const counts = modelCountsRef.current;
+        counts[key] = (counts[key] ?? 0) + 1;
+      });
     },
   }));
 
   useEffect(() => {
-    if (!canvasRef.current) {
-      return;
-    }
-    const engine = new Engine(canvasRef.current, true);
+    const canvas = canvasRef.current!;
+    const engine = new Engine(canvas, true);
     const scene = new Scene(engine);
     engineRef.current = engine;
     sceneRef.current = scene;
@@ -74,7 +70,7 @@ export const Map = forwardRef<
       Vector3.Zero(),
       scene,
     );
-    camera.attachControl(canvasRef.current, true);
+    camera.attachControl(canvas, true);
     camera.lowerRadiusLimit = 2;
     camera.upperRadiusLimit = 120;
     camera.lowerBetaLimit = 0;
@@ -144,7 +140,6 @@ export const Map = forwardRef<
     const pointerObserver = scene.onPointerObservable.add(
       createPointerHandler(scene, ring, onSelected),
     );
-    const canvas = canvasRef.current;
     const hideOnLeave = (event: PointerEvent) => {
       // a touch pointer always leaves the canvas after the finger is lifted
       if (event.pointerType !== "touch") {
@@ -201,9 +196,7 @@ export const Map = forwardRef<
     const cleanup = createCleanupMethod(engine, scene, pointerObserver, handle);
     return () => {
       canvas.removeEventListener("pointerleave", hideOnLeave);
-      if (import.meta.env.DEV) {
-        delete window.__solarpunk;
-      }
+      delete window.__solarpunk;
       cleanup();
     };
   }, []);
