@@ -51,11 +51,10 @@ export const BuildingTypes = {
   Forest: {
     category: "FOREST",
     icon: "forest.png",
-    model: "forest.glb",
   },
 } as const satisfies Record<
   string,
-  { category: BuildingCategory; icon: string; model: Model }
+  { category: BuildingCategory; icon: string; model?: Model }
 >;
 export type BuildingType = keyof typeof BuildingTypes;
 export type Building = {

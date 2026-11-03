@@ -13,6 +13,7 @@ import {
   PointerEventTypes,
   Matrix,
   Observer,
+  type InstantiatedEntries,
   CubeTexture,
   Texture,
   TransformNode,
@@ -32,6 +33,7 @@ import {
   BuildingTypes,
   type BuildingType,
 } from "./gameDefinitions";
+import { createForest, type ForestRenderer } from "./ForestRenderer";
 import { loadCachedModel, preloadModels } from "./ModelLoader";
 
 const HEX_SIZE = 1; // side length of hex (in scene units)
@@ -56,8 +58,9 @@ export const Map = forwardRef<
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const engineRef = useRef<Engine | null>(null);
   const sceneRef = useRef<Scene | null>(null);
-  // number of placed building models per tile ("q,r"), used by the e2e tests
-  const modelCountsRef = useRef<Record<string, number>>({});
+  // the model currently shown on a tile ("q,r")
+  const modelsRef = useRef<Record<string, InstantiatedEntries>>({});
+  const forestRef = useRef<ForestRenderer | null>(null);
 
   // hex meshes per tile ("q,r") and the farmland material
   const tileMeshesRef = useRef<Record<string, Mesh>>({});
@@ -69,6 +72,16 @@ export const Map = forwardRef<
   useImperativeHandle(ref, () => ({
     addBuilding: (coords: HexCoordinates, type: BuildingType) => {
       const radius = getFootprintRadius(BuildingDefinition[type].size);
+      // the building replaces trees and previous models on its whole footprint
+      for (const tile of getFootprint(coords, radius)) {
+        forestRef.current!.clearTile(tile);
+        modelsRef.current[tileKey(tile)]?.dispose();
+        delete modelsRef.current[tileKey(tile)];
+      }
+      const model = (BuildingTypes[type] as { model?: string }).model;
+      if (!model) {
+        return;
+      }
       const position = hexToPixel(coords.q, coords.r);
       position.y += 0.1;
       const farmland =
@@ -78,16 +91,15 @@ export const Map = forwardRef<
       for (const tile of farmland) {
         tileMeshesRef.current[tileKey(tile)].material = farmlandRef.current;
       }
-      loadModel(BuildingTypes[type].model, sceneRef.current!, position).then(
-        (instance) => {
-          for (const node of instance.rootNodes) {
-            (node as TransformNode).scaling.scaleInPlace(getModelScale(radius));
-          }
-          const key = tileKey(coords);
-          const counts = modelCountsRef.current;
-          counts[key] = (counts[key] ?? 0) + 1;
-        },
-      );
+      loadModel(model, sceneRef.current!, position).then((instance) => {
+        for (const node of instance.rootNodes) {
+          (node as TransformNode).scaling.scaleInPlace(getModelScale(radius));
+        }
+        const key = tileKey(coords);
+        // a tile shows at most one model
+        modelsRef.current[key]?.dispose();
+        modelsRef.current[key] = instance;
+      });
     },
   }));
 
@@ -139,6 +151,7 @@ export const Map = forwardRef<
 
     // store created hex meshes so we can interact with them
     const hexMeshes: Mesh[] = [];
+    const hexTiles: HexCoordinates[] = [];
 
     const ground = MeshBuilder.CreateGround(
       "ground",
@@ -162,10 +175,17 @@ export const Map = forwardRef<
             useAlt ? altMaterial : baseMaterial,
           );
           hexMeshes.push(hex);
+          hexTiles.push({ q, r });
           tileMeshesRef.current[tileKey({ q, r })] = hex;
         }
       }
     }
+    forestRef.current = createForest(
+      scene,
+      hexTiles.filter((tile) => getBuilding(tile)?.type === "Forest"),
+      HEX_SIZE,
+      (tile) => hexToPixel(tile.q, tile.r),
+    );
     console.log("fields: " + hexMeshes.length);
 
     // Picking / Highlight logic
@@ -228,8 +248,8 @@ export const Map = forwardRef<
         getRingTiles: () => [...ring.tiles],
         getTileMaterial: (coords) =>
           tileMeshesRef.current[tileKey(coords)].material!.name,
-        getModelCount: (coords) =>
-          modelCountsRef.current[`${coords.q},${coords.r}`] ?? 0,
+        getModelCount: (coords) => (modelsRef.current[tileKey(coords)] ? 1 : 0),
+        getTreeCount: (coords) => forestRef.current!.getTreeCount(coords),
         addResources: grantResources,
       };
     }

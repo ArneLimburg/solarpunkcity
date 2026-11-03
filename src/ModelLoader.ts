@@ -7,7 +7,7 @@ import {
   Vector3,
 } from "@babylonjs/core";
 import { registerBuiltInLoaders } from "@babylonjs/loaders/dynamic";
-import { BuildingCategories, BuildingTypes } from "./gameDefinitions";
+import { BuildingTypes } from "./gameDefinitions";
 
 registerBuiltInLoaders();
 
@@ -21,16 +21,14 @@ export async function preloadModels(scene: Scene) {
   preloadedScenes.add(scene);
 
   for (const building of Object.values(BuildingTypes)) {
-    // Not buildable categories (forest) have no model file yet
-    if (
-      !BuildingCategories[building.category].buildable ||
-      cache.has(building.model)
-    ) {
+    // the forest has no model file, it is drawn from code
+    const model = "model" in building ? building.model : undefined;
+    if (!model || cache.has(model)) {
       continue;
     }
     try {
-      const result = await LoadAssetContainerAsync(building.model, scene);
-      cache.set(building.model, result);
+      const result = await LoadAssetContainerAsync(model, scene);
+      cache.set(model, result);
     } catch (error) {
       // The scene may be disposed while loading (e.g. React StrictMode remount)
       if (scene.isDisposed) {

@@ -271,3 +271,22 @@ test("a farm occupies 7 tiles with one model and farmland", async ({
     expect(await modelCount(tile)).toBe(0);
   }
 });
+
+test("building replaces the trees of a tile with one model", async ({
+  page,
+}) => {
+  await setup(page);
+  const treeCount = (c: { q: number; r: number }) =>
+    page.evaluate((t) => window.__solarpunk?.getTreeCount(t), c);
+  const modelCount = (c: { q: number; r: number }) =>
+    page.evaluate((t) => window.__solarpunk?.getModelCount(t), c);
+  expect(await treeCount(origin)).toBe(3);
+  expect(await treeCount(next)).toBe(3);
+
+  const { x, y } = await tilePosition(page, origin);
+  await page.mouse.move(x, y, { steps: 5 });
+  await page.mouse.click(x, y);
+  await expect.poll(() => modelCount(origin)).toBe(1);
+  expect(await treeCount(origin)).toBe(0);
+  expect(await treeCount(next)).toBe(3);
+});
