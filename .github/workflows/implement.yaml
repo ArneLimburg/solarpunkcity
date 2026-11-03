@@ -7,6 +7,9 @@
 #   addresses that review (it takes precedence over agent reviews), pushes, and requests the
 #   owner's review again. The label `review:owner` makes agent-review.yaml skip the pull
 #   request; this mode is not a review round and leaves the `review-round-*` labels alone.
+# - On pull requests whose branch is behind main the agent rebases it onto main (resolving
+#   conflicts) and the workflow force-pushes with lease. A ruleset allows force pushes only on
+#   `agent/**` branches.
 # Runs as the GitHub App from AGENT_APP_ID so that its pushes and pull requests trigger
 # Build and Agent Review.
 name: Agent Implement
@@ -106,6 +109,8 @@ jobs:
         with:
           ref: ${{ steps.ctx.outputs.mode != 'issue' && steps.ctx.outputs.branch || 'main' }}
           token: ${{ steps.app.outputs.token }}
+          # Full history, so that the agent can rebase onto origin/main.
+          fetch-depth: 0
 
       - if: steps.ctx.outputs.skip == 'false'
         name: Prepare branch
@@ -122,6 +127,13 @@ jobs:
           if [ "$MODE" = "issue" ]; then
             git switch -c "$BRANCH"
           fi
+          # Merging requires an up-to-date branch, so the agent rebases pull requests behind main.
+          main=current
+          if ! git merge-base --is-ancestor origin/main HEAD; then
+            main=behind
+            git merge-tree --write-tree origin/main HEAD > /dev/null || main=conflicts
+          fi
+          echo "main=$main" >> "$GITHUB_OUTPUT"
           echo "before=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
       - if: steps.ctx.outputs.skip == 'false'
@@ -137,6 +149,8 @@ jobs:
         uses: anthropics/claude-code-action@v1
         env:
           GH_TOKEN: ${{ steps.app.outputs.token }}
+          # `git rebase --continue` must not wait for an editor.
+          GIT_EDITOR: "true"
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           github_token: ${{ steps.app.outputs.token }}
@@ -146,6 +160,8 @@ jobs:
             You are the implementation agent for Solar Punk City. Follow CLAUDE.md.
 
             ${{ steps.ctx.outputs.mode == 'issue' && format('TASK: Implement issue #{0}. Read it with `gh issue view {0} --comments`.', steps.ctx.outputs.issue) || '' }}${{ steps.ctx.outputs.mode == 'pr' && format('TASK: Pull request #{0} (issue #{1}) received change requests from the review agent. Read the issue with `gh issue view {1}` and the pull request with `gh pr view {0} --comments`; the latest comment starting with `<!-- agent-review` is the review to address. If it reports a failed build, inspect the run with `gh run view <run-id> --log-failed`. Address every valid point; if you disagree with a point, explain why in the commit body.', steps.ctx.outputs.pr, steps.ctx.outputs.issue) || '' }}${{ steps.ctx.outputs.mode == 'owner-review' && format('TASK: The repository owner requested changes on pull request #{0} (issue #{1}). Read the issue with `gh issue view {1}` and the pull request with `gh pr view {0} --comments`. Read the owner''s review with exactly `gh api repos/{2}/pulls/{0}/reviews/{3}` and its inline comments (see `path`, `line` and `body`) with exactly `gh api --paginate repos/{2}/pulls/{0}/reviews/{3}/comments`. Where the owner''s review conflicts with earlier agent reviews (comments starting with `<!-- agent-review`), the owner''s review wins. Address every point of the owner''s review; if you disagree with a point, explain why in the commit body instead of skipping it silently.', steps.ctx.outputs.pr, steps.ctx.outputs.issue, github.repository, steps.ctx.outputs.review) || '' }}
+
+            ${{ steps.ctx.outputs.mode != 'issue' && steps.git.outputs.main != 'current' && format('FIRST: The branch is behind main{0}. Before anything else, rebase it with exactly `git rebase --autostash origin/main`. Resolve each conflict so that the changes of both sides are kept (main''s changes are already reviewed; adapt this pull request to them), stage the resolved files with `git add <path>...` and run exactly `git rebase --continue` until the rebase is done. If a conflict cannot be resolved sensibly, run exactly `git rebase --abort`, do not commit and write the conflicting files and the reason to `agent-blocked.md`. The rebase does not count as your one commit; if the task asks for nothing beyond the rebase, no further commit is needed.', steps.git.outputs.main == 'conflicts' && ' and conflicts with it' || '') || '' }}
 
             Rules:
             - The working tree is already on the right branch. Do not switch branches and do not push;
@@ -166,7 +182,7 @@ jobs:
           claude_args: |
             --model claude-sonnet-5-5
             --max-turns 80
-            --allowedTools "Edit,Write,Read,Glob,Grep,Bash(npm ci),Bash(npm install:*),Bash(npx playwright install:*),Bash(npm test),Bash(npm run test:e2e:*),Bash(npm run lint),Bash(npm run prettier),Bash(npm run build),Bash(npx tsc:*),Bash(git add:*),Bash(git rm:*),Bash(git mv:*),Bash(git commit:*),Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(gh issue view:*),Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh run view:*)${{ steps.ctx.outputs.mode == 'owner-review' && format(',Bash(gh api repos/{0}/pulls/{1}/reviews/{2}),Bash(gh api --paginate repos/{0}/pulls/{1}/reviews/{2}/comments)', github.repository, steps.ctx.outputs.pr, steps.ctx.outputs.review) || '' }}"
+            --allowedTools "Edit,Write,Read,Glob,Grep,Bash(npm ci),Bash(npm install:*),Bash(npx playwright install:*),Bash(npm test),Bash(npm run test:e2e:*),Bash(npm run lint),Bash(npm run prettier),Bash(npm run build),Bash(npx tsc:*),Bash(git add:*),Bash(git rm:*),Bash(git mv:*),Bash(git commit:*),Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(git rebase --autostash origin/main),Bash(git rebase --continue),Bash(git rebase --abort),Bash(gh issue view:*),Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh run view:*)${{ steps.ctx.outputs.mode == 'owner-review' && format(',Bash(gh api repos/{0}/pulls/{1}/reviews/{2}),Bash(gh api --paginate repos/{0}/pulls/{1}/reviews/{2}/comments)', github.repository, steps.ctx.outputs.pr, steps.ctx.outputs.review) || '' }}"
 
       - if: steps.ctx.outputs.skip == 'false'
         name: Push and open pull request
@@ -184,12 +200,27 @@ jobs:
           run_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
           target=$([ "$MODE" = "issue" ] && echo "$ISSUE" || echo "$PR")
 
+          if [ -d "$(git rev-parse --git-path rebase-merge)" ]; then
+            git rebase --abort
+            echo "The agent left an unfinished rebase onto main, so nothing was pushed." > agent-blocked.md
+          fi
+
           # The prompt forbids changes to workflows and agent configuration; enforce it before
           # anything is pushed. On pull requests claude-code-action resets .claude/ and CLAUDE.md
           # to main and copies the PR's version to .claude-pr/, so committing them reverts the PR.
+          # A rebase brings in main's changes to these files, so compare what the branch changes
+          # relative to main before and after the agent ran, file by file.
           pattern='^(\.github/|\.claude/|\.claude-pr/)'
           [ "$MODE" = "issue" ] || pattern='^(\.github/|\.claude/|\.claude-pr/|CLAUDE\.md$|CLAUDE\.local\.md$)'
-          protected=$(git diff --name-only "$BEFORE" HEAD | grep -E "$pattern" || true)
+          base_before=$(git merge-base origin/main "$BEFORE")
+          base_after=$(git merge-base origin/main HEAD)
+          protected=$(
+            { git diff --name-only "$base_before" "$BEFORE"; git diff --name-only "$base_after" HEAD; } |
+              grep -E "$pattern" | sort -u | while read -r file; do
+                [ "$(git diff "$base_before" "$BEFORE" -- "$file" | git patch-id --stable)" = \
+                  "$(git diff "$base_after" HEAD -- "$file" | git patch-id --stable)" ] || echo "$file"
+              done
+          )
           if [ -n "$protected" ]; then
             {
               echo "The agent changed protected files, which is not allowed, so nothing was pushed:"
@@ -199,7 +230,8 @@ jobs:
             git reset --hard -q "$BEFORE"
           fi
 
-          if [ "$(git rev-parse HEAD)" = "$BEFORE" ]; then
+          if [ -f agent-blocked.md ] || [ "$(git rev-parse HEAD)" = "$BEFORE" ]; then
+            git reset --hard -q "$BEFORE"
             reason=$(cat agent-blocked.md 2>/dev/null || echo "The agent made no changes.")
             # Name the tool calls that were denied, so that missing permissions are easy to spot.
             denied=$(jq -r '[.[] | select(.type == "result") | .permission_denials[]?] | .[]
@@ -217,7 +249,16 @@ jobs:
             exit 0
           fi
 
-          git push origin "HEAD:$BRANCH"
+          if git merge-base --is-ancestor "$BEFORE" HEAD; then
+            git push origin "HEAD:$BRANCH"
+          else
+            # Rebased onto main: replace the branch, unless someone pushed to it in the meantime.
+            git push --force-with-lease="$BRANCH:$BEFORE" origin "HEAD:$BRANCH"
+          fi
+
+          # The agent's new commits, without main's commits and old ones rebased without conflicts.
+          git log --format='- %s' --cherry-pick --right-only "$BEFORE...HEAD" ^origin/main > "$RUNNER_TEMP/commits.md"
+          git merge-base --is-ancestor "$BEFORE" HEAD || echo "- Rebased onto main" >> "$RUNNER_TEMP/commits.md"
 
           if [ "$MODE" = "owner-review" ]; then
             # Straight back to the owner, without another agent review (review:owner stays set).
@@ -225,14 +266,12 @@ jobs:
               gh pr edit "$PR" --remove-label agent-blocked
             fi
             gh pr edit "$PR" --add-reviewer "$OWNER"
-            git log --format='- %s' "$BEFORE..HEAD" > "$RUNNER_TEMP/commits.md"
             printf '🤖 Addressed the review by @%s ([run](%s)):\n\n%s\n\nPlease review again.\n' \
               "$OWNER" "$run_url" "$(cat "$RUNNER_TEMP/commits.md")" | gh pr comment "$PR" --body-file -
             exit 0
           fi
 
           if [ "$MODE" = "pr" ]; then
-            git log --format='- %s' "$BEFORE..HEAD" > "$RUNNER_TEMP/commits.md"
             printf '🤖 Addressed the review comments ([run](%s)):\n\n%s\n' \
               "$run_url" "$(cat "$RUNNER_TEMP/commits.md")" | gh pr comment "$PR" --body-file -
             exit 0
