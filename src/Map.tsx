@@ -306,7 +306,11 @@ function createPointerHandler(
   onSelected: (coordinates: HexCoordinates) => void,
 ): (pointerInfo: PointerInfo) => void {
   return (pointerInfo: PointerInfo) => {
-    const type = pointerInfo.type;
+    // Babylon sends a second tap within DoubleClickDelay only as POINTERDOUBLETAP
+    const type =
+      pointerInfo.type === PointerEventTypes.POINTERDOUBLETAP
+        ? PointerEventTypes.POINTERTAP
+        : pointerInfo.type;
     if (
       type !== PointerEventTypes.POINTERMOVE &&
       type !== PointerEventTypes.POINTERTAP

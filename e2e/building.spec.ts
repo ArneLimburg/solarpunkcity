@@ -106,6 +106,46 @@ test.describe("touch", () => {
     expect(await buildingAt(page, origin)).toBe("Forest");
     expect(await buildingAt(page, next)).toBe("Forest");
   });
+
+  test("quick taps on two tiles move the ring to the second", async ({
+    page,
+  }) => {
+    await setup(page);
+    const first = await tilePosition(page, origin);
+    const second = await tilePosition(page, next);
+    // send both taps at once so they stay within Babylon's double tap delay
+    await Promise.all([
+      page.touchscreen.tap(first.x, first.y),
+      page.touchscreen.tap(second.x, second.y),
+    ]);
+    await expect.poll(() => ringTile(page)).toEqual(next);
+    expect(await buildingAt(page, origin)).toBe("Forest");
+    expect(await buildingAt(page, next)).toBe("Forest");
+  });
+
+  test("quick double tap builds", async ({ page }) => {
+    await setup(page);
+    const { x, y } = await tilePosition(page, origin);
+    // send both taps at once so they stay within Babylon's double tap delay
+    await Promise.all([page.touchscreen.tap(x, y), page.touchscreen.tap(x, y)]);
+    await expect.poll(() => buildingAt(page, origin)).toBe("OrganicHomestead");
+    expect(
+      await page.evaluate((c) => window.__solarpunk?.getModelCount(c), origin),
+    ).toBe(1);
+  });
+});
+
+test("a double click builds exactly once", async ({ page }) => {
+  await setup(page);
+  const { x, y } = await tilePosition(page, origin);
+  await page.mouse.move(x, y, { steps: 5 });
+  await page.mouse.dblclick(x, y);
+  await expect.poll(() => buildingAt(page, origin)).toBe("OrganicHomestead");
+  const modelCount = () =>
+    page.evaluate((c) => window.__solarpunk?.getModelCount(c), origin);
+  await expect.poll(modelCount).toBe(1);
+  await page.waitForTimeout(1000);
+  expect(await modelCount()).toBe(1);
 });
 
 test("a click builds exactly once", async ({ page }) => {
