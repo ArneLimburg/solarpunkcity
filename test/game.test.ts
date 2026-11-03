@@ -50,7 +50,8 @@ test("homestead lets the population grow", () => {
   );
   const { resources, population } = game.calculateWeek();
   expect(population).toBe(3);
-  expect(resources.wood).toBeCloseTo(10.5);
+  // the homestead uses the labor of the old population, no forest works
+  expect(resources.wood).toBeCloseTo(10);
   expectNoNegative(resources);
 });
 
@@ -199,20 +200,122 @@ test("build without recycling only pays the cost", () => {
     definitions.BuildingDefinition.OrganicHomestead,
   );
   // 10 + 10 (granted) - 4 (cost) + 0.5 (forest)
-  expect(game.calculateWeek().resources.wood).toBeCloseTo(16.5);
+  expect(game.calculateWeek().resources.wood).toBeCloseTo(16);
 });
 
 test("build recycles the old building", () => {
   game.grantResources({ wood: 10 });
   game.build("OrganicHomestead", { q: 1, r: 0 });
-  // 10 + 10 (granted) + 3 (recycling) - 4 (cost) + 0.5 (forest)
-  expect(game.calculateWeek().resources.wood).toBeCloseTo(19.5);
+  // 10 + 10 (granted) + 3 (recycling) - 4 (cost); the homestead takes the labor
+  expect(game.calculateWeek().resources.wood).toBeCloseTo(19);
 });
 
-test("population does not grow without food", () => {
+test("population does not grow when no food remains after eating", () => {
   board.setBuilding(
     { q: 0, r: 0 },
     definitions.BuildingDefinition.AppartmentBuilding,
+  );
+  game.grantResources({ food: -8 }); // exactly what 2 residents eat
+  const { population, resources } = game.calculateWeek();
+  expect(population).toBe(2);
+  expect(resources.food).toBe(0);
+});
+
+test("a fresh game starts with 10 food and a balance of 0", () => {
+  expect(game.INITIAL_RESOURCES.food).toBe(10);
+  expect(game.getState().resources.food).toBe(10);
+  expect(game.getState().foodBalance).toBe(0);
+});
+
+function farm(food: number, labor: number) {
+  const forest = definitions.BuildingDefinition.Forest;
+  return testBuilding({
+    produces: { ...forest.produces, wood: 0, food },
+    consumes: { ...forest.consumes, labor },
+  });
+}
+
+test("residents eat population x 1 food per week", () => {
+  const { resources, foodBalance } = game.calculateWeek();
+  expect(resources.food).toBe(8);
+  expect(foodBalance).toBe(-2);
+});
+
+test("farms produce at full capacity into the stock", () => {
+  board.setBuilding({ q: 0, r: 0 }, farm(5, 1));
+  const { resources, foodBalance } = game.calculateWeek();
+  expect(resources.food).toBe(13); // 10 + 5 - 2
+  expect(foodBalance).toBe(3);
+});
+
+test("farm output depends on the harvest factor", () => {
+  replaceTiles(board.getBuildings().length, testBuilding({ ecology: 0.5 }));
+  board.setBuilding({ q: 0, r: 0 }, { ...farm(4, 1), ecology: 0.5 });
+  const { resources, foodBalance } = game.calculateWeek();
+  expect(resources.food).toBe(10); // 10 + 4 * 0.5 - 2
+  expect(foodBalance).toBe(0);
+});
+
+test("a farm without enough labor does not produce partially", () => {
+  board.setBuilding({ q: 0, r: 0 }, farm(5, 3));
+  expect(game.calculateWeek().resources.food).toBe(8);
+});
+
+test("farms get labor before other buildings", () => {
+  // the forest comes first on the board, but the farm gets the labor
+  board.setBuilding({ q: -30, r: 0 }, definitions.BuildingDefinition.Forest);
+  board.setBuilding({ q: 0, r: 0 }, farm(5, 2));
+  const { resources } = game.calculateWeek();
+  expect(resources.food).toBe(13);
+  expect(resources.wood).toBe(10); // no labor left for forests
+  expect(resources.labor).toBe(0);
+});
+
+test("hunger empties the stock and shrinks the population", () => {
+  game.grantResources({ food: -8.3 }); // 1.7 food for 2 residents
+  const { population, resources, foodBalance } = game.calculateWeek();
+  expect(resources.food).toBe(0);
+  expect(population).toBe(1); // floor(1.7)
+  expect(foodBalance).toBe(-2);
+});
+
+test("hunger shrinks a large population to the floored food", () => {
+  board.setBuilding({ q: 0, r: 0 }, { ...farm(1000, 0), resident: 100 });
+  for (let week = 0; week < 10; week++) {
+    game.calculateWeek();
+  }
+  expect(game.getState().population).toBeGreaterThan(5);
+  board.setBuilding({ q: 0, r: 0 }, testBuilding({ resident: 100 }));
+  game.grantResources({ food: 4.7 - game.getState().resources.food });
+  const result = game.calculateWeek();
+  expect(result.population).toBe(4);
+  expect(result.resources.food).toBe(0);
+});
+
+test("the population never shrinks below 1", () => {
+  game.grantResources({ food: -10 });
+  const { population, resources } = game.calculateWeek();
+  expect(population).toBe(1);
+  expect(resources.food).toBe(0);
+  expect(game.calculateWeek().population).toBe(1);
+});
+
+test("growth is limited by the remaining food stock", () => {
+  board.setBuilding({ q: 0, r: 0 }, testBuilding({ resident: 100 }));
+  game.grantResources({ food: -7.5 }); // 2.5 food, 0.5 left after eating
+  expect(game.calculateWeek().population).toBe(2);
+});
+
+test("growth is limited by housing", () => {
+  board.setBuilding({ q: 0, r: 0 }, testBuilding({ resident: 3 }));
+  expect(game.calculateWeek().population).toBe(3);
+});
+
+test("growth is limited by satisfaction", () => {
+  replaceTiles(board.getBuildings().length, testBuilding({ ecology: 0 }));
+  board.setBuilding(
+    { q: 0, r: 0 },
+    testBuilding({ resident: 100, ecology: 0 }),
   );
   expect(game.calculateWeek().population).toBe(2);
 });
@@ -372,23 +475,6 @@ test("harvest factor is 0.75 at 70 % ecology", () => {
 test("harvest factor is 0.5 at 50 % ecology and below", () => {
   expect(foodCap(0.5)).toBe(6);
   expect(foodCap(0)).toBe(6);
-});
-
-test("labor for food uses the harvest factor", () => {
-  const laborLeft = (ecology: number) => {
-    replaceTiles(board.getBuildings().length, testBuilding({ ecology }));
-    const forest = definitions.BuildingDefinition.Forest;
-    const farm = testBuilding({
-      ecology,
-      produces: { ...forest.produces, wood: 0, food: 2 },
-      consumes: { ...forest.consumes, labor: 1 },
-    });
-    board.setBuilding({ q: 0, r: 0 }, farm);
-    board.setBuilding({ q: 1, r: 0 }, farm);
-    return game.calculateWeek().resources.labor;
-  };
-  expect(laborLeft(1)).toBe(1); // one building produces the 2 food needed
-  expect(laborLeft(0.5)).toBe(0); // both are needed at factor 0.5
 });
 
 test("population growth is scaled by satisfaction", () => {

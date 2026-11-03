@@ -11,13 +11,14 @@ const stockIcons: [keyof Resources, string][] = [
   ["electronics", "memory"],
 ];
 
-const Entry: FC<{ name: string; icon: string; value: string }> = ({
-  name,
-  icon,
-  value,
-}) => (
+const Entry: FC<{
+  name: string;
+  icon: string;
+  value: string;
+  error?: boolean;
+}> = ({ name, icon, value, error }) => (
   <span
-    className="chip no-margin"
+    className={error ? "chip no-margin error" : "chip no-margin"}
     title={name}
     aria-label={name}
     data-testid={`status-${name}`}
@@ -42,6 +43,14 @@ export const StatusBar: FC<{ state: GameState }> = ({ state }) => (
       name="labor"
       icon="engineering"
       value={`${Math.floor(state.resources.labor)}`}
+    />
+    <Entry
+      name="food"
+      icon="restaurant"
+      value={`${Math.floor(state.resources.food)} (${
+        state.foodBalance < 0 ? "−" : "+"
+      }${Math.floor(Math.abs(state.foodBalance))})`}
+      error={state.foodBalance < 0}
     />
     <Entry name="ecology" icon="eco" value={`${Math.floor(state.ecology)} %`} />
     <Entry
