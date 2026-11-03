@@ -1,11 +1,18 @@
 import {
   getBuilding,
   getBuildings,
+  getFootprint,
+  getFootprintRadius,
+  getTileBuildings,
   isOnBoard,
-  setBuilding,
+  placeBuilding,
   type HexCoordinates,
 } from "./board";
-import { BuildingDefinition, type BuildingType } from "./gameDefinitions";
+import {
+  BuildingDefinition,
+  type Building,
+  type BuildingType,
+} from "./gameDefinitions";
 import {
   addResources,
   emptyResources,
@@ -23,16 +30,23 @@ export function canBuild(
   buildingType: BuildingType,
   coords: HexCoordinates,
 ): boolean {
-  if (!isOnBoard(coords)) {
-    return false;
-  }
-  const oldBuilding = getBuilding(coords);
-  if (!oldBuilding?.recycling) {
-    return false; // cannot build on top of existing building without recycling
-  }
   const buildingDefinition = BuildingDefinition[buildingType];
-  const newResources = addResources(currentResources, oldBuilding.recycling);
+  let newResources = currentResources;
+  for (const tile of getFootprintOf(buildingDefinition, coords)) {
+    if (!isOnBoard(tile)) {
+      return false;
+    }
+    const oldBuilding = getBuilding(tile);
+    if (!oldBuilding?.recycling) {
+      return false; // cannot build on top of existing building without recycling
+    }
+    newResources = addResources(newResources, oldBuilding.recycling);
+  }
   return hasEnoughResources(newResources, buildingDefinition.cost);
+}
+
+function getFootprintOf(building: Building, center: HexCoordinates) {
+  return getFootprint(center, getFootprintRadius(building.size));
 }
 
 export function grantResources(resources: Partial<Resources>) {
@@ -43,14 +57,16 @@ export function grantResources(resources: Partial<Resources>) {
 }
 
 export function build(buildingType: BuildingType, coords: HexCoordinates) {
-  const oldBuilding = getBuilding(coords);
   const newBuilding = BuildingDefinition[buildingType];
   let newResources = currentResources;
-  if (oldBuilding && oldBuilding.recycling) {
-    newResources = addResources(newResources, oldBuilding.recycling);
+  for (const tile of getFootprintOf(newBuilding, coords)) {
+    const oldBuilding = getBuilding(tile);
+    if (oldBuilding && oldBuilding.recycling) {
+      newResources = addResources(newResources, oldBuilding.recycling);
+    }
   }
   currentResources = subtractResources(newResources, newBuilding.cost);
-  setBuilding(coords, newBuilding);
+  placeBuilding(coords, newBuilding);
 }
 
 export type GameState = {
@@ -78,7 +94,7 @@ export function calculateWeek(): GameState {
 
 // ecology in percent, derived from the board: 100 % means all tiles are forest
 function getEcology(): number {
-  const buildings = getBuildings();
+  const buildings = getTileBuildings(); // ecology counts per tile
   let sum = 0;
   for (const building of buildings) {
     sum += building.ecology;

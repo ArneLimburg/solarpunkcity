@@ -105,8 +105,30 @@ test("canBuild is true on a recyclable tile when recycling pays for it", () => {
 });
 
 test("canBuild is false when there are not enough resources", () => {
-  // AgroIndustrial costs 20 wood, only 10 + 3 (recycling) are available
+  // AgroIndustrial costs 65 wood, only 7 + 19 * 3 (recycling) are available
+  game.grantResources({ wood: -3 });
   expect(game.canBuild("AgroIndustrial", { q: 0, r: 0 })).toBe(false);
+});
+
+test("canBuild depends on cost minus recycling of the whole footprint", () => {
+  // Farm costs 25 wood, 7 forests recycle 21 wood
+  game.grantResources({ wood: -6 }); // 4 + 21 = 25
+  expect(game.canBuild("Farm", { q: 0, r: 0 })).toBe(true);
+  game.grantResources({ wood: -1 });
+  expect(game.canBuild("Farm", { q: 0, r: 0 })).toBe(false);
+});
+
+test("canBuild is false if the footprint reaches over the board edge", () => {
+  game.grantResources({ wood: 100 });
+  expect(game.canBuild("Farm", { q: 29, r: 0 })).toBe(true);
+  expect(game.canBuild("Farm", { q: 30, r: 0 })).toBe(false);
+});
+
+test("canBuild is false if the footprint overlaps an existing building", () => {
+  game.grantResources({ wood: 100 });
+  board.setBuilding({ q: 2, r: 0 }, testBuilding({}));
+  expect(game.canBuild("Farm", { q: 0, r: 0 })).toBe(true);
+  expect(game.canBuild("Farm", { q: 1, r: 0 })).toBe(false);
 });
 
 test("canBuild is false on an occupied tile without recycling", () => {
@@ -116,18 +138,57 @@ test("canBuild is false on an occupied tile without recycling", () => {
 });
 
 test("grantResources makes a building affordable", () => {
-  game.grantResources({ wood: 7 });
+  game.grantResources({ wood: -4 });
+  expect(game.canBuild("AgroIndustrial", { q: 0, r: 0 })).toBe(false);
+  game.grantResources({ wood: 2 }); // 8 + 57 = 65
   expect(game.canBuild("AgroIndustrial", { q: 0, r: 0 })).toBe(true);
 });
 
-test("build recycles the old building", () => {
-  game.grantResources({ wood: 10 });
+test("Farm costs 25 wood and AgroIndustrial 65 wood", () => {
+  expect(definitions.BuildingDefinition.Farm.cost.wood).toBe(25);
+  expect(definitions.BuildingDefinition.AgroIndustrial.cost.wood).toBe(65);
+});
+
+test("build recycles all footprint tiles of the old buildings", () => {
+  const before = game.getState().resources.wood;
   game.build("Farm", { q: 1, r: 0 });
-  expect(board.getBuilding({ q: 1, r: 0 })).toBe(
-    definitions.BuildingDefinition.Farm,
+  const footprint = board.getFootprint({ q: 1, r: 0 }, 1);
+  expect(footprint.length).toBe(7);
+  for (const tile of footprint) {
+    expect(board.getBuilding(tile)).toBe(definitions.BuildingDefinition.Farm);
+  }
+  expect(game.getState().resources.wood).toBe(before + 7 * 3 - 25);
+});
+
+test("a farm produces and houses once, not once per tile", () => {
+  game.build("Farm", { q: 0, r: 0 });
+  expect(game.getState().housing).toBe(2);
+  expect(board.getBuildings().length).toBe(board.getTileBuildings().length - 6);
+});
+
+test("a large building produces its food once, not once per tile", () => {
+  const forest = definitions.BuildingDefinition.Forest;
+  board.placeBuilding(
+    { q: 0, r: 0 },
+    testBuilding({
+      size: 7,
+      resident: 100,
+      produces: { ...forest.produces, wood: 0, food: 12 },
+    }),
   );
-  // 10 + 10 (granted) + 3 (recycling) - 10 (cost) + 1 (forests)
-  expect(game.calculateWeek().resources.wood).toBeCloseTo(14);
+  let population = 0;
+  for (let week = 0; week < 40; week++) {
+    population = game.calculateWeek().population;
+  }
+  expect(population).toBe(12);
+});
+
+test("ecology counts every footprint tile", () => {
+  game.grantResources({ wood: 100 });
+  const tiles = board.getTileBuildings().length;
+  game.build("AgroIndustrial", { q: 0, r: 0 });
+  const expected = ((tiles - 19 + 19 * -5) / tiles) * 100;
+  expect(game.getState().ecology).toBeCloseTo(expected);
 });
 
 test("build without recycling only pays the cost", () => {
@@ -139,6 +200,13 @@ test("build without recycling only pays the cost", () => {
   );
   // 10 + 10 (granted) - 4 (cost) + 0.5 (forest)
   expect(game.calculateWeek().resources.wood).toBeCloseTo(16.5);
+});
+
+test("build recycles the old building", () => {
+  game.grantResources({ wood: 10 });
+  game.build("OrganicHomestead", { q: 1, r: 0 });
+  // 10 + 10 (granted) + 3 (recycling) - 4 (cost) + 0.5 (forest)
+  expect(game.calculateWeek().resources.wood).toBeCloseTo(19.5);
 });
 
 test("population does not grow without food", () => {

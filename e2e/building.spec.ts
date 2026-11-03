@@ -213,3 +213,61 @@ test("a click builds exactly once", async ({ page }) => {
   await page.waitForTimeout(500);
   expect(await buildingAt(page, next)).toBe("Forest");
 });
+
+test("a residential building keeps the tile material", async ({ page }) => {
+  await page.goto("./");
+  await page.waitForFunction(() => window.__solarpunk !== undefined);
+  await page.evaluate(() => window.__solarpunk?.addResources({ wood: 100 }));
+  const before = await page.evaluate(
+    (c) => window.__solarpunk?.getTileMaterial(c),
+    origin,
+  );
+  await page.getByRole("button", { name: "RESIDENTIAL", exact: true }).click();
+  await page.getByRole("button", { name: "AppartmentBuilding" }).click();
+  const { x, y } = await tilePosition(page, origin);
+  await page.mouse.move(x, y, { steps: 5 });
+  await page.mouse.click(x, y);
+  await expect.poll(() => buildingAt(page, origin)).toBe("AppartmentBuilding");
+  expect(
+    await page.evaluate((c) => window.__solarpunk?.getTileMaterial(c), origin),
+  ).toBe(before);
+});
+
+test("a farm occupies 7 tiles with one model and farmland", async ({
+  page,
+}) => {
+  await page.goto("./");
+  await page.waitForFunction(() => window.__solarpunk !== undefined);
+  await page.evaluate(() => window.__solarpunk?.addResources({ wood: 100 }));
+  await page.getByRole("button", { name: "FARM", exact: true }).click();
+  await page.getByRole("button", { name: "Farm", exact: true }).click();
+
+  const { x, y } = await tilePosition(page, origin);
+  await page.mouse.move(x, y, { steps: 5 });
+  await expect
+    .poll(() => page.evaluate(() => window.__solarpunk?.getRingTiles().length))
+    .toBe(7);
+  await page.mouse.click(x, y);
+
+  const footprint = [
+    origin,
+    { q: 1, r: 0 },
+    { q: -1, r: 0 },
+    { q: 0, r: 1 },
+    { q: 0, r: -1 },
+    { q: 1, r: -1 },
+    { q: -1, r: 1 },
+  ];
+  const modelCount = (c: { q: number; r: number }) =>
+    page.evaluate((t) => window.__solarpunk?.getModelCount(t), c);
+  for (const tile of footprint) {
+    await expect.poll(() => buildingAt(page, tile)).toBe("Farm");
+    expect(
+      await page.evaluate((c) => window.__solarpunk?.getTileMaterial(c), tile),
+    ).toBe("farmland");
+  }
+  await expect.poll(() => modelCount(origin)).toBe(1);
+  for (const tile of footprint.slice(1)) {
+    expect(await modelCount(tile)).toBe(0);
+  }
+});
