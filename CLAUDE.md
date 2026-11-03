@@ -11,7 +11,10 @@ Deployed to GitHub Pages at https://arnelimburg.github.io/solarpunkcity/ on ever
 - Vitest for unit tests in `test/` (mirrors `src/`, e.g. `test/resources.test.ts`); tests import
   `test`, `expect`, `vi` explicitly from `vitest`; `npm test` enforces 100 % coverage of
   `src/**/*.ts` (v8, no ignore comments)
-- Playwright (`@playwright/test`, Chromium only) for e2e smoke tests in `e2e/`
+- Playwright (`@playwright/test`, Chromium only) for e2e smoke tests in `e2e/`; specs import
+  `test`/`expect` from `e2e/fixtures.ts`, which collects V8 coverage; `npm run test:e2e` enforces
+  per file 100 % functions and 95 % statements, branches and lines of `src/**/*.tsx`
+  (monocart-coverage-reports, report in `coverage/e2e/`)
 
 ## Commands
 
@@ -24,7 +27,8 @@ Deployed to GitHub Pages at https://arnelimburg.github.io/solarpunkcity/ on ever
 - `npm test` – unit tests once with coverage (`vitest run --coverage`); fails below 100 %
   statements, branches, functions and lines of `src/**/*.ts` (`.tsx` is excluded)
 - `npm run test:watch` – unit tests in watch mode
-- `npm run test:e2e` – Playwright smoke tests (starts the dev server itself, CI runs this)
+- `npm run test:e2e` – Playwright smoke tests (starts the dev server itself, CI runs this);
+  fails if the e2e coverage of `src/**/*.tsx` is below the thresholds
 
 Always run `npm run lint`, `npm run build` and `npm test` before considering a change done.
 

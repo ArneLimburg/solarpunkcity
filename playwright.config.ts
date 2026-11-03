@@ -4,6 +4,7 @@ const baseURL = "http://localhost:5173/solarpunkcity/";
 
 export default defineConfig({
   testDir: "./e2e",
+  globalTeardown: "./e2e/global-teardown.ts",
   reporter: process.env.CI ? [["github"], ["html", { open: "never" }]] : "list",
   use: {
     baseURL,
