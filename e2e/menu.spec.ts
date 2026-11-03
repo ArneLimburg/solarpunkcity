@@ -96,6 +96,26 @@ test("Escape clears the selection", async ({ page }) => {
   expect(await buildingAt(page, origin)).toBe("Forest");
 });
 
+test("all menu icons load and the farm types differ", async ({ page }) => {
+  await setup(page);
+  await button(page, "FARM").click();
+  const images = page.locator("header img");
+  await expect(images).toHaveCount(5);
+  await expect
+    .poll(() =>
+      images.evaluateAll((imgs) =>
+        imgs.every((img) => (img as HTMLImageElement).naturalWidth > 0),
+      ),
+    )
+    .toBe(true);
+  const sources = await Promise.all(
+    ["OrganicHomestead", "Farm", "AgroIndustrial"].map((name) =>
+      button(page, name).locator("img").getAttribute("src"),
+    ),
+  );
+  expect(new Set(sources).size).toBe(3);
+});
+
 test("a click on the selected type clears the selection", async ({ page }) => {
   await setup(page);
   await selectHomestead(page);
