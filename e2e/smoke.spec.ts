@@ -48,6 +48,8 @@ test("status bar shows population", async ({ page }) => {
 });
 
 test("status bar shows the food stock and balance", async ({ page }) => {
+  // freeze timers so that no week is calculated before the initial state is checked
+  await page.clock.install();
   await page.goto("./");
   const food = page.getByTestId("status-food");
   await expect(food).toHaveText(/^restaurant10 \(\+0\)$/);
