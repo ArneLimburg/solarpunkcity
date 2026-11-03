@@ -190,3 +190,19 @@ test("labor is not stockpiled", () => {
   expect(resources.labor).toBe(0);
   expectNoNegative(resources);
 });
+
+test("getState returns the current values", () => {
+  const state = game.getState();
+  expect(state.population).toBe(2);
+  expect(state.housing).toBe(0);
+  expect(state.resources.wood).toBe(0);
+});
+
+test("getState reflects a build", () => {
+  game.grantResources({ wood: 100 });
+  const before = game.getState();
+  game.build("AppartmentBuilding", { q: 0, r: 0 });
+  const after = game.getState();
+  expect(after.resources.wood).toBeLessThan(before.resources.wood);
+  expect(after.housing).toBeGreaterThan(before.housing);
+});

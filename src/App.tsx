@@ -8,37 +8,17 @@ import {
   type BuildingType,
   type Model,
 } from "./gameDefinitions";
-import { build, calculateWeek, canBuild, INITIAL_POPULATION } from "./game";
-import { emptyResources } from "./resources";
+import { build, calculateWeek, canBuild, getState } from "./game";
+import { StatusBar } from "./StatusBar";
 
 export const App: FC = () => {
-  const [currentPopulation, setCurrentPopulation] =
-    useState(INITIAL_POPULATION);
-  const [currentResources, setCurrentResources] = useState({
-    ...emptyResources,
-  });
+  const [state, setState] = useState(getState);
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      const { resources, population } = calculateWeek();
-      setCurrentResources({ ...resources });
-      setCurrentPopulation(population);
-    }, 1000);
+    const interval = setInterval(() => setState(calculateWeek()), 1000);
 
     return () => clearInterval(interval);
   }, []);
-
-  useEffect(() => {
-    console.log(`population: ${currentPopulation}`);
-  }, [currentPopulation]);
-
-  useEffect(() => {
-    for (const [key, value] of Object.entries(currentResources)) {
-      if (value > 0) {
-        console.log(`${key}: ${value}`);
-      }
-    }
-  }, [currentResources]);
 
   const mapRef = useRef<{
     addBuilding: (coords: HexCoordinates, model: Model) => void;
@@ -57,6 +37,7 @@ export const App: FC = () => {
       const type = selectedBuildingTypeRef.current;
       if (type && canBuild(type, coords)) {
         build(type, coords);
+        setState(getState());
         mapRef.current?.addBuilding(coords, BuildingTypes[type].model);
         selectBuildingType(undefined);
       }
@@ -69,6 +50,7 @@ export const App: FC = () => {
       <main className="no-padding py-1">
         <Map ref={mapRef} onSelected={mapSelectionListener} />
       </main>
+      <StatusBar state={state} />
     </>
   );
 };

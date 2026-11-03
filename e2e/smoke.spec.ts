@@ -40,3 +40,9 @@ test("category opens building list", async ({ page }) => {
   );
   await expect(page.locator("nav.list > button")).toHaveCount(expected.length);
 });
+
+test("status bar shows population", async ({ page }) => {
+  await page.goto("./");
+  await expect(page.getByTestId("status-bar")).toBeVisible();
+  await expect(page.getByTestId("status-population")).toContainText("2");
+});

@@ -52,9 +52,23 @@ export function build(buildingType: BuildingType, coords: HexCoordinates) {
   setBuilding(coords, newBuilding);
 }
 
-export function calculateWeek(): { resources: Resources; population: number } {
+export type GameState = {
+  resources: Resources;
+  population: number;
+  housing: number;
+};
+
+export function getState(): GameState {
+  return {
+    resources: { ...currentResources },
+    population: currentPopulation,
+    housing: getAvailableHousing(),
+  };
+}
+
+export function calculateWeek(): GameState {
   calculateDevelopment();
-  return { resources: currentResources, population: currentPopulation };
+  return getState();
 }
 
 function getAvailableHousing(): number {
