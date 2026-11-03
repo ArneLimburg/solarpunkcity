@@ -43,9 +43,11 @@ Always run `npm run lint`, `npm run build` and `npm test` before considering a c
   (population growth, food, labor, other production)
 - `src/App.tsx` – wires game tick (1 s interval), menu and map
 - `src/Map.tsx` – Babylon scene: camera, skybox, hex tiles, picking, placing models
-- `src/ModelLoader.ts` – glTF loading with an `AssetContainer` cache
+- `src/farms.ts`, `src/apartment.ts`, `src/farmGeometry.ts`, `src/FarmRenderer.ts` – building
+  models built from code (layout, geometry, instanced rendering)
+- `src/forest.ts`, `src/ForestRenderer.ts` – procedural forest with thin instances
 - `src/Menu.tsx` – building selection app bar
-- `public/` – icons, `.glb` models, skybox; referenced by relative paths
+- `public/` – icons, skybox; referenced by relative paths
 
 Game state currently lives in module-level variables in `board.ts` and `game.ts`.
 
@@ -59,14 +61,12 @@ Game state currently lives in module-level variables in `board.ts` and `game.ts`
 - Use `type` imports (`verbatimModuleSyntax` is on).
 - Commit messages follow Conventional Commits (`feat:`, `fix:`, `chore:` …).
 - Work on a branch and open a pull request against `main`; never push to `main` directly.
-- 3D models are large; do not add new `.glb` files without asking.
-- Model budget (`.glb` and models built from code):
+- 3D models are built from code; there are no `.glb` files, do not add any.
+- Model budget:
   - at most 1,000 triangles per footprint tile (size 1: 1,000, size 7: 7,000, size 19: 19,000)
   - geometry is created once per building type and reused for every placement (instances or
     thin instances)
   - at most 3 draw calls per building type (e.g. opaque, transparent, one special material)
-  - `.glb` only: at most 1 MB per file, geometry compressed (Meshopt or Draco), textures as
-    WebP or KTX2
 
 ## Agent workflow
 
