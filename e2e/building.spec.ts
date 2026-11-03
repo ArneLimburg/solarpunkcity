@@ -290,3 +290,41 @@ test("building replaces the trees of a tile with one model", async ({
   expect(await treeCount(origin)).toBe(0);
   expect(await treeCount(next)).toBe(3);
 });
+
+const FARM_BUDGETS = [
+  { type: "OrganicHomestead", budget: 1000 },
+  { type: "Farm", budget: 3000 },
+  { type: "AgroIndustrial", budget: 8000 },
+];
+
+for (const { type, budget } of FARM_BUDGETS) {
+  test(`a ${type} is one low-poly model within its triangle budget`, async ({
+    page,
+  }) => {
+    const glbRequests: string[] = [];
+    page.on("request", (request) => {
+      if (request.url().endsWith(".glb")) {
+        glbRequests.push(request.url());
+      }
+    });
+    await page.goto("./");
+    await page.waitForFunction(() => window.__solarpunk !== undefined);
+    await page.evaluate(() => window.__solarpunk?.addResources({ wood: 100 }));
+    await page.getByRole("button", { name: "FARM", exact: true }).click();
+    await page.getByRole("button", { name: type, exact: true }).click();
+    const { x, y } = await tilePosition(page, origin);
+    await page.mouse.move(x, y, { steps: 5 });
+    await page.mouse.click(x, y);
+    await expect.poll(() => buildingAt(page, origin)).toBe(type);
+
+    const modelCount = () =>
+      page.evaluate((c) => window.__solarpunk?.getModelCount(c), origin);
+    const triangles = (tile: { q: number; r: number }) =>
+      page.evaluate((c) => window.__solarpunk?.getModelTriangleCount(c), tile);
+    await expect.poll(modelCount).toBe(1);
+    expect(await triangles(origin)).toBeGreaterThan(0);
+    expect(await triangles(origin)).toBeLessThanOrEqual(budget);
+    expect(await triangles({ q: 5, r: 5 })).toBe(0);
+    expect(glbRequests.filter((url) => url.includes("farm"))).toEqual([]);
+  });
+}
