@@ -15,6 +15,8 @@ export const FarmPalette = {
   glass: [0.7, 0.9, 0.95],
   solar: [0.1, 0.18, 0.45],
   concrete: [0.8, 0.8, 0.78],
+  ochre: [0.8, 0.6, 0.28],
+  darkGlass: [0.12, 0.18, 0.22],
 } as const satisfies Record<string, readonly [number, number, number]>;
 export type PaletteColor = keyof typeof FarmPalette;
 
@@ -43,7 +45,7 @@ const FARM_TYPES: readonly BuildingType[] = [
   "AgroIndustrial",
 ];
 
-// farm models are built from code, other buildings use a .glb file
+// farm models are built from code like the apartment building
 export function isFarmType(type: BuildingType): type is FarmType {
   return FARM_TYPES.includes(type);
 }
@@ -57,7 +59,7 @@ export function rotateY({ x, z }: Offset, angle: number): Offset {
   return { x: x * cos + z * sin, z: -x * sin + z * cos };
 }
 
-function part(
+export function part(
   shape: PartShape,
   color: PaletteColor,
   [x, y, z]: [number, number, number],
@@ -102,11 +104,16 @@ function vegetableBeds(): FarmPart[] {
   ]);
 }
 
-function fruitTree(): FarmPart[] {
+// small deciduous tree: trunk and round crown, y is the foot of the trunk
+export function deciduousTree(x: number, y: number, z: number): FarmPart[] {
   return [
-    part("cylinder", "wood", [0.5, 0.1, -0.2], [0.06, 0.2, 0.06]),
-    part("sphere", "plant", [0.5, 0.3, -0.2], [0.3, 0.3, 0.3]),
+    part("cylinder", "wood", [x, y + 0.1, z], [0.06, 0.2, 0.06]),
+    part("sphere", "plant", [x, y + 0.3, z], [0.3, 0.3, 0.3]),
   ];
+}
+
+function fruitTree(): FarmPart[] {
+  return deciduousTree(0.5, 0, -0.2);
 }
 
 function barnAndSilo(): FarmPart[] {

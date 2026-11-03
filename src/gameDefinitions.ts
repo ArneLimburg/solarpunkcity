@@ -1,6 +1,5 @@
 import { emptyResources, type Resources } from "./resources";
 
-export type Model = string;
 export type BuildableCategory = {
   name: string;
   buildable: true;
@@ -43,7 +42,6 @@ export const BuildingTypes = {
   AppartmentBuilding: {
     category: "RESIDENTIAL",
     icon: "residential/appartment-building.svg",
-    model: "residential/residential.glb",
   },
   Forest: {
     category: "FOREST",
@@ -51,7 +49,7 @@ export const BuildingTypes = {
   },
 } as const satisfies Record<
   string,
-  { category: BuildingCategory; icon: string; model?: Model }
+  { category: BuildingCategory; icon: string }
 >;
 export type BuildingType = keyof typeof BuildingTypes;
 export type Building = {

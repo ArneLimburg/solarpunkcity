@@ -301,12 +301,6 @@ for (const { type, budget } of FARM_BUDGETS) {
   test(`a ${type} is one low-poly model within its triangle budget`, async ({
     page,
   }) => {
-    const glbRequests: string[] = [];
-    page.on("request", (request) => {
-      if (request.url().endsWith(".glb")) {
-        glbRequests.push(request.url());
-      }
-    });
     await page.goto("./");
     await page.waitForFunction(() => window.__solarpunk !== undefined);
     await page.evaluate(() => window.__solarpunk?.addResources({ wood: 100 }));
@@ -325,6 +319,60 @@ for (const { type, budget } of FARM_BUDGETS) {
     expect(await triangles(origin)).toBeGreaterThan(0);
     expect(await triangles(origin)).toBeLessThanOrEqual(budget);
     expect(await triangles({ q: 5, r: 5 })).toBe(0);
-    expect(glbRequests.filter((url) => url.includes("farm"))).toEqual([]);
   });
 }
+
+async function buildAtOrigin(page: Page, category: string, type: string) {
+  await page.goto("./");
+  await page.waitForFunction(() => window.__solarpunk !== undefined);
+  await page.evaluate(() => window.__solarpunk?.addResources({ wood: 1000 }));
+  await page.getByRole("button", { name: category, exact: true }).click();
+  await page.getByRole("button", { name: type, exact: true }).click();
+  const { x, y } = await tilePosition(page, origin);
+  await page.mouse.move(x, y, { steps: 5 });
+  await page.mouse.click(x, y);
+  await expect.poll(() => buildingAt(page, origin)).toBe(type);
+}
+
+test("an apartment building is one low-poly model within budget", async ({
+  page,
+}) => {
+  await buildAtOrigin(page, "RESIDENTIAL", "AppartmentBuilding");
+  const modelCount = () =>
+    page.evaluate((c) => window.__solarpunk?.getModelCount(c), origin);
+  await expect.poll(modelCount).toBe(1);
+  const triangles = await page.evaluate(
+    (c) => window.__solarpunk?.getModelTriangleCount(c),
+    origin,
+  );
+  expect(triangles).toBeGreaterThan(0);
+  expect(triangles).toBeLessThanOrEqual(1000);
+});
+
+const BUILDABLE = [
+  { category: "FARM", type: "OrganicHomestead", size: 1 },
+  { category: "FARM", type: "Farm", size: 7 },
+  { category: "FARM", type: "AgroIndustrial", size: 19 },
+  { category: "RESIDENTIAL", type: "AppartmentBuilding", size: 1 },
+];
+
+test("every buildable type stays within 1,000 triangles per tile", async ({
+  page,
+}) => {
+  for (const { category, type, size } of BUILDABLE) {
+    await buildAtOrigin(page, category, type);
+    await expect
+      .poll(() =>
+        page.evaluate(
+          (c) => window.__solarpunk?.getModelTriangleCount(c),
+          origin,
+        ),
+      )
+      .toBeGreaterThan(0);
+    const triangles = await page.evaluate(
+      (c) => window.__solarpunk?.getModelTriangleCount(c),
+      origin,
+    );
+    expect(triangles).toBeLessThanOrEqual(1000 * size);
+  }
+});
