@@ -41,7 +41,7 @@ test.describe("mouse", () => {
     const to = await tilePosition(page, east);
     await page.mouse.move(from.x, from.y);
     await page.mouse.down();
-    await page.mouse.move(to.x, to.y, { steps: 10 });
+    await page.mouse.move(to.x, to.y, { steps: 5 });
     await page.mouse.up();
     // wait longer than Babylon's double tap detection
     await page.waitForTimeout(500);
