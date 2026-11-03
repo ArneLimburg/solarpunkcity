@@ -8,5 +8,12 @@ export default defineConfig({
   test: {
     include: ["test/**/*.test.ts"],
     environment: "node",
+    coverage: {
+      provider: "v8",
+      include: ["src/**/*.ts"],
+      exclude: ["src/**/*.d.ts"],
+      reportsDirectory: "coverage",
+      thresholds: { 100: true },
+    },
   },
 });

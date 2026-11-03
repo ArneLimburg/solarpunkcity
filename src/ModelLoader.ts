@@ -3,6 +3,7 @@ import {
   type AssetContainer,
   LoadAssetContainerAsync,
   AbstractMesh,
+  type Node,
   Vector3,
 } from "@babylonjs/core";
 import { registerBuiltInLoaders } from "@babylonjs/loaders/dynamic";
@@ -51,14 +52,7 @@ export async function loadCachedModel(
       (name) => `${name}_clone`,
       true,
     );
-    if (position) {
-      instance.rootNodes.forEach((node) => {
-        const mesh = node as AbstractMesh;
-        if (mesh.position) {
-          mesh.position.set(position.x, position.y, position.z);
-        }
-      });
-    }
+    positionRootNodes(instance.rootNodes, position);
     return instance;
   }
 
@@ -69,13 +63,18 @@ export async function loadCachedModel(
     (name) => `${name}_instance`,
     true,
   );
-  if (position) {
-    instance.rootNodes.forEach((node) => {
-      const mesh = node as AbstractMesh;
-      if (mesh.position) {
-        mesh.position.set(position.x, position.y, position.z);
-      }
-    });
-  }
+  positionRootNodes(instance.rootNodes, position);
   return instance;
+}
+
+function positionRootNodes(rootNodes: Node[], position?: Vector3) {
+  if (!position) {
+    return;
+  }
+  rootNodes.forEach((node) => {
+    const mesh = node as AbstractMesh;
+    if (mesh.position) {
+      mesh.position.set(position.x, position.y, position.z);
+    }
+  });
 }

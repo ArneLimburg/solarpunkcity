@@ -20,6 +20,7 @@ function testBuilding(overrides: Partial<Building>): Building {
     name: "Test",
     produces: { ...definitions.BuildingDefinition.Forest.produces, wood: 0 },
     consumes: { ...definitions.BuildingDefinition.Forest.consumes, labor: 0 },
+    recycling: undefined,
     ...overrides,
   };
 }
@@ -93,6 +94,77 @@ test("a building that cannot produce is skipped, the loop continues", () => {
   const { resources } = game.calculateWeek();
   expect(resources.wood).toBeCloseTo(0.4);
   expectNoNegative(resources);
+});
+
+test("canBuild is true on a recyclable tile when recycling pays for it", () => {
+  // OrganicHomestead costs 4 wood, the forest recycles 7 wood
+  expect(game.canBuild("OrganicHomestead", { q: 0, r: 0 })).toBe(true);
+});
+
+test("canBuild is false when there are not enough resources", () => {
+  // Farm costs 10 wood, the forest recycles only 7 wood
+  expect(game.canBuild("Farm", { q: 0, r: 0 })).toBe(false);
+});
+
+test("canBuild is false on an occupied tile without recycling", () => {
+  board.setBuilding({ q: 0, r: 0 }, testBuilding({}));
+  game.grantResources({ wood: 100 });
+  expect(game.canBuild("OrganicHomestead", { q: 0, r: 0 })).toBe(false);
+});
+
+test("grantResources makes a building affordable", () => {
+  game.grantResources({ wood: 3 });
+  expect(game.canBuild("Farm", { q: 0, r: 0 })).toBe(true);
+});
+
+test("build recycles the old building", () => {
+  game.grantResources({ wood: 10 });
+  game.build("Farm", { q: 1, r: 0 });
+  expect(board.getBuilding({ q: 1, r: 0 })).toBe(
+    definitions.BuildingDefinition.Farm,
+  );
+  // 10 + 7 (recycling) - 10 (cost) + 0.4 (forests)
+  expect(game.calculateWeek().resources.wood).toBeCloseTo(7.4);
+});
+
+test("build without recycling only pays the cost", () => {
+  board.setBuilding({ q: 1, r: 0 }, testBuilding({}));
+  game.grantResources({ wood: 10 });
+  game.build("OrganicHomestead", { q: 1, r: 0 });
+  expect(board.getBuilding({ q: 1, r: 0 })).toBe(
+    definitions.BuildingDefinition.OrganicHomestead,
+  );
+  // 10 - 4 (cost) + 0.2 (forest)
+  expect(game.calculateWeek().resources.wood).toBeCloseTo(6.2);
+});
+
+test("population does not grow without food", () => {
+  board.setBuilding(
+    { q: 0, r: 0 },
+    definitions.BuildingDefinition.AppartmentBuilding,
+  );
+  expect(game.calculateWeek().population).toBe(2);
+});
+
+function simulate(resident: number, food: number): number {
+  const forest = definitions.BuildingDefinition.Forest;
+  board.setBuilding(
+    { q: 0, r: 0 },
+    testBuilding({ resident, produces: { ...forest.produces, food } }),
+  );
+  let population = 0;
+  for (let week = 0; week < 40; week++) {
+    population = game.calculateWeek().population;
+  }
+  return population;
+}
+
+test("population growth is capped by housing", () => {
+  expect(simulate(12, 100)).toBe(12);
+});
+
+test("population growth is capped by food", () => {
+  expect(simulate(100, 12)).toBe(12);
 });
 
 test("labor is not stockpiled", () => {

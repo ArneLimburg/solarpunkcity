@@ -1,5 +1,11 @@
 import { describe, expect, test } from "vitest";
-import { getBuildings, isOnBoard } from "../src/board";
+import {
+  getBuilding,
+  getBuildings,
+  isOnBoard,
+  setBuilding,
+} from "../src/board";
+import { BuildingDefinition } from "../src/gameDefinitions";
 
 describe("isOnBoard", () => {
   test.each([
@@ -18,6 +24,14 @@ describe("isOnBoard", () => {
   ])("is false for %o", (coords) => {
     expect(isOnBoard(coords)).toBe(false);
   });
+});
+
+test("getBuilding and setBuilding", () => {
+  const location = { q: 2, r: -1 };
+  expect(getBuilding(location)).toBe(BuildingDefinition.Forest);
+  setBuilding(location, BuildingDefinition.Farm);
+  expect(getBuilding(location)).toBe(BuildingDefinition.Farm);
+  expect(getBuilding({ q: 99, r: 99 })).toBeUndefined();
 });
 
 test("board has 2791 tiles", () => {
