@@ -2,12 +2,8 @@ import "beercss/dist/cdn/beer.min.css";
 import { useCallback, useEffect, useRef, useState, type FC } from "react";
 import { Map } from "./Map";
 import { Menu } from "./Menu";
-import { type HexCoordinates } from "./board";
-import {
-  BuildingTypes,
-  type BuildingType,
-  type Model,
-} from "./gameDefinitions";
+import { getFootprintRadius, type HexCoordinates } from "./board";
+import { BuildingDefinition, type BuildingType } from "./gameDefinitions";
 import { build, calculateWeek, canBuild, getState } from "./game";
 import { StatusBar } from "./StatusBar";
 
@@ -21,7 +17,7 @@ export const App: FC = () => {
   }, []);
 
   const mapRef = useRef<{
-    addBuilding: (coords: HexCoordinates, model: Model) => void;
+    addBuilding: (coords: HexCoordinates, type: BuildingType) => void;
   } | null>(null);
   const [selectedBuildingType, setSelectedBuildingType] = useState<
     BuildingType | undefined
@@ -38,7 +34,7 @@ export const App: FC = () => {
       if (type && canBuild(type, coords)) {
         build(type, coords);
         setState(getState());
-        mapRef.current?.addBuilding(coords, BuildingTypes[type].model);
+        mapRef.current?.addBuilding(coords, type);
         selectBuildingType(undefined);
       }
     },
@@ -48,7 +44,17 @@ export const App: FC = () => {
     <>
       <Menu selected={selectedBuildingType} onSelect={selectBuildingType} />
       <main className="no-padding py-1">
-        <Map ref={mapRef} onSelected={mapSelectionListener} />
+        <Map
+          ref={mapRef}
+          onSelected={mapSelectionListener}
+          previewRadius={
+            selectedBuildingType
+              ? getFootprintRadius(
+                  BuildingDefinition[selectedBuildingType].size,
+                )
+              : 0
+          }
+        />
       </main>
       <StatusBar state={state} />
     </>

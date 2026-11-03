@@ -15,39 +15,79 @@ import {
   Observer,
   CubeTexture,
   Texture,
+  TransformNode,
 } from "@babylonjs/core";
 import "@babylonjs/loaders"; // ensures loaders are initialized (if you later import models)
 import {
   GRID_RADIUS,
   getBuilding,
+  getFootprint,
+  getFootprintRadius,
   isOnBoard,
   type HexCoordinates,
 } from "./board";
 import { grantResources } from "./game";
-import type { Model } from "./gameDefinitions";
+import {
+  BuildingDefinition,
+  BuildingTypes,
+  type BuildingType,
+} from "./gameDefinitions";
 import { loadCachedModel, preloadModels } from "./ModelLoader";
 
 const HEX_SIZE = 1; // side length of hex (in scene units)
 
+const FARMLAND_COLOR = new Color3(0.55, 0.45, 0.3);
+
+// uniform scale of a building model: it covers 2 * radius + 1 tiles in a row
+function getModelScale(radius: number): number {
+  return 2 * radius + 1;
+}
+
+const tileKey = (coords: HexCoordinates) => `${coords.q},${coords.r}`;
+
 export const Map = forwardRef<
-  { addBuilding: (coords: HexCoordinates, model: Model) => void },
-  { onSelected: (coordinates: HexCoordinates) => void }
->(({ onSelected }, ref) => {
+  { addBuilding: (coords: HexCoordinates, type: BuildingType) => void },
+  {
+    onSelected: (coordinates: HexCoordinates) => void;
+    // footprint radius of the selected building type, 0 without selection
+    previewRadius: number;
+  }
+>(({ onSelected, previewRadius }, ref) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const engineRef = useRef<Engine | null>(null);
   const sceneRef = useRef<Scene | null>(null);
   // number of placed building models per tile ("q,r"), used by the e2e tests
   const modelCountsRef = useRef<Record<string, number>>({});
 
+  // hex meshes per tile ("q,r") and the farmland material
+  const tileMeshesRef = useRef<Record<string, Mesh>>({});
+  const farmlandRef = useRef<StandardMaterial | null>(null);
+  // mirrors the prop so that the stable pointer handler can read it
+  const previewRadiusRef = useRef(previewRadius);
+  previewRadiusRef.current = previewRadius;
+
   useImperativeHandle(ref, () => ({
-    addBuilding: (coords: HexCoordinates, model: Model) => {
+    addBuilding: (coords: HexCoordinates, type: BuildingType) => {
+      const radius = getFootprintRadius(BuildingDefinition[type].size);
       const position = hexToPixel(coords.q, coords.r);
       position.y += 0.1;
-      loadModel(model, sceneRef.current!, position).then(() => {
-        const key = `${coords.q},${coords.r}`;
-        const counts = modelCountsRef.current;
-        counts[key] = (counts[key] ?? 0) + 1;
-      });
+      const farmland =
+        BuildingTypes[type].category === "FARM"
+          ? getFootprint(coords, radius)
+          : [];
+      for (const tile of farmland) {
+        tileMeshesRef.current[tileKey(tile)].material = farmlandRef.current;
+      }
+      loadModel(BuildingTypes[type].model, sceneRef.current!, position).then(
+        (instance) => {
+          for (const node of instance.rootNodes) {
+            (node as TransformNode).scaling.scaleInPlace(getModelScale(radius));
+          }
+          const key = tileKey(coords);
+          const counts = modelCountsRef.current;
+          counts[key] = (counts[key] ?? 0) + 1;
+        },
+      );
     },
   }));
 
@@ -89,6 +129,7 @@ export const Map = forwardRef<
       new Color3(0.5, 0.7, 0.9),
       scene,
     );
+    farmlandRef.current = makeMaterial("farmland", FARMLAND_COLOR, scene);
     const highlightMaterial = makeMaterial(
       "hexHighlight",
       Color3.Black(),
@@ -121,6 +162,7 @@ export const Map = forwardRef<
             useAlt ? altMaterial : baseMaterial,
           );
           hexMeshes.push(hex);
+          tileMeshesRef.current[tileKey({ q, r })] = hex;
         }
       }
     }
@@ -138,7 +180,12 @@ export const Map = forwardRef<
     const ring = createRing(selectedMesh);
 
     const pointerObserver = scene.onPointerObservable.add(
-      createPointerHandler(scene, ring, onSelected),
+      createPointerHandler(
+        scene,
+        ring,
+        onSelected,
+        () => previewRadiusRef.current,
+      ),
     );
     const hideOnLeave = (event: PointerEvent) => {
       // a touch pointer always leaves the canvas after the finger is lifted
@@ -178,6 +225,9 @@ export const Map = forwardRef<
         },
         getBuildingType: (coords) => getBuilding(coords)?.type,
         getRingTile: () => ring.tile,
+        getRingTiles: () => [...ring.tiles],
+        getTileMaterial: (coords) =>
+          tileMeshesRef.current[tileKey(coords)].material!.name,
         getModelCount: (coords) =>
           modelCountsRef.current[`${coords.q},${coords.r}`] ?? 0,
         addResources: grantResources,
@@ -236,7 +286,7 @@ function makeMaterial(name: string, color: Color3, scene: Scene) {
   return m;
 }
 
-async function loadModel(model: Model, scene: Scene, position: Vector3) {
+async function loadModel(model: string, scene: Scene, position: Vector3) {
   const instance = await loadCachedModel(model, scene, position);
   return instance;
 }
@@ -270,23 +320,34 @@ function createHexTile(
 }
 
 type Ring = {
-  tile: HexCoordinates | null;
-  show: (coordinates: HexCoordinates) => void;
+  tile: HexCoordinates | null; // the hovered center tile
+  tiles: HexCoordinates[]; // all tiles with a ring (footprint on the board)
+  show: (coordinates: HexCoordinates, radius: number) => void;
   hide: () => void;
 };
 
 function createRing(mesh: Mesh): Ring {
   mesh.setEnabled(false);
+  const meshes = [mesh]; // one ring mesh per footprint tile, created on demand
   const ring: Ring = {
     tile: null,
-    show: (coordinates) => {
-      const center = hexToPixel(coordinates.q, coordinates.r);
-      mesh.position.set(center.x, 0.1, center.z);
-      mesh.setEnabled(true);
+    tiles: [],
+    show: (coordinates, radius) => {
+      const tiles = getFootprint(coordinates, radius).filter(isOnBoard);
+      while (meshes.length < tiles.length) {
+        meshes.push(mesh.clone(`ring_${meshes.length}`));
+      }
+      meshes.forEach((ringMesh, i) => ringMesh.setEnabled(i < tiles.length));
+      tiles.forEach((tile, i) => {
+        const center = hexToPixel(tile.q, tile.r);
+        meshes[i].position.set(center.x, 0.1, center.z);
+      });
+      ring.tiles = tiles;
       ring.tile = { q: coordinates.q, r: coordinates.r };
     },
     hide: () => {
-      mesh.setEnabled(false);
+      meshes.forEach((ringMesh) => ringMesh.setEnabled(false));
+      ring.tiles = [];
       ring.tile = null;
     },
   };
@@ -297,6 +358,7 @@ function createPointerHandler(
   scene: Scene,
   ring: Ring,
   onSelected: (coordinates: HexCoordinates) => void,
+  getRadius: () => number,
 ): (pointerInfo: PointerInfo) => void {
   return (pointerInfo: PointerInfo) => {
     // Babylon sends a second tap within DoubleClickDelay only as POINTERDOUBLETAP
@@ -334,13 +396,13 @@ function createPointerHandler(
     }
 
     if (type === PointerEventTypes.POINTERMOVE) {
-      ring.show(coordinates);
+      ring.show(coordinates, getRadius());
       return;
     }
 
     const ringIsHere =
       ring.tile?.q === coordinates.q && ring.tile?.r === coordinates.r;
-    ring.show(coordinates);
+    ring.show(coordinates, getRadius());
     if (!isTouch || ringIsHere) {
       onSelected(coordinates);
     }
