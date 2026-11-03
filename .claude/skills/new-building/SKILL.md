@@ -12,7 +12,9 @@ Arguments: the building's name and, optionally, its purpose, category and number
    `buildable: true` and an icon under `public/<category>/`.
 3. Add an entry to `BuildingTypes` (`category`, `icon`, `model`). Reuse an existing icon and
    `.glb` model if no new asset was provided — never invent paths to files that do not exist
-   in `public/`.
+   in `public/`. A new model, `.glb` or built from code, must stay within the model budget in
+   `CLAUDE.md` (triangles per footprint tile, reused geometry, draw calls); state its triangle
+   count in your summary.
 4. Add the matching entry to `BuildingDefinition` with `name`, `type`, `description`, `size`,
    `resident`, `cost`, `produces`, `consumes` and optional `recycling`. Spread
    `...emptyResources` into every `Resources` value.
