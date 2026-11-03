@@ -47,6 +47,23 @@ test("status bar shows population", async ({ page }) => {
   await expect(page.getByTestId("status-population")).toContainText("2");
 });
 
+test("status bar shows the food stock and balance", async ({ page }) => {
+  await page.goto("./");
+  const food = page.getByTestId("status-food");
+  await expect(food).toHaveText(/^restaurant10 \(\+0\)$/);
+  await expect(food).not.toHaveClass(/error/);
+});
+
+test("food entry is marked as error when the balance is negative", async ({
+  page,
+}) => {
+  await page.goto("./");
+  const food = page.getByTestId("status-food");
+  // without farms the 2 residents eat 2 food per week
+  await expect(food).toContainText("(−2)");
+  await expect(food).toHaveClass(/error/);
+});
+
 test("status bar shows ecology and satisfaction", async ({ page }) => {
   await page.goto("./");
   await expect(page.getByTestId("status-ecology")).toContainText("100 %");

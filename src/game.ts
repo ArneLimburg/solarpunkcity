@@ -21,10 +21,15 @@ import {
   type Resources,
 } from "./resources";
 
-export const INITIAL_RESOURCES: Resources = { ...emptyResources, wood: 10 };
+export const INITIAL_RESOURCES: Resources = {
+  ...emptyResources,
+  wood: 10,
+  food: 10,
+};
 let currentResources: Resources = { ...INITIAL_RESOURCES };
 export const INITIAL_POPULATION = 2;
 let currentPopulation = INITIAL_POPULATION;
+let currentFoodBalance = 0;
 
 export function canBuild(
   buildingType: BuildingType,
@@ -75,6 +80,7 @@ export type GameState = {
   housing: number;
   ecology: number;
   satisfaction: number;
+  foodBalance: number;
 };
 
 export function getState(): GameState {
@@ -84,6 +90,7 @@ export function getState(): GameState {
     housing: getAvailableHousing(),
     ecology: getEcology(),
     satisfaction: getSatisfaction(),
+    foodBalance: currentFoodBalance,
   };
 }
 
@@ -129,75 +136,44 @@ function getAvailableHousing(): number {
   return availableHousing;
 }
 
-// calculate how much food could be produced with current population as labor
-function getPotentialProducedFood(): number {
-  const harvestFactor = getHarvestFactor();
-  let availableLabor = currentPopulation;
-  let producedFood = 0;
-  // TODO sort building by efficiency
-  for (const building of getBuildings()) {
-    if (
-      building.produces.food > 0 &&
-      availableLabor >= building.consumes.labor
-    ) {
-      producedFood += building.produces.food * harvestFactor;
-      availableLabor -= building.consumes.labor;
-    }
-  }
-  return producedFood;
-}
-
 function getGrowth(): number {
-  const availableHousing = getAvailableHousing();
-  if (availableHousing > currentPopulation) {
-    const producedFood = getPotentialProducedFood();
-    if (producedFood > currentPopulation) {
-      let growth = Math.ceil(
-        (currentPopulation * 0.1 * getSatisfaction()) / 100,
-      );
-      if (currentPopulation + growth > availableHousing) {
-        growth = availableHousing - currentPopulation;
-      }
-      if (currentPopulation + growth > producedFood) {
-        growth = producedFood - currentPopulation;
-      }
-      return growth;
-    } else {
-      // TODO shrink population if not enough food
-      return 0;
-    }
-  } else {
-    return 0;
-  }
-}
-
-function getLaborForFood(): number {
-  const harvestFactor = getHarvestFactor();
-  let requiredFood = currentPopulation;
-  let availableLabor = currentPopulation;
-  let laborForFood = 0;
-  // TODO sort building by efficiency
-  for (const building of getBuildings()) {
-    if (requiredFood <= 0) {
-      break;
-    }
-    if (
-      building.produces.food > 0 &&
-      availableLabor >= building.consumes.labor
-    ) {
-      requiredFood -= building.produces.food * harvestFactor;
-      availableLabor -= building.consumes.labor;
-      laborForFood += building.consumes.labor;
-    }
-  }
-  return laborForFood;
+  const growth = Math.min(
+    Math.ceil((currentPopulation * 0.1 * getSatisfaction()) / 100),
+    getAvailableHousing() - currentPopulation,
+    Math.floor(currentResources.food),
+  );
+  return Math.max(growth, 0);
 }
 
 function calculateDevelopment() {
-  currentPopulation += getGrowth(); // growth depends on available housing and potential food production
-  const laborForFood = getLaborForFood(); // only as much food as required is produced
-  // labor is not stockpiled: the grown population minus labor for food is available
-  currentResources.labor = Math.max(currentPopulation - laborForFood, 0);
+  const startPopulation = currentPopulation;
+  // labor is not stockpiled: it equals the population
+  let labor = startPopulation;
+
+  // food producers get labor before all other buildings, at full capacity
+  const harvestFactor = getHarvestFactor();
+  let producedFood = 0;
+  // TODO sort building by efficiency
+  for (const building of getBuildings()) {
+    if (building.produces.food > 0 && labor >= building.consumes.labor) {
+      producedFood += building.produces.food * harvestFactor;
+      labor -= building.consumes.labor;
+    }
+  }
+  // TODO food should spoil later; storage buildings (storage capacity) may be needed
+  const availableFood = currentResources.food + producedFood;
+  currentFoodBalance = producedFood - startPopulation;
+
+  if (availableFood < startPopulation) {
+    // hunger: the stock is eaten up and the population shrinks, no growth
+    currentResources.food = 0;
+    currentPopulation = Math.max(1, Math.floor(availableFood));
+    labor = Math.min(labor, currentPopulation);
+  } else {
+    currentResources.food = availableFood - startPopulation;
+    currentPopulation += getGrowth(); // new residents work from next week on
+  }
+  currentResources.labor = labor;
   calculateOtherProductions();
 }
 
@@ -205,7 +181,7 @@ function calculateOtherProductions() {
   // TODO prioritize buildings
   for (const building of getBuildings()) {
     if (building.produces.food > 0) {
-      continue; // food is already produced in getPotentialProducedFood
+      continue; // food is already produced in calculateDevelopment
     }
     if (!hasEnoughResources(currentResources, building.consumes)) {
       continue; // no partial production
