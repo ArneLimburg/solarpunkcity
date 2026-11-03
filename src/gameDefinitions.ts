@@ -64,6 +64,7 @@ export type Building = {
   description: string;
   size: number;
   resident: number;
+  ecology: number; // per tile, forest is the reference
   cost: Resources;
   produces: Resources;
   consumes: Resources;
@@ -76,6 +77,7 @@ export const BuildingDefinition: Record<BuildingType, Building> = {
     description: "Produces food for the residents",
     size: 1,
     resident: 3,
+    ecology: 0.5,
     cost: { ...emptyResources, wood: 4 }, // 40 cu m
     produces: { ...emptyResources, food: 3 },
     consumes: { ...emptyResources, labor: 2 },
@@ -86,6 +88,7 @@ export const BuildingDefinition: Record<BuildingType, Building> = {
     description: "Produces food for the residents",
     size: 7,
     resident: 2,
+    ecology: 0.2,
     cost: { ...emptyResources, wood: 10 },
     produces: { ...emptyResources, food: 20 },
     consumes: { ...emptyResources, labor: 4 },
@@ -96,6 +99,7 @@ export const BuildingDefinition: Record<BuildingType, Building> = {
     description: "Advanced farming techniques to boost food production",
     size: 19,
     resident: 0,
+    ecology: -5,
     cost: { ...emptyResources, wood: 20 },
     produces: { ...emptyResources, food: 60 },
     consumes: { ...emptyResources, labor: 8 },
@@ -106,10 +110,11 @@ export const BuildingDefinition: Record<BuildingType, Building> = {
     description: "Provides wood for building and crafting",
     size: 1,
     resident: 0,
+    ecology: 1,
     cost: { ...emptyResources }, // requires forestry
-    produces: { ...emptyResources, wood: 0.2 },
+    produces: { ...emptyResources, wood: 0.5 },
     consumes: { ...emptyResources, labor: 1 }, // later water
-    recycling: { ...emptyResources, wood: 7 },
+    recycling: { ...emptyResources, wood: 3 },
   },
   AppartmentBuilding: {
     name: "Appartment Building",
@@ -117,6 +122,7 @@ export const BuildingDefinition: Record<BuildingType, Building> = {
     description: "Building for people to live",
     size: 1,
     resident: 15,
+    ecology: 0,
     cost: { ...emptyResources, wood: 10 },
     produces: emptyResources,
     consumes: { ...emptyResources }, // later water and energy
