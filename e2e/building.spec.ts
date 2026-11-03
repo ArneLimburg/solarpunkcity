@@ -113,6 +113,8 @@ test.describe("touch", () => {
     const second = await tilePosition(page, next);
     await page.touchscreen.tap(first.x, first.y);
     await expect.poll(() => ringTile(page)).toEqual(origin);
+    // Babylon counts two quick taps as a double tap even on different tiles
+    await page.waitForTimeout(500);
     await page.touchscreen.tap(second.x, second.y);
     await expect.poll(() => ringTile(page)).toEqual(next);
     await page.waitForTimeout(500);
