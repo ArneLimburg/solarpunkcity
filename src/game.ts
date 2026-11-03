@@ -26,14 +26,11 @@ export function canBuild(
     return false;
   }
   const oldBuilding = getBuilding(coords);
-  if (oldBuilding && !oldBuilding.recycling) {
+  if (!oldBuilding?.recycling) {
     return false; // cannot build on top of existing building without recycling
   }
   const buildingDefinition = BuildingDefinition[buildingType];
-  let newResources = currentResources;
-  if (oldBuilding && oldBuilding.recycling) {
-    newResources = addResources(newResources, oldBuilding.recycling);
-  }
+  const newResources = addResources(currentResources, oldBuilding.recycling);
   return hasEnoughResources(newResources, buildingDefinition.cost);
 }
 

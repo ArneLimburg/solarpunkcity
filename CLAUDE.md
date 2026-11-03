@@ -9,7 +9,8 @@ Deployed to GitHub Pages at https://arnelimburg.github.io/solarpunkcity/ on ever
 - Babylon.js 8 for the 3D hex map, BeerCSS for UI
 - Prettier + ESLint (`npm run lint`), type check + bundle via `npm run build`
 - Vitest for unit tests in `test/` (mirrors `src/`, e.g. `test/resources.test.ts`); tests import
-  `test`, `expect`, `vi` explicitly from `vitest`
+  `test`, `expect`, `vi` explicitly from `vitest`; `npm test` enforces 100 % coverage of
+  `src/**/*.ts` (v8, no ignore comments)
 - Playwright (`@playwright/test`, Chromium only) for e2e smoke tests in `e2e/`
 
 ## Commands
@@ -20,7 +21,8 @@ Deployed to GitHub Pages at https://arnelimburg.github.io/solarpunkcity/ on ever
 - `npm run prettier` – format all files
 - `npm run build` – `tsc -b` + `vite build` (CI runs this)
 - `npx playwright install chromium` – install the test browser (once)
-- `npm test` – unit tests once (`vitest run`)
+- `npm test` – unit tests once with coverage (`vitest run --coverage`); fails below 100 %
+  statements, branches, functions and lines of `src/**/*.ts` (`.tsx` is excluded)
 - `npm run test:watch` – unit tests in watch mode
 - `npm run test:e2e` – Playwright smoke tests (starts the dev server itself, CI runs this)
 
