@@ -60,6 +60,13 @@ Game state currently lives in module-level variables in `board.ts` and `game.ts`
 - Commit messages follow Conventional Commits (`feat:`, `fix:`, `chore:` …).
 - Work on a branch and open a pull request against `main`; never push to `main` directly.
 - 3D models are large; do not add new `.glb` files without asking.
+- Model budget (`.glb` and models built from code):
+  - at most 1,000 triangles per footprint tile (size 1: 1,000, size 7: 7,000, size 19: 19,000)
+  - geometry is created once per building type and reused for every placement (instances or
+    thin instances)
+  - at most 3 draw calls per building type (e.g. opaque, transparent, one special material)
+  - `.glb` only: at most 1 MB per file, geometry compressed (Meshopt or Draco), textures as
+    WebP or KTX2
 
 ## Agent workflow
 
