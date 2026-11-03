@@ -1,4 +1,6 @@
-# Lint, build and run the unit and e2e tests for every branch and every pull request against main
+# Lint, build and run the unit and e2e tests for every pull request against main and for every
+# branch without an open pull request against main. A push to a branch with such a pull request is
+# built by the pull_request event only; its skipped push build counts as passed.
 name: Build
 
 on:
@@ -15,7 +17,31 @@ permissions:
   contents: read
 
 jobs:
+  pull-request:
+    name: Find pull request
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      open: ${{ steps.find.outputs.open }}
+    steps:
+      - id: find
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          BRANCH: ${{ github.ref_name }}
+        run: |
+          pr=$(gh pr list --head "$BRANCH" --base main --state open --json number --jq '.[0].number // empty')
+          echo "open=$([ -n "$pr" ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+
   build:
+    needs: pull-request
+    # Also runs when the lookup was skipped (pull_request, workflow_dispatch) or failed.
+    if: |
+      !cancelled() &&
+      (github.event_name != 'push' || needs.pull-request.outputs.open != 'true')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
