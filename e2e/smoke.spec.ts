@@ -46,3 +46,9 @@ test("status bar shows population", async ({ page }) => {
   await expect(page.getByTestId("status-bar")).toBeVisible();
   await expect(page.getByTestId("status-population")).toContainText("2");
 });
+
+test("status bar shows ecology and satisfaction", async ({ page }) => {
+  await page.goto("./");
+  await expect(page.getByTestId("status-ecology")).toContainText("100 %");
+  await expect(page.getByTestId("status-satisfaction")).toContainText("100 %");
+});

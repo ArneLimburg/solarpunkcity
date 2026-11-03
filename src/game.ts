@@ -14,7 +14,8 @@ import {
   type Resources,
 } from "./resources";
 
-let currentResources: Resources = { ...emptyResources };
+export const INITIAL_RESOURCES: Resources = { ...emptyResources, wood: 10 };
+let currentResources: Resources = { ...INITIAL_RESOURCES };
 export const INITIAL_POPULATION = 2;
 let currentPopulation = INITIAL_POPULATION;
 
@@ -56,6 +57,8 @@ export type GameState = {
   resources: Resources;
   population: number;
   housing: number;
+  ecology: number;
+  satisfaction: number;
 };
 
 export function getState(): GameState {
@@ -63,12 +66,43 @@ export function getState(): GameState {
     resources: { ...currentResources },
     population: currentPopulation,
     housing: getAvailableHousing(),
+    ecology: getEcology(),
+    satisfaction: getSatisfaction(),
   };
 }
 
 export function calculateWeek(): GameState {
   calculateDevelopment();
   return getState();
+}
+
+// ecology in percent, derived from the board: 100 % means all tiles are forest
+function getEcology(): number {
+  const buildings = getBuildings();
+  let sum = 0;
+  for (const building of buildings) {
+    sum += building.ecology;
+  }
+  const ecology =
+    (sum / (buildings.length * BuildingDefinition.Forest.ecology)) * 100;
+  return Math.min(Math.max(ecology, 0), 100);
+}
+
+// starting point: satisfaction equals ecology; more factors (food, housing,
+// culture) will follow
+function getSatisfaction(): number {
+  return getEcology();
+}
+
+function getHarvestFactor(): number {
+  const ecology = getEcology();
+  if (ecology >= 90) {
+    return 1;
+  }
+  if (ecology <= 50) {
+    return 0.5;
+  }
+  return 0.5 + ((ecology - 50) / 40) * 0.5;
 }
 
 function getAvailableHousing(): number {
@@ -81,6 +115,7 @@ function getAvailableHousing(): number {
 
 // calculate how much food could be produced with current population as labor
 function getPotentialProducedFood(): number {
+  const harvestFactor = getHarvestFactor();
   let availableLabor = currentPopulation;
   let producedFood = 0;
   // TODO sort building by efficiency
@@ -89,7 +124,7 @@ function getPotentialProducedFood(): number {
       building.produces.food > 0 &&
       availableLabor >= building.consumes.labor
     ) {
-      producedFood += building.produces.food;
+      producedFood += building.produces.food * harvestFactor;
       availableLabor -= building.consumes.labor;
     }
   }
@@ -101,7 +136,9 @@ function getGrowth(): number {
   if (availableHousing > currentPopulation) {
     const producedFood = getPotentialProducedFood();
     if (producedFood > currentPopulation) {
-      let growth = Math.ceil(currentPopulation * 0.1);
+      let growth = Math.ceil(
+        (currentPopulation * 0.1 * getSatisfaction()) / 100,
+      );
       if (currentPopulation + growth > availableHousing) {
         growth = availableHousing - currentPopulation;
       }
@@ -119,6 +156,7 @@ function getGrowth(): number {
 }
 
 function getLaborForFood(): number {
+  const harvestFactor = getHarvestFactor();
   let requiredFood = currentPopulation;
   let availableLabor = currentPopulation;
   let laborForFood = 0;
@@ -131,7 +169,7 @@ function getLaborForFood(): number {
       building.produces.food > 0 &&
       availableLabor >= building.consumes.labor
     ) {
-      requiredFood -= building.produces.food;
+      requiredFood -= building.produces.food * harvestFactor;
       availableLabor -= building.consumes.labor;
       laborForFood += building.consumes.labor;
     }

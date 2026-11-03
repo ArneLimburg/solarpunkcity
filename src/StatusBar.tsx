@@ -43,6 +43,12 @@ export const StatusBar: FC<{ state: GameState }> = ({ state }) => (
       icon="engineering"
       value={`${Math.floor(state.resources.labor)}`}
     />
+    <Entry name="ecology" icon="eco" value={`${Math.floor(state.ecology)} %`} />
+    <Entry
+      name="satisfaction"
+      icon="sentiment_satisfied"
+      value={`${Math.floor(state.satisfaction)} %`}
+    />
     {stockIcons.map(([name, icon]) =>
       state.resources[name] > 0 ? (
         <Entry
