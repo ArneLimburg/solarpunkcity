@@ -1,7 +1,7 @@
 import type { Page } from "@playwright/test";
 import { test, expect } from "./fixtures";
 import { buildingAt, tilePosition } from "./helpers";
-import { GRID_RADIUS } from "../src/board";
+import { GRID_RADIUS, isOnBoard } from "../src/board";
 
 const origin = { q: 0, r: 0 };
 const east = { q: 3, r: 0 };
@@ -212,6 +212,23 @@ test("a click builds exactly once", async ({ page }) => {
   await page.mouse.click(second.x, second.y);
   await page.waitForTimeout(500);
   expect(await buildingAt(page, next)).toBe("Forest");
+});
+
+test("every board tile starts as forest floor", async ({ page }) => {
+  await page.goto("./");
+  await page.waitForFunction(() => window.__solarpunk !== undefined);
+  const tiles = [];
+  for (let q = -GRID_RADIUS; q <= GRID_RADIUS; q++) {
+    for (let r = -GRID_RADIUS; r <= GRID_RADIUS; r++) {
+      if (isOnBoard({ q, r })) tiles.push({ q, r });
+    }
+  }
+  const materials = await page.evaluate(
+    (list) => list.map((c) => window.__solarpunk?.getTileMaterial(c)),
+    tiles,
+  );
+  expect(materials).toHaveLength(tiles.length);
+  expect(materials.every((m) => m === "forestFloor")).toBe(true);
 });
 
 test("a residential building turns the tile into meadow", async ({ page }) => {
