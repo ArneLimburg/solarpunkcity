@@ -1,0 +1,77 @@
+// makes the Window.__solarpunk type known to the unit test project as well
+import type {} from "./global";
+import {
+  Matrix,
+  Vector3,
+  type ArcRotateCamera,
+  type Engine,
+  type Scene,
+} from "@babylonjs/core";
+import { getBuilding } from "./board";
+import { grantResources } from "./game";
+import { hexToPixel, tileKey } from "./hexGeometry";
+import type { Ring } from "./SelectionRing";
+import { getTileMaterialName, type TileMeshes } from "./TileRenderer";
+
+type DevHooks = NonNullable<Window["__solarpunk"]>;
+
+type DevHookSources = {
+  engine: Engine;
+  scene: Scene;
+  camera: ArcRotateCamera;
+  canvas: HTMLCanvasElement;
+  ring: Ring;
+  tileMeshes: TileMeshes;
+  // the model currently shown on a tile ("q,r")
+  models: Record<string, { triangles: number }>;
+  getTreeCount: DevHooks["getTreeCount"];
+};
+
+// the window.__solarpunk API used by the e2e tests
+export function createDevHooks({
+  engine,
+  scene,
+  camera,
+  canvas,
+  ring,
+  tileMeshes,
+  models,
+  getTreeCount,
+}: DevHookSources): DevHooks {
+  return {
+    tileToScreen: (coords) => {
+      const world = hexToPixel(coords.q, coords.r);
+      world.y = 0.1;
+      const width = engine.getRenderWidth();
+      const height = engine.getRenderHeight();
+      const projected = Vector3.Project(
+        world,
+        Matrix.IdentityReadOnly,
+        scene.getTransformMatrix(),
+        camera.viewport.toGlobal(width, height),
+      );
+      if (
+        projected.z < 0 ||
+        projected.z > 1 ||
+        projected.x < 0 ||
+        projected.x > width ||
+        projected.y < 0 ||
+        projected.y > height
+      ) {
+        return null;
+      }
+      return {
+        x: (projected.x * canvas.clientWidth) / width,
+        y: (projected.y * canvas.clientHeight) / height,
+      };
+    },
+    getBuildingType: (coords) => getBuilding(coords)?.type,
+    getRingTile: () => ring.tile,
+    getRingTiles: () => [...ring.tiles],
+    getTileMaterial: (coords) => getTileMaterialName(tileMeshes, coords),
+    getModelCount: (coords) => (models[tileKey(coords)] ? 1 : 0),
+    getModelTriangleCount: (coords) => models[tileKey(coords)]?.triangles ?? 0,
+    getTreeCount,
+    addResources: grantResources,
+  };
+}

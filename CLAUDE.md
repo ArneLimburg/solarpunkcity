@@ -42,7 +42,12 @@ Always run `npm run lint`, `npm run build` and `npm test` before considering a c
 - `src/game.ts` – game rules: `canBuild`, `build`, weekly tick `calculateWeek`
   (population growth, food, labor, other production)
 - `src/App.tsx` – wires game tick (1 s interval), menu and map
-- `src/Map.tsx` – Babylon scene: camera, skybox, hex tiles, picking, placing models
+- `src/Map.tsx` – React component that wires the map modules below together and places models
+- `src/hexGeometry.ts` – `HEX_SIZE`, `hexToPixel`, `pixelToHex`, `tileKey`, hex corner polygon
+- `src/TileRenderer.ts` – ground materials, hex tile meshes, ground below footprints
+- `src/SelectionRing.ts` – selection ring and pointer handler (hover, tap, touch rules)
+- `src/sceneSetup.ts` – engine, scene, camera, light, skybox, background ground, render loop
+- `src/devHooks.ts` – builds the DEV-only `window.__solarpunk` object used by e2e tests
 - `src/farms.ts`, `src/apartment.ts`, `src/farmGeometry.ts`, `src/FarmRenderer.ts` – building
   models built from code (layout, geometry, instanced rendering)
 - `src/forest.ts`, `src/ForestRenderer.ts` – procedural forest with thin instances
