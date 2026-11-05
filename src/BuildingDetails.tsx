@@ -3,18 +3,20 @@ import {
   formatEcology,
   formatTiles,
   nonZeroResources,
+  unaffordableCosts,
 } from "./buildingDetails";
 import { BuildingDefinition, type BuildingType } from "./gameDefinitions";
 import type { Resources } from "./resources";
 import { resourceIcons } from "./resourceIcons";
 
-const Chip: FC<{ name: string; icon: string; value: string }> = ({
-  name,
-  icon,
-  value,
-}) => (
+const Chip: FC<{
+  name: string;
+  icon: string;
+  value: string;
+  error?: boolean;
+}> = ({ name, icon, value, error }) => (
   <span
-    className="chip no-margin"
+    className={error ? "chip no-margin error" : "chip no-margin"}
     title={name}
     aria-label={name}
     data-testid={`detail-${name}`}
@@ -24,11 +26,12 @@ const Chip: FC<{ name: string; icon: string; value: string }> = ({
   </span>
 );
 
-const Section: FC<{ title: string; resources: Resources; testId: string }> = ({
-  title,
-  resources,
-  testId,
-}) => {
+const Section: FC<{
+  title: string;
+  resources: Resources;
+  testId: string;
+  errors?: Set<keyof Resources>;
+}> = ({ title, resources, testId, errors }) => {
   const entries = nonZeroResources(resources);
   if (entries.length === 0) return null;
   return (
@@ -41,6 +44,7 @@ const Section: FC<{ title: string; resources: Resources; testId: string }> = ({
             name={name}
             icon={resourceIcons[name]}
             value={String(value)}
+            error={errors?.has(name)}
           />
         ))}
       </div>
@@ -48,7 +52,10 @@ const Section: FC<{ title: string; resources: Resources; testId: string }> = ({
   );
 };
 
-export const BuildingDetails: FC<{ type: BuildingType }> = ({ type }) => {
+export const BuildingDetails: FC<{
+  type: BuildingType;
+  resources: Resources;
+}> = ({ type, resources }) => {
   const building = BuildingDefinition[type];
   return (
     <article
@@ -78,7 +85,12 @@ export const BuildingDetails: FC<{ type: BuildingType }> = ({ type }) => {
           value={formatEcology(building.ecology)}
         />
       </div>
-      <Section title="Cost" resources={building.cost} testId="details-cost" />
+      <Section
+        title="Cost"
+        resources={building.cost}
+        testId="details-cost"
+        errors={unaffordableCosts(type, resources)}
+      />
       <Section
         title="Produces per week"
         resources={building.produces}
