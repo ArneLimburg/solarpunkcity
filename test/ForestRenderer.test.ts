@@ -72,9 +72,9 @@ test("the forest uses 3 unpickable base meshes with thin instances", () => {
   }
   // one trunk per tree
   const trunkBuffer = meshes[0].thinInstanceSetBuffer.mock.calls[0][1];
-  expect(trunkBuffer).toHaveLength(6 * 16);
-  expect(forest.getTreeCount({ q: 0, r: 0 })).toBe(3);
-  expect(forest.getTreeCount({ q: 1, r: 0 })).toBe(3);
+  expect(trunkBuffer).toHaveLength(10 * 16);
+  expect(forest.getTreeCount({ q: 0, r: 0 })).toBe(5);
+  expect(forest.getTreeCount({ q: 1, r: 0 })).toBe(5);
   expect(forest.getTreeCount({ q: 5, r: 5 })).toBe(0);
 });
 
@@ -91,12 +91,12 @@ test("clearing a tile hides its trees and leaves other tiles alone", () => {
   );
   forest.clearTile({ q: 0, r: 0 });
   expect(forest.getTreeCount({ q: 0, r: 0 })).toBe(0);
-  expect(forest.getTreeCount({ q: 1, r: 0 })).toBe(3);
+  expect(forest.getTreeCount({ q: 1, r: 0 })).toBe(5);
   const hidden = meshes.reduce(
     (sum, mesh) => sum + mesh.thinInstanceSetMatrixAt.mock.calls.length,
     0,
   );
-  expect(hidden).toBe(6); // trunk and crown of 3 trees
+  expect(hidden).toBe(10); // trunk and crown of 5 trees
   expect(meshes[0].thinInstanceBufferUpdated).toHaveBeenCalledWith("matrix");
 
   // clearing again or clearing an unknown tile does nothing
@@ -106,5 +106,5 @@ test("clearing a tile hides its trees and leaves other tiles alone", () => {
     (sum, mesh) => sum + mesh.thinInstanceSetMatrixAt.mock.calls.length,
     0,
   );
-  expect(hiddenAfter).toBe(6);
+  expect(hiddenAfter).toBe(10);
 });
