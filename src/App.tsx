@@ -5,6 +5,7 @@ import { Menu } from "./Menu";
 import { getFootprintRadius, type HexCoordinates } from "./board";
 import { BuildingDefinition, type BuildingType } from "./gameDefinitions";
 import { build, calculateWeek, canBuild, getState } from "./game";
+import { BuildingDetails } from "./BuildingDetails";
 import { StatusBar } from "./StatusBar";
 
 export const App: FC = () => {
@@ -56,6 +57,7 @@ export const App: FC = () => {
           }
         />
       </main>
+      {selectedBuildingType && <BuildingDetails type={selectedBuildingType} />}
       <StatusBar state={state} />
     </>
   );
