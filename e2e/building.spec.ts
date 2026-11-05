@@ -214,14 +214,13 @@ test("a click builds exactly once", async ({ page }) => {
   expect(await buildingAt(page, next)).toBe("Forest");
 });
 
-test("a residential building keeps the tile material", async ({ page }) => {
+test("a residential building turns the tile into meadow", async ({ page }) => {
   await page.goto("./");
   await page.waitForFunction(() => window.__solarpunk !== undefined);
   await page.evaluate(() => window.__solarpunk?.addResources({ wood: 100 }));
-  const before = await page.evaluate(
-    (c) => window.__solarpunk?.getTileMaterial(c),
-    origin,
-  );
+  expect(
+    await page.evaluate((c) => window.__solarpunk?.getTileMaterial(c), origin),
+  ).toBe("forestFloor");
   await page.getByRole("button", { name: "RESIDENTIAL", exact: true }).click();
   await page.getByRole("button", { name: "AppartmentBuilding" }).click();
   const { x, y } = await tilePosition(page, origin);
@@ -230,7 +229,7 @@ test("a residential building keeps the tile material", async ({ page }) => {
   await expect.poll(() => buildingAt(page, origin)).toBe("AppartmentBuilding");
   expect(
     await page.evaluate((c) => window.__solarpunk?.getTileMaterial(c), origin),
-  ).toBe(before);
+  ).toBe("meadow");
 });
 
 test("a farm occupies 7 tiles with one model and farmland", async ({
@@ -280,15 +279,15 @@ test("building replaces the trees of a tile with one model", async ({
     page.evaluate((t) => window.__solarpunk?.getTreeCount(t), c);
   const modelCount = (c: { q: number; r: number }) =>
     page.evaluate((t) => window.__solarpunk?.getModelCount(t), c);
-  expect(await treeCount(origin)).toBe(3);
-  expect(await treeCount(next)).toBe(3);
+  expect(await treeCount(origin)).toBe(5);
+  expect(await treeCount(next)).toBe(5);
 
   const { x, y } = await tilePosition(page, origin);
   await page.mouse.move(x, y, { steps: 5 });
   await page.mouse.click(x, y);
   await expect.poll(() => modelCount(origin)).toBe(1);
   expect(await treeCount(origin)).toBe(0);
-  expect(await treeCount(next)).toBe(3);
+  expect(await treeCount(next)).toBe(5);
 });
 
 const FARM_BUDGETS = [

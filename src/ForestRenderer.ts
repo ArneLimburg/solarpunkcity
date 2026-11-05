@@ -50,7 +50,7 @@ function createBaseMesh(mesh: Mesh, color: Color3, scene: Scene): Buffer {
   return { mesh, matrices: [] };
 }
 
-// Draws a forest of 3 trees on each given tile with exactly 3 base meshes
+// Draws a forest of 5 trees on each given tile with exactly 3 base meshes
 // (trunk, cone crown, sphere crown) that use thin instances.
 export function createForest(
   scene: Scene,

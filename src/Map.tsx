@@ -15,6 +15,7 @@ import {
   Observer,
   CubeTexture,
   Texture,
+  RawTexture,
 } from "@babylonjs/core";
 import {
   GRID_RADIUS,
@@ -36,9 +37,13 @@ import {
   type FarmRenderer,
 } from "./FarmRenderer";
 import { createForest, type ForestRenderer } from "./ForestRenderer";
+import { getTileRotation } from "./forest";
+import { FOREST_FLOOR_SIZE, createForestFloorPixels } from "./forestFloor";
 
 const HEX_SIZE = 1; // side length of hex (in scene units)
 
+const FOREST_FLOOR_COLOR = new Color3(0.2, 0.42, 0.18);
+const MEADOW_COLOR = new Color3(0.55, 0.78, 0.4);
 const FARMLAND_COLOR = new Color3(0.55, 0.45, 0.3);
 
 // the model shown on a tile
@@ -65,6 +70,7 @@ export const Map = forwardRef<
   // hex meshes per tile ("q,r") and the farmland material
   const tileMeshesRef = useRef<Record<string, Mesh>>({});
   const farmlandRef = useRef<StandardMaterial | null>(null);
+  const meadowRef = useRef<StandardMaterial | null>(null);
   // mirrors the prop so that the stable pointer handler can read it
   const previewRadiusRef = useRef(previewRadius);
   previewRadiusRef.current = previewRadius;
@@ -79,12 +85,12 @@ export const Map = forwardRef<
         delete modelsRef.current[tileKey(tile)];
       }
       const position = hexToPixel(coords.q, coords.r);
-      const farmland =
+      const ground =
         BuildingTypes[type].category === "FARM"
-          ? getFootprint(coords, radius)
-          : [];
-      for (const tile of farmland) {
-        tileMeshesRef.current[tileKey(tile)].material = farmlandRef.current;
+          ? farmlandRef.current
+          : meadowRef.current;
+      for (const tile of getFootprint(coords, radius)) {
+        tileMeshesRef.current[tileKey(tile)].material = ground;
       }
       if (isModelType(type)) {
         // models are built from code at scale 1
@@ -123,11 +129,17 @@ export const Map = forwardRef<
     // Light
     new HemisphericLight("hemi", new Vector3(0, 1, 0), scene);
 
-    const baseMaterial = makeMaterial(
-      "hexBase",
-      new Color3(0.6, 0.8, 0.6),
+    const forestFloor = makeMaterial("forestFloor", FOREST_FLOOR_COLOR, scene);
+    forestFloor.diffuseTexture = RawTexture.CreateRGBATexture(
+      createForestFloorPixels(),
+      FOREST_FLOOR_SIZE,
+      FOREST_FLOOR_SIZE,
       scene,
+      true,
+      false,
+      Texture.BILINEAR_SAMPLINGMODE,
     );
+    meadowRef.current = makeMaterial("meadow", MEADOW_COLOR, scene);
     const altMaterial = makeMaterial(
       "hexAlt",
       new Color3(0.5, 0.7, 0.9),
@@ -158,14 +170,7 @@ export const Map = forwardRef<
     for (let q = -GRID_RADIUS; q <= GRID_RADIUS; q++) {
       for (let r = -GRID_RADIUS; r <= GRID_RADIUS; r++) {
         if (isOnBoard({ q, r })) {
-          const useAlt = ((q + r) & 1) === 0;
-
-          const hex = createHexTile(
-            q,
-            r,
-            scene,
-            useAlt ? altMaterial : baseMaterial,
-          );
+          const hex = createHexTile(q, r, scene, forestFloor);
           hexMeshes.push(hex);
           hexTiles.push({ q, r });
           tileMeshesRef.current[tileKey({ q, r })] = hex;
@@ -325,6 +330,7 @@ function createHexTile(
   hex.position = hexToPixel(q, r);
   hex.position.y = 0.1;
   hex.material = material;
+  hex.rotation.y = getTileRotation({ q, r });
 
   return hex;
 }
