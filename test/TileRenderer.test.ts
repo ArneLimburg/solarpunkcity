@@ -52,10 +52,12 @@ vi.mock("@babylonjs/core", () => {
   };
 });
 
-import { GRID_RADIUS, isOnBoard } from "../src/board";
+import { GRID_RADIUS, isOnBoard, setBuilding } from "../src/board";
+import { BuildingDefinition } from "../src/gameDefinitions";
 import {
   createGroundMaterials,
   createTiles,
+  getForestTiles,
   getTileMaterialName,
   makeMaterial,
   setFootprintGround,
@@ -98,6 +100,16 @@ test("a hex tile is created for every tile of the board", () => {
   expect(mesh.position.y).toBe(0.1);
   expect(mesh.material).toBe(forestFloor);
   expect(getTileMaterialName(meshes, { q: 1, r: -1 })).toBe("forestFloor");
+});
+
+test("only tiles that hold a forest are returned as forest tiles", () => {
+  const tiles = [
+    { q: 5, r: 5 },
+    { q: 6, r: 5 },
+  ];
+  expect(getForestTiles(tiles)).toEqual(tiles);
+  setBuilding(tiles[0], BuildingDefinition.Farm);
+  expect(getForestTiles(tiles)).toEqual([tiles[1]]);
 });
 
 test("farms get farmland and other buildings a meadow on their footprint", () => {
