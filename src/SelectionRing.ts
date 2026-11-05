@@ -2,56 +2,92 @@ import {
   Color3,
   MeshBuilder,
   PointerEventTypes,
+  type AbstractMesh,
   type PointerInfo,
   type Scene,
 } from "@babylonjs/core";
-import { getFootprint, isOnBoard, type HexCoordinates } from "./board";
-import { hexToPixel, pixelToHex } from "./hexGeometry";
+import {
+  getFootprint,
+  getFootprintRadius,
+  isOnBoard,
+  type HexCoordinates,
+} from "./board";
+import { BuildingDefinition, type BuildingType } from "./gameDefinitions";
+import { canPlace } from "./game";
+import { HEX_SIZE, hexToPixel, pixelToHex } from "./hexGeometry";
 import { makeMaterial } from "./TileRenderer";
 
 export type Ring = {
   tile: HexCoordinates | null; // the hovered center tile
-  tiles: HexCoordinates[]; // all tiles with a ring (footprint on the board)
-  show: (coordinates: HexCoordinates, radius: number) => void;
+  tiles: HexCoordinates[]; // footprint tiles on the board
+  blocked: boolean; // the ring uses the red material
+  show: (coordinates: HexCoordinates, radius: number, blocked: boolean) => void;
   hide: () => void;
 };
 
 export function createRing(scene: Scene): Ring {
   const highlightMaterial = makeMaterial("hexHighlight", Color3.Black(), scene);
   highlightMaterial.alpha = 0.1;
-  const mesh = MeshBuilder.CreateTorus(
-    "ring",
-    { thickness: 0.1, diameter: 2, tessellation: 64 },
+  const blockedMaterial = makeMaterial(
+    "hexBlocked",
+    new Color3(0.9, 0.2, 0.2),
     scene,
   );
-  mesh.position.y = 0.01;
-  mesh.material = highlightMaterial;
-  mesh.isPickable = false;
-  mesh.setEnabled(false);
-  const meshes = [mesh]; // one ring mesh per footprint tile, created on demand
+  blockedMaterial.alpha = 0.5;
+  const meshes: Record<number, AbstractMesh> = {}; // one torus per radius
+  const getMesh = (radius: number) => {
+    meshes[radius] ??= MeshBuilder.CreateTorus(
+      `ring_${radius}`,
+      {
+        thickness: 0.1,
+        diameter: 2 * HEX_SIZE * (Math.sqrt(3) * radius + 1),
+        tessellation: 64,
+      },
+      scene,
+    );
+    meshes[radius].isPickable = false;
+    return meshes[radius];
+  };
+  const hideMeshes = () =>
+    Object.values(meshes).forEach((mesh) => mesh.setEnabled(false));
   const ring: Ring = {
     tile: null,
     tiles: [],
-    show: (coordinates, radius) => {
-      const tiles = getFootprint(coordinates, radius).filter(isOnBoard);
-      while (meshes.length < tiles.length) {
-        meshes.push(mesh.clone(`ring_${meshes.length}`));
-      }
-      meshes.forEach((ringMesh, i) => ringMesh.setEnabled(i < tiles.length));
-      tiles.forEach((tile, i) => {
-        const center = hexToPixel(tile.q, tile.r);
-        meshes[i].position.set(center.x, 0.1, center.z);
-      });
-      ring.tiles = tiles;
+    blocked: false,
+    show: (coordinates, radius, blocked) => {
+      hideMeshes();
+      const mesh = getMesh(radius);
+      const center = hexToPixel(coordinates.q, coordinates.r);
+      mesh.position.set(center.x, 0.1, center.z);
+      mesh.material = blocked ? blockedMaterial : highlightMaterial;
+      mesh.setEnabled(true);
+      ring.tiles = getFootprint(coordinates, radius).filter(isOnBoard);
+      ring.blocked = blocked;
       ring.tile = { q: coordinates.q, r: coordinates.r };
     },
     hide: () => {
-      meshes.forEach((ringMesh) => ringMesh.setEnabled(false));
+      hideMeshes();
       ring.tiles = [];
+      ring.blocked = false;
       ring.tile = null;
     },
   };
   return ring;
+}
+
+// footprint radius and blocked state of the selected building type; without
+// selection the ring is the single-tile ring and never blocked
+export function createPreview(getType: () => BuildingType | undefined) {
+  return {
+    getRadius: () => {
+      const type = getType();
+      return type ? getFootprintRadius(BuildingDefinition[type].size) : 0;
+    },
+    isBlocked: (coordinates: HexCoordinates) => {
+      const type = getType();
+      return type ? !canPlace(type, coordinates) : false;
+    },
+  };
 }
 
 export function createLeaveHandler(ring: Ring): (event: PointerEvent) => void {
@@ -68,6 +104,7 @@ export function createPointerHandler(
   ring: Ring,
   onSelected: (coordinates: HexCoordinates) => void,
   getRadius: () => number,
+  isBlocked: (coordinates: HexCoordinates) => boolean,
 ): (pointerInfo: PointerInfo) => void {
   return (pointerInfo: PointerInfo) => {
     // Babylon sends a second tap within DoubleClickDelay only as POINTERDOUBLETAP
@@ -105,13 +142,13 @@ export function createPointerHandler(
     }
 
     if (type === PointerEventTypes.POINTERMOVE) {
-      ring.show(coordinates, getRadius());
+      ring.show(coordinates, getRadius(), isBlocked(coordinates));
       return;
     }
 
     const ringIsHere =
       ring.tile?.q === coordinates.q && ring.tile?.r === coordinates.r;
-    ring.show(coordinates, getRadius());
+    ring.show(coordinates, getRadius(), isBlocked(coordinates));
     if (!isTouch || ringIsHere) {
       onSelected(coordinates);
     }

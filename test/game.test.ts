@@ -130,6 +130,19 @@ test("canBuild is false on an occupied tile without recycling", () => {
   expect(game.canBuild("OrganicHomestead", { q: 0, r: 0 })).toBe(false);
 });
 
+test("canPlace ignores resources and allows forest tiles", () => {
+  game.grantResources({ wood: -100 });
+  expect(game.canPlace("Farm", { q: 0, r: 0 })).toBe(true);
+});
+
+test("canPlace is false off the board and on non-recyclable buildings", () => {
+  expect(game.canPlace("Farm", { q: 29, r: 0 })).toBe(true);
+  expect(game.canPlace("Farm", { q: 30, r: 0 })).toBe(false);
+  board.setBuilding({ q: 2, r: 0 }, testBuilding({}));
+  expect(game.canPlace("Farm", { q: 1, r: 0 })).toBe(false);
+  expect(game.canPlace("Farm", { q: 0, r: 0 })).toBe(true);
+});
+
 test("grantResources makes a building affordable", () => {
   game.grantResources({ wood: -4 });
   expect(game.canBuild("AgroIndustrial", { q: 0, r: 0 })).toBe(false);

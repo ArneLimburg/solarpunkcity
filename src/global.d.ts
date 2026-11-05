@@ -14,6 +14,7 @@ declare global {
       getBuildingType(coords: HexCoordinates): BuildingType | undefined;
       getRingTile(): HexCoordinates | null;
       getRingTiles(): HexCoordinates[];
+      isRingBlocked(): boolean;
       getTileMaterial(coords: HexCoordinates): string | undefined;
       getModelCount(coords: HexCoordinates): number;
       getModelTriangleCount(coords: HexCoordinates): number;

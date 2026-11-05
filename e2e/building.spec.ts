@@ -419,3 +419,78 @@ for (const { category, type, size } of BUILDABLE) {
     expect(triangles).toBeLessThanOrEqual(1000 * size);
   });
 }
+
+const ringBlocked = (page: Page) =>
+  page.evaluate(() => window.__solarpunk?.isRingBlocked());
+
+async function selectFarm(page: Page) {
+  await page.getByRole("button", { name: "FARM", exact: true }).click();
+  await page.getByRole("button", { name: "Farm", exact: true }).click();
+}
+
+test("the farm ring is not blocked on free forest", async ({ page }) => {
+  await page.goto("./");
+  await page.waitForFunction(() => window.__solarpunk !== undefined);
+  await selectFarm(page);
+  const { x, y } = await tilePosition(page, origin);
+  await page.mouse.move(x, y, { steps: 5 });
+  await expect.poll(() => ringTile(page)).toEqual(origin);
+  expect(await ringBlocked(page)).toBe(false);
+});
+
+test("the ring turns red when the footprint leaves the board", async ({
+  page,
+}) => {
+  await page.goto("./");
+  await page.waitForFunction(() => window.__solarpunk !== undefined);
+  await selectFarm(page);
+  const corners = [
+    { q: GRID_RADIUS, r: 0 },
+    { q: -GRID_RADIUS, r: 0 },
+    { q: 0, r: GRID_RADIUS },
+    { q: 0, r: -GRID_RADIUS },
+    { q: GRID_RADIUS, r: -GRID_RADIUS },
+    { q: -GRID_RADIUS, r: GRID_RADIUS },
+  ];
+  // zoom out until a board corner is visible, then hover it
+  const box = await page.locator("canvas").boundingBox();
+  await page.mouse.move((box?.x ?? 0) + 10, (box?.y ?? 0) + 10);
+  await page.mouse.wheel(0, 3000);
+  await expect
+    .poll(async () => {
+      const positions = await page.evaluate(
+        (tiles) => tiles.map((c) => window.__solarpunk?.tileToScreen(c)),
+        corners,
+      );
+      const position = positions.find((p) => p != null);
+      if (!position) return undefined;
+      await page.mouse.move(
+        (box?.x ?? 0) + position.x,
+        (box?.y ?? 0) + position.y,
+      );
+      return (await ringTile(page)) ? await ringBlocked(page) : undefined;
+    })
+    .toBe(true);
+});
+
+test("the ring is red over a building, and never without selection", async ({
+  page,
+}) => {
+  await page.goto("./");
+  await page.waitForFunction(() => window.__solarpunk !== undefined);
+  await setup(page);
+  const { x, y } = await tilePosition(page, origin);
+  await page.mouse.move(x, y, { steps: 5 });
+  await page.mouse.click(x, y);
+  await expect.poll(() => buildingAt(page, origin)).toBe("OrganicHomestead");
+
+  // the building is deselected after building, so the ring is not red
+  await page.mouse.move(x, y + 1);
+  await expect.poll(() => ringBlocked(page)).toBe(false);
+
+  await selectFarm(page);
+  const neighbour = await tilePosition(page, next);
+  await page.mouse.move(neighbour.x, neighbour.y, { steps: 5 });
+  await expect.poll(() => ringTile(page)).toEqual(next);
+  expect(await ringBlocked(page)).toBe(true);
+});
