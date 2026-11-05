@@ -145,20 +145,44 @@ function getGrowth(): number {
   return Math.max(growth, 0);
 }
 
+// highest food per worker first; Array.sort is stable, so equal efficiency
+// keeps the board order
+function getFoodBuildingsByEfficiency(): Building[] {
+  // without labor demand the efficiency is Infinity
+  const efficiency = (building: Building) =>
+    building.produces.food / building.consumes.labor;
+  return getBuildings()
+    .filter((building) => building.produces.food > 0)
+    .sort((a, b) => efficiency(b) - efficiency(a));
+}
+
 function calculateDevelopment() {
   const startPopulation = currentPopulation;
   // labor is not stockpiled: it equals the population
   let labor = startPopulation;
 
-  // food producers get labor before all other buildings, at full capacity
+  // food producers get labor before all other buildings, but only as much
+  // as this week's demand needs; the food stock stays a buffer
   const harvestFactor = getHarvestFactor();
   let producedFood = 0;
-  // TODO sort building by efficiency
-  for (const building of getBuildings()) {
-    if (building.produces.food > 0 && labor >= building.consumes.labor) {
-      producedFood += building.produces.food * harvestFactor;
-      labor -= building.consumes.labor;
+  for (const building of getFoodBuildingsByEfficiency()) {
+    const needed = building.consumes.labor;
+    if (needed === 0) {
+      producedFood += building.produces.food * harvestFactor; // no staff needed
+      continue;
     }
+    const missingFood = startPopulation - producedFood;
+    if (missingFood <= 0) {
+      break;
+    }
+    const foodPerWorker = building.produces.food / needed;
+    const workers = Math.min(
+      Math.ceil(missingFood / (foodPerWorker * harvestFactor)),
+      needed,
+      labor,
+    );
+    producedFood += foodPerWorker * workers * harvestFactor;
+    labor -= workers;
   }
   // TODO food should spoil later; storage buildings (storage capacity) may be needed
   const availableFood = currentResources.food + producedFood;
