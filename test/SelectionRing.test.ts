@@ -60,7 +60,11 @@ vi.mock("../src/TileRenderer", () => ({
 
 import { PointerEventTypes } from "@babylonjs/core";
 import { hexToPixel } from "../src/hexGeometry";
-import { createPointerHandler, createRing } from "../src/SelectionRing";
+import {
+  createLeaveHandler,
+  createPointerHandler,
+  createRing,
+} from "../src/SelectionRing";
 
 beforeEach(() => {
   meshes.length = 0;
@@ -91,6 +95,16 @@ test("showing the ring enables one mesh per footprint tile on the board", () => 
   expect(ring.tile).toBeNull();
   expect(ring.tiles).toEqual([]);
   expect(meshes.some((mesh) => mesh.enabled)).toBe(false);
+});
+
+test("leaving the canvas hides the ring except for touch pointers", () => {
+  const ring = createRing({} as Scene);
+  const onLeave = createLeaveHandler(ring);
+  ring.show({ q: 0, r: 0 }, 0);
+  onLeave({ pointerType: "touch" } as PointerEvent);
+  expect(ring.tile).toEqual({ q: 0, r: 0 });
+  onLeave({ pointerType: "mouse" } as PointerEvent);
+  expect(ring.tile).toBeNull();
 });
 
 function setup(radius = 0) {
