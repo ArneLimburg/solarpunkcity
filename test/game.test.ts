@@ -55,14 +55,6 @@ test("homestead lets the population grow", () => {
   expectNoNegative(resources);
 });
 
-test("farm without enough labor does not produce", () => {
-  board.setBuilding({ q: 0, r: 0 }, definitions.BuildingDefinition.Farm);
-  const { resources, population } = game.calculateWeek();
-  expect(population).toBe(2);
-  expect(resources.wood).toBeCloseTo(11);
-  expectNoNegative(resources);
-});
-
 test("building without its inputs produces nothing", () => {
   board.setBuilding(
     { q: 0, r: 0 },
@@ -256,19 +248,63 @@ test("farm output depends on the harvest factor", () => {
   expect(foodBalance).toBe(0);
 });
 
-test("a farm without enough labor does not produce partially", () => {
-  board.setBuilding({ q: 0, r: 0 }, farm(5, 3));
-  expect(game.calculateWeek().resources.food).toBe(8);
+test("a farm only takes the workers needed for the demand", () => {
+  board.setBuilding({ q: 0, r: 0 }, farm(20, 4));
+  // demand 2, 5 food per worker -> 1 worker; the other one works in a forest
+  const { resources, foodBalance } = game.calculateWeek();
+  expect(foodBalance).toBeCloseTo(3);
+  expect(resources.food).toBeCloseTo(13);
+  expect(resources.wood).toBeCloseTo(10.5);
+  expect(resources.labor).toBe(0);
 });
 
-test("farms get labor before other buildings", () => {
-  // the forest comes first on the board, but the farm gets the labor
-  board.setBuilding({ q: -30, r: 0 }, definitions.BuildingDefinition.Forest);
-  board.setBuilding({ q: 0, r: 0 }, farm(5, 2));
-  const { resources } = game.calculateWeek();
-  expect(resources.food).toBe(13);
-  expect(resources.wood).toBe(10); // no labor left for forests
+test("a farm with 3 of 4 workers produces 3 of 4 of its food", () => {
+  board.setBuilding({ q: 0, r: 0 }, { ...farm(4, 4), resident: 3 });
+  game.calculateWeek(); // 2 workers, population grows to 3
+  const { foodBalance } = game.calculateWeek();
+  expect(foodBalance).toBeCloseTo(0); // 3 workers produce 3 of 4 food
+});
+
+test("food buildings are staffed by efficiency", () => {
+  board.setBuilding({ q: -1, r: 0 }, farm(3, 2));
+  board.setBuilding({ q: 1, r: 0 }, farm(7.5, 1));
+  // the efficient building needs 1 worker and covers the demand alone
+  const { foodBalance, resources } = game.calculateWeek();
+  expect(foodBalance).toBeCloseTo(5.5);
+  expect(resources.food).toBeCloseTo(15.5);
+  expect(resources.wood).toBeCloseTo(10.5);
+});
+
+test("the harvest factor is taken into account for the worker count", () => {
+  replaceTiles(board.getBuildings().length, testBuilding({ ecology: 0 }));
+  board.setBuilding({ q: 0, r: 0 }, { ...farm(4, 2), ecology: 0 });
+  // factor 0.5 -> 1 food per worker, demand 2 -> 2 workers
+  const { foodBalance, resources } = game.calculateWeek();
+  expect(foodBalance).toBeCloseTo(0);
   expect(resources.labor).toBe(0);
+});
+
+test("food buildings that cannot cover the demand take all labor they use", () => {
+  board.setBuilding({ q: 0, r: 0 }, farm(1, 4));
+  const { foodBalance, resources } = game.calculateWeek();
+  expect(foodBalance).toBeCloseTo(-1.5); // 2 of 4 workers: 0.5 food
+  expect(resources.food).toBeCloseTo(8.5);
+  expect(resources.wood).toBeCloseTo(10);
+});
+
+test("homestead, farm and agro-industrial farm with population 3", () => {
+  const { BuildingDefinition } = definitions;
+  board.setBuilding({ q: -10, r: 0 }, BuildingDefinition.OrganicHomestead);
+  board.setBuilding({ q: 0, r: 0 }, BuildingDefinition.Farm);
+  board.setBuilding({ q: 10, r: 0 }, BuildingDefinition.AgroIndustrial);
+  expect(game.calculateWeek().population).toBe(3);
+  const { foodBalance, resources } = game.calculateWeek();
+  expect(foodBalance).toBeCloseTo(4.5); // 1 worker on the agro-industrial farm
+  expect(resources.wood).toBeCloseTo(10 + 0.5 + 1); // 1 + 2 workers in forests
+  for (let week = 0; week < 6; week++) {
+    game.calculateWeek();
+  }
+  expect(game.getState().population).toBe(5);
 });
 
 test("hunger empties the stock and shrinks the population", () => {
