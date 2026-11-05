@@ -54,6 +54,15 @@ export function createRing(scene: Scene): Ring {
   return ring;
 }
 
+export function createLeaveHandler(ring: Ring): (event: PointerEvent) => void {
+  return (event) => {
+    // a touch pointer always leaves the canvas after the finger is lifted
+    if (event.pointerType !== "touch") {
+      ring.hide();
+    }
+  };
+}
+
 export function createPointerHandler(
   scene: Scene,
   ring: Ring,

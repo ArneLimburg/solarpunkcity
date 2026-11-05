@@ -1,32 +1,24 @@
 import { useRef, useEffect, forwardRef, useImperativeHandle } from "react";
 import type { Observer, PointerInfo } from "@babylonjs/core";
-import {
-  getBuilding,
-  getFootprint,
-  getFootprintRadius,
-  type HexCoordinates,
-} from "./board";
-import { BuildingDefinition, type BuildingType } from "./gameDefinitions";
-import {
-  createFarmRenderer,
-  isModelType,
-  type FarmRenderer,
-} from "./FarmRenderer";
+import { getBuilding, type HexCoordinates } from "./board";
+import type { BuildingType } from "./gameDefinitions";
+import { createFarmRenderer, type FarmRenderer } from "./FarmRenderer";
 import { createForest, type ForestRenderer } from "./ForestRenderer";
-import { HEX_SIZE, hexToPixel, tileKey } from "./hexGeometry";
+import { HEX_SIZE, hexToPixel } from "./hexGeometry";
 import {
   createGroundMaterials,
   createTiles,
-  setFootprintGround,
   type GroundMaterials,
   type TileMeshes,
 } from "./TileRenderer";
-import { createPointerHandler, createRing } from "./SelectionRing";
+import {
+  createLeaveHandler,
+  createPointerHandler,
+  createRing,
+} from "./SelectionRing";
 import { setupScene } from "./sceneSetup";
 import { createDevHooks } from "./devHooks";
-
-// the model shown on a tile
-type PlacedModel = { dispose: () => void; triangles: number };
+import { placeBuilding, type PlacedModel } from "./placeBuilding";
 
 export const Map = forwardRef<
   { addBuilding: (coords: HexCoordinates, type: BuildingType) => void },
@@ -50,28 +42,14 @@ export const Map = forwardRef<
   previewRadiusRef.current = previewRadius;
 
   useImperativeHandle(ref, () => ({
-    addBuilding: (coords: HexCoordinates, type: BuildingType) => {
-      const radius = getFootprintRadius(BuildingDefinition[type].size);
-      // the building replaces trees and previous models on its whole footprint
-      for (const tile of getFootprint(coords, radius)) {
-        forestRef.current!.clearTile(tile);
-        modelsRef.current[tileKey(tile)]?.dispose();
-        delete modelsRef.current[tileKey(tile)];
-      }
-      setFootprintGround(
-        tileMeshesRef.current,
-        materialsRef.current!,
-        coords,
-        type,
-      );
-      if (isModelType(type)) {
-        // models are built from code at scale 1
-        modelsRef.current[tileKey(coords)] = farmsRef.current!.create(
-          type,
-          hexToPixel(coords.q, coords.r),
-        );
-      }
-    },
+    addBuilding: (coords: HexCoordinates, type: BuildingType) =>
+      placeBuilding(coords, type, {
+        forest: forestRef.current!,
+        farms: farmsRef.current!,
+        tileMeshes: tileMeshesRef.current,
+        materials: materialsRef.current!,
+        models: modelsRef.current,
+      }),
   }));
 
   useEffect(() => {
@@ -100,12 +78,7 @@ export const Map = forwardRef<
           () => previewRadiusRef.current,
         ),
       );
-    const hideOnLeave = (event: PointerEvent) => {
-      // a touch pointer always leaves the canvas after the finger is lifted
-      if (event.pointerType !== "touch") {
-        ring.hide();
-      }
-    };
+    const hideOnLeave = createLeaveHandler(ring);
     canvas.addEventListener("pointerleave", hideOnLeave);
 
     if (import.meta.env.DEV) {
