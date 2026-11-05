@@ -5,6 +5,7 @@ import {
   FarmPalette,
   getFarmLayout,
   isFarmType,
+  part,
   rotateY,
   type FarmType,
 } from "../src/farms";
@@ -106,5 +107,42 @@ test("the geometry has unit normals and one color per vertex", () => {
   for (let i = 0; i < geometry.normals.length; i += 3) {
     const n = geometry.normals.slice(i, i + 3);
     expect(Math.hypot(n[0], n[1], n[2])).toBeCloseTo(1);
+  }
+});
+
+test("every glass part of the agro-industrial farm is an open box", () => {
+  const glass = getFarmLayout("AgroIndustrial", 1).filter(
+    (p) => p.color === "glass",
+  );
+  expect(glass).toHaveLength(3);
+  expect(glass.every((p) => p.shape === "openBox")).toBe(true);
+});
+
+function flatTriangles(positions: number[], y: number) {
+  let count = 0;
+  for (let i = 0; i < positions.length; i += 9) {
+    const ys = [1, 4, 7].map((k) => positions[i + k]);
+    if (ys.every((v) => Math.abs(v - y) < 1e-9)) count++;
+  }
+  return count;
+}
+
+test.each(TYPES)("%s has no glass triangle in the tile top plane", (type) => {
+  const glass = getFarmLayout(type, 1).filter((p) => p.color === "glass");
+  expect(flatTriangles(buildGeometry(glass).positions, 0)).toBe(0);
+});
+
+test("an open box has 10 triangles with outward normals", () => {
+  const geometry = buildGeometry([
+    part("openBox", "glass", [0, 1, 0], [2, 2, 2]),
+  ]);
+  expect(geometry.indices.length / 3).toBe(10);
+  expect(flatTriangles(geometry.positions, 0)).toBe(0);
+  for (let i = 0; i < geometry.positions.length; i += 3) {
+    const outward =
+      geometry.normals[i] * geometry.positions[i] +
+      geometry.normals[i + 1] * (geometry.positions[i + 1] - 1) +
+      geometry.normals[i + 2] * geometry.positions[i + 2];
+    expect(outward).toBeGreaterThan(0);
   }
 });

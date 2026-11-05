@@ -2,7 +2,13 @@ import type { BuildingType } from "./gameDefinitions";
 
 export type FarmType = "OrganicHomestead" | "Farm" | "AgroIndustrial";
 
-export type PartShape = "box" | "cylinder" | "cone" | "prism" | "sphere";
+export type PartShape =
+  | "box"
+  | "openBox"
+  | "cylinder"
+  | "cone"
+  | "prism"
+  | "sphere";
 
 // shared palette of all farm models (linear rgb, 0..1)
 export const FarmPalette = {
@@ -136,7 +142,7 @@ function verticalFarmTower(): FarmPart[] {
 }
 
 function greenhouse(): FarmPart[] {
-  return [part("box", "glass", [0, 0.2, 0], [0.9, 0.4, 0.7])];
+  return [part("openBox", "glass", [0, 0.2, 0], [0.9, 0.4, 0.7])];
 }
 
 function solarArray(): FarmPart[] {

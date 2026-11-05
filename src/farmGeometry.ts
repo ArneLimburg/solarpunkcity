@@ -14,7 +14,7 @@ const SEGMENTS = 8;
 const PHI = (1 + Math.sqrt(5)) / 2;
 
 // the triangles of the shapes fit into the box [-0.5, 0.5]^3
-function box(): Triangle[] {
+function boxFaces(withBottom: boolean): Triangle[] {
   const c = (x: number, y: number, z: number): Vec => [
     x - 0.5,
     y - 0.5,
@@ -29,10 +29,15 @@ function box(): Triangle[] {
     ...quad(c(0, 0, 1), c(1, 0, 1), c(1, 1, 1), c(0, 1, 1)),
     ...quad(c(0, 0, 0), c(0, 0, 1), c(0, 1, 1), c(0, 1, 0)),
     ...quad(c(1, 0, 0), c(1, 0, 1), c(1, 1, 1), c(1, 1, 0)),
-    ...quad(c(0, 0, 0), c(1, 0, 0), c(1, 0, 1), c(0, 0, 1)),
+    ...(withBottom ? quad(c(0, 0, 0), c(1, 0, 0), c(1, 0, 1), c(0, 0, 1)) : []),
     ...quad(c(0, 1, 0), c(1, 1, 0), c(1, 1, 1), c(0, 1, 1)),
   ];
 }
+
+const box = () => boxFaces(true);
+
+// box without the bottom face, e.g. for glass lying on the ground
+const openBox = () => boxFaces(false);
 
 // triangular prism, the ridge runs along X
 function prism(): Triangle[] {
@@ -118,6 +123,7 @@ function sphere(): Triangle[] {
 
 const SHAPES: Record<PartShape, () => Triangle[]> = {
   box,
+  openBox,
   prism,
   cylinder: () => round(1),
   cone: () => round(0),
