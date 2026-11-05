@@ -65,8 +65,8 @@ test.describe("mouse", () => {
     await page.mouse.move(x, y, { steps: 5 });
     await expect.poll(() => ringTile(page)).toEqual(origin);
     const box = await page.locator("canvas").boundingBox();
-    // the top of the canvas shows the sky
-    await page.mouse.move(x, (box?.y ?? 0) + 2);
+    // the top corner of the canvas shows the sky
+    await page.mouse.move((box?.x ?? 0) + (box?.width ?? 0) - 1, box?.y ?? 0);
     await expect.poll(() => ringTile(page)).toBeNull();
   });
 });
@@ -375,6 +375,8 @@ const BUILDABLE = [
 test("every buildable type stays within 1,000 triangles per tile", async ({
   page,
 }) => {
+  // builds every type one after another, which is slow with parallel software rendering
+  test.setTimeout(180_000);
   for (const { category, type, size } of BUILDABLE) {
     await buildAtOrigin(page, category, type);
     await expect
