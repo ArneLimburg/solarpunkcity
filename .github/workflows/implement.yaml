@@ -170,6 +170,10 @@ jobs:
               or `.claude/`; the workflow rejects such commits.${{ steps.ctx.outputs.mode != 'issue' && ' This is a pull request, so `CLAUDE.md` and `.claude/` have been reset to their state on main and may show up as modified: leave them alone and do not change `CLAUDE.md` either.' || '' }}
               If the task needs a change there, implement everything else and describe the exact
               change for a human in the commit body.
+            - Read files only with `Read`, `Glob` and `Grep`, and change them only with `Edit` and
+              `Write`, never with shell commands (`cat`, `sed`, `python3`, heredocs, `cd`): they are not
+              allowed and will be denied. To run single tests use `npx vitest run <file>`, to format
+              use `npx prettier --write <path>...`.
             - Add or update dependencies only with `npm install`, never by editing `package-lock.json`.
             - Run `npm run lint`, `npm run build` and `npm test` (if the project has a `test` script)
               and fix all failures before committing.
@@ -179,10 +183,13 @@ jobs:
               The body becomes the pull request description.
             - If the task is unclear, contradictory or not implementable, do not commit. Instead write
               the reason and your open questions to `agent-blocked.md` in the repository root.
+            - Never stop without either exactly one commit or an `agent-blocked.md`. If a tool call is
+              denied and you cannot reach the goal with the allowed tools, write the denied command
+              and what you needed it for to `agent-blocked.md`.
           claude_args: |
             --model claude-sonnet-5-5
             --max-turns 80
-            --allowedTools "Edit,Write,Read,Glob,Grep,Bash(npm ci),Bash(npm install:*),Bash(npx playwright install:*),Bash(npm test),Bash(npm run test:e2e:*),Bash(npm run lint),Bash(npm run prettier),Bash(npm run build),Bash(npx tsc:*),Bash(git add:*),Bash(git rm:*),Bash(git mv:*),Bash(git commit:*),Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(git rebase --autostash origin/main),Bash(git rebase --continue),Bash(git rebase --abort),Bash(gh issue view:*),Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh run view:*)${{ steps.ctx.outputs.mode == 'owner-review' && format(',Bash(gh api repos/{0}/pulls/{1}/reviews/{2}),Bash(gh api --paginate repos/{0}/pulls/{1}/reviews/{2}/comments)', github.repository, steps.ctx.outputs.pr, steps.ctx.outputs.review) || '' }}"
+            --allowedTools "Edit,Write,Read,Glob,Grep,Bash(npm ci),Bash(npm install:*),Bash(npx playwright install:*),Bash(npm test),Bash(npm run test:e2e:*),Bash(npx vitest:*),Bash(npm run lint),Bash(npm run prettier),Bash(npx prettier:*),Bash(npm run build),Bash(npx tsc:*),Bash(git add:*),Bash(git rm:*),Bash(git mv:*),Bash(git commit:*),Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(git rebase --autostash origin/main),Bash(git rebase --continue),Bash(git rebase --abort),Bash(gh issue view:*),Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh run view:*)${{ steps.ctx.outputs.mode == 'owner-review' && format(',Bash(gh api repos/{0}/pulls/{1}/reviews/{2}),Bash(gh api --paginate repos/{0}/pulls/{1}/reviews/{2}/comments)', github.repository, steps.ctx.outputs.pr, steps.ctx.outputs.review) || '' }}"
 
       - if: steps.ctx.outputs.skip == 'false'
         name: Push and open pull request
