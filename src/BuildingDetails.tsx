@@ -59,7 +59,7 @@ export const BuildingDetails: FC<{
   const building = BuildingDefinition[type];
   return (
     <article
-      className="small-opacity"
+      className="small-opacity padding"
       data-testid="building-details"
       style={{
         position: "fixed",

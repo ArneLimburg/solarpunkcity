@@ -32,6 +32,12 @@ test("shows the organic homestead details", async ({ page }) => {
   await expect(chip(page, "details-produces", "food")).toHaveText(/3$/);
   await expect(chip(page, "details-consumes", "labor")).toHaveText(/2$/);
   await expect(detail(page, "water")).toHaveCount(0);
+  for (const side of ["Top", "Right", "Bottom", "Left"]) {
+    await expect(panel(page)).toHaveCSS(
+      `padding-${side.toLowerCase()}`,
+      "16px",
+    );
+  }
 });
 
 test("updates when another type is selected", async ({ page }) => {
