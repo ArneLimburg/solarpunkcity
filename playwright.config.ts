@@ -4,7 +4,6 @@ const baseURL = "http://localhost:5173/solarpunkcity/";
 
 export default defineConfig({
   testDir: "./e2e",
-  fullyParallel: true,
   // software rendering with V8 coverage is slow on CI runners
   timeout: 60_000,
   globalTeardown: "./e2e/global-teardown.ts",
