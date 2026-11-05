@@ -401,12 +401,8 @@ const BUILDABLE = [
   { category: "RESIDENTIAL", type: "AppartmentBuilding", size: 1 },
 ];
 
-test("every buildable type stays within 1,000 triangles per tile", async ({
-  page,
-}) => {
-  // builds every type one after another, which is slow with parallel software rendering
-  test.setTimeout(180_000);
-  for (const { category, type, size } of BUILDABLE) {
+for (const { category, type, size } of BUILDABLE) {
+  test(`${type} stays within 1,000 triangles per tile`, async ({ page }) => {
     await buildAtOrigin(page, category, type);
     await expect
       .poll(() =>
@@ -421,5 +417,5 @@ test("every buildable type stays within 1,000 triangles per tile", async ({
       origin,
     );
     expect(triangles).toBeLessThanOrEqual(1000 * size);
-  }
-});
+  });
+}
