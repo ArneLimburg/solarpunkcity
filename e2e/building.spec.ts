@@ -78,15 +78,44 @@ test("hovering the ground outside the board hides the ring", async ({
   const { x, y } = await tilePosition(page, origin);
   await page.mouse.move(x, y, { steps: 5 });
   await expect.poll(() => ringTile(page)).toEqual(origin);
-  // zoom out until the ground beyond the board is visible
+  // zoom out so the ground beyond the board comes into view
   await page.mouse.wheel(0, 3000);
-  const outside = { q: GRID_RADIUS + 3, r: 0 };
+  // The zoom is inertial and slow with software rendering, and which side of the board becomes
+  // visible first depends on the viewport, so take the off-board tile closest to the centre of
+  // the canvas in any of the six directions instead of waiting for one fixed tile.
+  const distance = GRID_RADIUS + 3;
+  const candidates = [
+    { q: distance, r: 0 },
+    { q: -distance, r: 0 },
+    { q: 0, r: distance },
+    { q: 0, r: -distance },
+    { q: distance, r: -distance },
+    { q: -distance, r: distance },
+  ];
+  let target: { x: number; y: number } | undefined;
   await expect
-    .poll(() =>
-      page.evaluate((c) => window.__solarpunk?.tileToScreen(c), outside),
-    )
-    .not.toBeNull();
-  const target = await tilePosition(page, outside);
+    .poll(async () => {
+      const box = await page.locator("canvas").boundingBox();
+      const positions = await page.evaluate(
+        (tiles) => tiles.map((c) => window.__solarpunk?.tileToScreen(c)),
+        candidates,
+      );
+      const centre = { x: (box?.width ?? 0) / 2, y: (box?.height ?? 0) / 2 };
+      const visible = positions
+        .filter((p) => p != null)
+        .sort(
+          (a, b) =>
+            Math.hypot(a.x - centre.x, a.y - centre.y) -
+            Math.hypot(b.x - centre.x, b.y - centre.y),
+        );
+      target = visible[0] && {
+        x: (box?.x ?? 0) + visible[0].x,
+        y: (box?.y ?? 0) + visible[0].y,
+      };
+      return target;
+    })
+    .toBeDefined();
+  if (!target) throw new Error("no tile outside the board is visible");
   await page.mouse.move(target.x, target.y, { steps: 5 });
   await expect.poll(() => ringTile(page)).toBeNull();
 });
