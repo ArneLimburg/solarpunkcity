@@ -9,6 +9,7 @@ import {
 } from "@babylonjs/core";
 import {
   GRID_RADIUS,
+  getBuilding,
   getFootprint,
   getFootprintRadius,
   isOnBoard,
@@ -89,6 +90,11 @@ export function createTiles(scene: Scene, material: StandardMaterial) {
     }
   }
   return { meshes, coordinates };
+}
+
+// the tiles that currently hold a forest
+export function getForestTiles(coordinates: HexCoordinates[]) {
+  return coordinates.filter((tile) => getBuilding(tile)?.type === "Forest");
 }
 
 // farmland below farms, meadow below everything else

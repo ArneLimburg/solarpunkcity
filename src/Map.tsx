@@ -1,6 +1,6 @@
 import { useRef, useEffect, forwardRef, useImperativeHandle } from "react";
 import type { Observer, PointerInfo } from "@babylonjs/core";
-import { getBuilding, type HexCoordinates } from "./board";
+import type { HexCoordinates } from "./board";
 import type { BuildingType } from "./gameDefinitions";
 import { createFarmRenderer, type FarmRenderer } from "./FarmRenderer";
 import { createForest, type ForestRenderer } from "./ForestRenderer";
@@ -8,6 +8,7 @@ import { HEX_SIZE, hexToPixel } from "./hexGeometry";
 import {
   createGroundMaterials,
   createTiles,
+  getForestTiles,
   type GroundMaterials,
   type TileMeshes,
 } from "./TileRenderer";
@@ -62,7 +63,7 @@ export const Map = forwardRef<
     tileMeshesRef.current = tiles.meshes;
     forestRef.current = createForest(
       scene,
-      tiles.coordinates.filter((tile) => getBuilding(tile)?.type === "Forest"),
+      getForestTiles(tiles.coordinates),
       HEX_SIZE,
       (tile) => hexToPixel(tile.q, tile.r),
     );
