@@ -31,21 +31,27 @@ export const INITIAL_POPULATION = 2;
 let currentPopulation = INITIAL_POPULATION;
 let currentFoodBalance = 0;
 
+// whether the footprint is on the board and free of buildings without recycling
+export function canPlace(
+  buildingType: BuildingType,
+  coords: HexCoordinates,
+): boolean {
+  return getFootprintOf(BuildingDefinition[buildingType], coords).every(
+    (tile) => isOnBoard(tile) && getBuilding(tile)?.recycling,
+  );
+}
+
 export function canBuild(
   buildingType: BuildingType,
   coords: HexCoordinates,
 ): boolean {
+  if (!canPlace(buildingType, coords)) {
+    return false;
+  }
   const buildingDefinition = BuildingDefinition[buildingType];
   let newResources = currentResources;
   for (const tile of getFootprintOf(buildingDefinition, coords)) {
-    if (!isOnBoard(tile)) {
-      return false;
-    }
-    const oldBuilding = getBuilding(tile);
-    if (!oldBuilding?.recycling) {
-      return false; // cannot build on top of existing building without recycling
-    }
-    newResources = addResources(newResources, oldBuilding.recycling);
+    newResources = addResources(newResources, getBuilding(tile)!.recycling!);
   }
   return hasEnoughResources(newResources, buildingDefinition.cost);
 }

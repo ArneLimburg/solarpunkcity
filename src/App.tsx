@@ -2,8 +2,8 @@ import "beercss/dist/cdn/beer.min.css";
 import { useCallback, useEffect, useRef, useState, type FC } from "react";
 import { Map } from "./Map";
 import { Menu } from "./Menu";
-import { getFootprintRadius, type HexCoordinates } from "./board";
-import { BuildingDefinition, type BuildingType } from "./gameDefinitions";
+import type { HexCoordinates } from "./board";
+import type { BuildingType } from "./gameDefinitions";
 import { build, calculateWeek, canBuild, getState } from "./game";
 import { BuildingDetails } from "./BuildingDetails";
 import { StatusBar } from "./StatusBar";
@@ -48,13 +48,7 @@ export const App: FC = () => {
         <Map
           ref={mapRef}
           onSelected={mapSelectionListener}
-          previewRadius={
-            selectedBuildingType
-              ? getFootprintRadius(
-                  BuildingDefinition[selectedBuildingType].size,
-                )
-              : 0
-          }
+          previewType={selectedBuildingType}
         />
       </main>
       {selectedBuildingType && (

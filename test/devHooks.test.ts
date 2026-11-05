@@ -35,6 +35,7 @@ function setup() {
     ring: {
       tile: { q: 1, r: 1 },
       tiles: [{ q: 1, r: 1 }],
+      blocked: true,
       show: vi.fn(),
       hide: vi.fn(),
     },
@@ -79,6 +80,7 @@ test("the hooks expose ring, models, trees, material and buildings", () => {
   const tiles = hooks.getRingTiles();
   expect(tiles).toEqual([{ q: 1, r: 1 }]);
   expect(tiles).not.toBe(hooks.getRingTiles());
+  expect(hooks.isRingBlocked()).toBe(true);
   expect(hooks.getTileMaterial({ q: 0, r: 0 })).toBe("meadow");
   expect(hooks.getModelCount({ q: 0, r: 0 })).toBe(1);
   expect(hooks.getModelCount({ q: 1, r: 0 })).toBe(0);

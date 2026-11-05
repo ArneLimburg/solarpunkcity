@@ -6,28 +6,34 @@ type FakeMesh = {
   enabled: boolean;
   isPickable: boolean;
   material?: unknown;
-  position: { y: number; set: (x: number, y: number, z: number) => void };
+  diameter: number;
+  position: {
+    x: number;
+    y: number;
+    set: (x: number, y: number, z: number) => void;
+  };
   setEnabled: (enabled: boolean) => void;
-  clone: (name: string) => FakeMesh;
 };
 
 const meshes: FakeMesh[] = [];
 
-function fakeMesh(name: string): FakeMesh {
+function fakeMesh(name: string, diameter: number): FakeMesh {
   const mesh: FakeMesh = {
     name,
     enabled: true,
     isPickable: true,
+    diameter,
     position: {
+      x: 0,
       y: 0,
-      set: (_x, y) => {
+      set: (x, y) => {
+        mesh.position.x = x;
         mesh.position.y = y;
       },
     },
     setEnabled: (enabled) => {
       mesh.enabled = enabled;
     },
-    clone: (cloneName) => fakeMesh(cloneName),
   };
   meshes.push(mesh);
   return mesh;
@@ -44,8 +50,21 @@ vi.mock("@babylonjs/core", () => ({
       this.z = z;
     }
   },
-  Color3: { Black: () => ({}) },
-  MeshBuilder: { CreateTorus: (name: string) => fakeMesh(name) },
+  Color3: class {
+    static Black = () => ({ black: true });
+    r: number;
+    g: number;
+    b: number;
+    constructor(r: number, g: number, b: number) {
+      this.r = r;
+      this.g = g;
+      this.b = b;
+    }
+  },
+  MeshBuilder: {
+    CreateTorus: (name: string, options: { diameter: number }) =>
+      fakeMesh(name, options.diameter),
+  },
   PointerEventTypes: {
     POINTERDOWN: 1,
     POINTERUP: 2,
@@ -55,14 +74,20 @@ vi.mock("@babylonjs/core", () => ({
   },
 }));
 vi.mock("../src/TileRenderer", () => ({
-  makeMaterial: (name: string) => ({ name, alpha: 1 }),
+  makeMaterial: (name: string, color: unknown) => ({
+    name,
+    color,
+    alpha: 1,
+  }),
 }));
 
 import { PointerEventTypes } from "@babylonjs/core";
-import { hexToPixel } from "../src/hexGeometry";
+import { HEX_SIZE, hexToPixel } from "../src/hexGeometry";
+import { build, grantResources } from "../src/game";
 import {
   createLeaveHandler,
   createPointerHandler,
+  createPreview,
   createRing,
 } from "../src/SelectionRing";
 
@@ -70,26 +95,35 @@ beforeEach(() => {
   meshes.length = 0;
 });
 
-test("the ring is a disabled unpickable torus with a transparent material", () => {
-  createRing({} as Scene);
+test("the ring creates its tori lazily", () => {
+  const ring = createRing({} as Scene);
+  expect(meshes).toHaveLength(0);
+  ring.show({ q: 0, r: 0 }, 0, false);
   expect(meshes).toHaveLength(1);
-  expect(meshes[0].name).toBe("ring");
-  expect(meshes[0].enabled).toBe(false);
   expect(meshes[0].isPickable).toBe(false);
-  expect(meshes[0].material).toEqual({ name: "hexHighlight", alpha: 0.1 });
+  expect(meshes[0].material).toMatchObject({
+    name: "hexHighlight",
+    alpha: 0.1,
+  });
 });
 
-test("showing the ring enables one mesh per footprint tile on the board", () => {
+test("one ring is enabled and sized by the footprint radius", () => {
   const ring = createRing({} as Scene);
-  ring.show({ q: 0, r: 0 }, 1);
+  ring.show({ q: 0, r: 0 }, 1, false);
   expect(ring.tile).toEqual({ q: 0, r: 0 });
   expect(ring.tiles).toHaveLength(7);
-  expect(meshes).toHaveLength(7);
-  expect(meshes.every((mesh) => mesh.enabled)).toBe(true);
+  expect(meshes).toHaveLength(1);
+  expect(meshes[0].diameter).toBeCloseTo(2 * HEX_SIZE * (Math.sqrt(3) + 1));
 
-  ring.show({ q: 0, r: 0 }, 0);
+  ring.show({ q: 0, r: 0 }, 0, false);
   expect(ring.tiles).toEqual([{ q: 0, r: 0 }]);
-  expect(meshes.filter((mesh) => mesh.enabled)).toHaveLength(1);
+  expect(meshes).toHaveLength(2);
+  expect(meshes[1].diameter).toBe(2);
+  expect(meshes.filter((mesh) => mesh.enabled)).toEqual([meshes[1]]);
+
+  ring.show({ q: 0, r: 0 }, 1, false); // cached
+  expect(meshes).toHaveLength(2);
+  expect(meshes.filter((mesh) => mesh.enabled)).toEqual([meshes[0]]);
 
   ring.hide();
   expect(ring.tile).toBeNull();
@@ -97,10 +131,49 @@ test("showing the ring enables one mesh per footprint tile on the board", () => 
   expect(meshes.some((mesh) => mesh.enabled)).toBe(false);
 });
 
+test("the ring is drawn completely at the board edge", () => {
+  const ring = createRing({} as Scene);
+  ring.show({ q: 30, r: 0 }, 1, true);
+  expect(ring.tiles).toHaveLength(4);
+  expect(meshes[0].enabled).toBe(true);
+  expect(meshes[0].position.x).toBe(hexToPixel(30, 0).x);
+});
+
+test("a blocked ring uses the red material", () => {
+  const ring = createRing({} as Scene);
+  ring.show({ q: 0, r: 0 }, 0, true);
+  expect(ring.blocked).toBe(true);
+  expect(meshes[0].material).toMatchObject({
+    name: "hexBlocked",
+    color: { r: 0.9, g: 0.2, b: 0.2 },
+    alpha: 0.5,
+  });
+  ring.show({ q: 0, r: 0 }, 0, false);
+  expect(ring.blocked).toBe(false);
+  expect(meshes[0].material).toMatchObject({ name: "hexHighlight" });
+  ring.show({ q: 0, r: 0 }, 0, true);
+  ring.hide();
+  expect(ring.blocked).toBe(false);
+});
+
+test("the preview follows the selected building type", () => {
+  const selection: { type?: "Farm" } = {};
+  const preview = createPreview(() => selection.type);
+  expect(preview.getRadius()).toBe(0);
+  expect(preview.isBlocked({ q: 30, r: 0 })).toBe(false);
+  selection.type = "Farm";
+  expect(preview.getRadius()).toBe(1);
+  expect(preview.isBlocked({ q: 0, r: 0 })).toBe(false);
+  expect(preview.isBlocked({ q: 30, r: 0 })).toBe(true);
+  grantResources({ wood: 100 });
+  build("Farm", { q: 0, r: 0 });
+  expect(preview.isBlocked({ q: 1, r: 0 })).toBe(true);
+});
+
 test("leaving the canvas hides the ring except for touch pointers", () => {
   const ring = createRing({} as Scene);
   const onLeave = createLeaveHandler(ring);
-  ring.show({ q: 0, r: 0 }, 0);
+  ring.show({ q: 0, r: 0 }, 0, false);
   onLeave({ pointerType: "touch" } as PointerEvent);
   expect(ring.tile).toEqual({ q: 0, r: 0 });
   onLeave({ pointerType: "mouse" } as PointerEvent);
@@ -118,6 +191,7 @@ function setup(radius = 0) {
     ring,
     onSelected,
     () => radius,
+    () => false,
   );
   const send = (
     type: number,

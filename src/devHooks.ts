@@ -68,6 +68,7 @@ export function createDevHooks({
     getBuildingType: (coords) => getBuilding(coords)?.type,
     getRingTile: () => ring.tile,
     getRingTiles: () => [...ring.tiles],
+    isRingBlocked: () => ring.blocked,
     getTileMaterial: (coords) => getTileMaterialName(tileMeshes, coords),
     getModelCount: (coords) => (models[tileKey(coords)] ? 1 : 0),
     getModelTriangleCount: (coords) => models[tileKey(coords)]?.triangles ?? 0,

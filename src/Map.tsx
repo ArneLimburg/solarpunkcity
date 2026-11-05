@@ -15,6 +15,7 @@ import {
 import {
   createLeaveHandler,
   createPointerHandler,
+  createPreview,
   createRing,
 } from "./SelectionRing";
 import { setupScene } from "./sceneSetup";
@@ -25,10 +26,9 @@ export const Map = forwardRef<
   { addBuilding: (coords: HexCoordinates, type: BuildingType) => void },
   {
     onSelected: (coordinates: HexCoordinates) => void;
-    // footprint radius of the selected building type, 0 without selection
-    previewRadius: number;
+    previewType?: BuildingType;
   }
->(({ onSelected, previewRadius }, ref) => {
+>(({ onSelected, previewType }, ref) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   // the model currently shown on a tile ("q,r")
   const modelsRef = useRef<Record<string, PlacedModel>>({});
@@ -39,8 +39,8 @@ export const Map = forwardRef<
   const tileMeshesRef = useRef<TileMeshes>({});
   const materialsRef = useRef<GroundMaterials | null>(null);
   // mirrors the prop so that the stable pointer handler can read it
-  const previewRadiusRef = useRef(previewRadius);
-  previewRadiusRef.current = previewRadius;
+  const previewTypeRef = useRef(previewType);
+  previewTypeRef.current = previewType;
 
   useImperativeHandle(ref, () => ({
     addBuilding: (coords: HexCoordinates, type: BuildingType) =>
@@ -70,13 +70,15 @@ export const Map = forwardRef<
     farmsRef.current = createFarmRenderer(scene, HEX_SIZE);
 
     const ring = createRing(scene);
+    const preview = createPreview(() => previewTypeRef.current);
     const pointerObserver: Observer<PointerInfo> =
       scene.onPointerObservable.add(
         createPointerHandler(
           scene,
           ring,
           onSelected,
-          () => previewRadiusRef.current,
+          preview.getRadius,
+          preview.isBlocked,
         ),
       );
     const hideOnLeave = createLeaveHandler(ring);
