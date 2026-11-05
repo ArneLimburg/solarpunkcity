@@ -1,0 +1,116 @@
+import {
+  Color3,
+  MeshBuilder,
+  RawTexture,
+  StandardMaterial,
+  Texture,
+  type Mesh,
+  type Scene,
+} from "@babylonjs/core";
+import {
+  GRID_RADIUS,
+  getFootprint,
+  getFootprintRadius,
+  isOnBoard,
+  type HexCoordinates,
+} from "./board";
+import { BuildingDefinition, BuildingTypes } from "./gameDefinitions";
+import type { BuildingType } from "./gameDefinitions";
+import { getTileRotation } from "./forest";
+import { FOREST_FLOOR_SIZE, createForestFloorPixels } from "./forestFloor";
+import { createHexCorners, hexToPixel, tileKey } from "./hexGeometry";
+
+const FOREST_FLOOR_COLOR = new Color3(0.2, 0.42, 0.18);
+const MEADOW_COLOR = new Color3(0.55, 0.78, 0.4);
+const FARMLAND_COLOR = new Color3(0.55, 0.45, 0.3);
+
+export type GroundMaterials = {
+  forestFloor: StandardMaterial;
+  meadow: StandardMaterial;
+  farmland: StandardMaterial;
+};
+
+// hex meshes per tile ("q,r")
+export type TileMeshes = Record<string, Mesh>;
+
+export function makeMaterial(name: string, color: Color3, scene: Scene) {
+  const m = new StandardMaterial(name, scene);
+  m.diffuseColor = color;
+  m.specularColor = Color3.Black();
+  return m;
+}
+
+export function createGroundMaterials(scene: Scene): GroundMaterials {
+  const forestFloor = makeMaterial("forestFloor", FOREST_FLOOR_COLOR, scene);
+  forestFloor.diffuseTexture = RawTexture.CreateRGBATexture(
+    createForestFloorPixels(),
+    FOREST_FLOOR_SIZE,
+    FOREST_FLOOR_SIZE,
+    scene,
+    true,
+    false,
+    Texture.BILINEAR_SAMPLINGMODE,
+  );
+  return {
+    forestFloor,
+    meadow: makeMaterial("meadow", MEADOW_COLOR, scene),
+    farmland: makeMaterial("farmland", FARMLAND_COLOR, scene),
+  };
+}
+
+export function createHexTile(
+  q: number,
+  r: number,
+  scene: Scene,
+  material: StandardMaterial,
+) {
+  const hex = MeshBuilder.ExtrudePolygon(
+    `hex_${q}_${r}`,
+    { shape: createHexCorners(), depth: 0.2 },
+    scene,
+  );
+  hex.position = hexToPixel(q, r);
+  hex.position.y = 0.1;
+  hex.material = material;
+  hex.rotation.y = getTileRotation({ q, r });
+  return hex;
+}
+
+// creates a hex tile for every tile of the board (axial coordinates)
+export function createTiles(scene: Scene, material: StandardMaterial) {
+  const meshes: TileMeshes = {};
+  const coordinates: HexCoordinates[] = [];
+  for (let q = -GRID_RADIUS; q <= GRID_RADIUS; q++) {
+    for (let r = -GRID_RADIUS; r <= GRID_RADIUS; r++) {
+      if (isOnBoard({ q, r })) {
+        meshes[tileKey({ q, r })] = createHexTile(q, r, scene, material);
+        coordinates.push({ q, r });
+      }
+    }
+  }
+  return { meshes, coordinates };
+}
+
+// farmland below farms, meadow below everything else
+export function setFootprintGround(
+  meshes: TileMeshes,
+  materials: GroundMaterials,
+  coords: HexCoordinates,
+  type: BuildingType,
+) {
+  const radius = getFootprintRadius(BuildingDefinition[type].size);
+  const ground =
+    BuildingTypes[type].category === "FARM"
+      ? materials.farmland
+      : materials.meadow;
+  for (const tile of getFootprint(coords, radius)) {
+    meshes[tileKey(tile)].material = ground;
+  }
+}
+
+export function getTileMaterialName(
+  meshes: TileMeshes,
+  coords: HexCoordinates,
+): string | undefined {
+  return meshes[tileKey(coords)].material!.name;
+}
