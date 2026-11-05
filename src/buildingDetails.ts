@@ -1,4 +1,29 @@
+import { BuildingDefinition, type BuildingType } from "./gameDefinitions";
 import type { Resources } from "./resources";
+
+function maxRecycling(resource: keyof Resources): number {
+  return Math.max(
+    0,
+    ...Object.values(BuildingDefinition).map(
+      (building) => building.recycling?.[resource] ?? 0,
+    ),
+  );
+}
+
+/** Cost resources that cannot be paid even if every tile recycles the most. */
+export function unaffordableCosts(
+  type: BuildingType,
+  available: Resources,
+): Set<keyof Resources> {
+  const { cost, size } = BuildingDefinition[type];
+  return new Set(
+    nonZeroResources(cost)
+      .filter(
+        ([name, value]) => available[name] + size * maxRecycling(name) < value,
+      )
+      .map(([name]) => name),
+  );
+}
 
 export function nonZeroResources(
   resources: Resources,

@@ -84,3 +84,19 @@ test("hides after Escape, deselecting and placing", async ({ page }) => {
   expect(await buildingAt(page, origin)).toBe("OrganicHomestead");
   await expect(panel(page)).toHaveCount(0);
 });
+
+test("marks unaffordable costs and updates without reselecting", async ({
+  page,
+}) => {
+  await setup(page);
+  await page.evaluate(() => window.__solarpunk?.addResources({ wood: -110 }));
+  await button(page, "FARM").click();
+  await button(page, "AgroIndustrial").click();
+  await expect(chip(page, "details-cost", "wood")).toHaveClass(/error/);
+  await expect(chip(page, "details-produces", "food")).not.toHaveClass(/error/);
+  await expect(chip(page, "details-consumes", "labor")).not.toHaveClass(
+    /error/,
+  );
+  await page.evaluate(() => window.__solarpunk?.addResources({ wood: 100 }));
+  await expect(chip(page, "details-cost", "wood")).not.toHaveClass(/error/);
+});

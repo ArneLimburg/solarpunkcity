@@ -57,7 +57,12 @@ export const App: FC = () => {
           }
         />
       </main>
-      {selectedBuildingType && <BuildingDetails type={selectedBuildingType} />}
+      {selectedBuildingType && (
+        <BuildingDetails
+          type={selectedBuildingType}
+          resources={state.resources}
+        />
+      )}
       <StatusBar state={state} />
     </>
   );
