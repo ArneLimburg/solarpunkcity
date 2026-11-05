@@ -65,7 +65,7 @@ test.describe("mouse", () => {
     await page.mouse.move(x, y, { steps: 5 });
     await expect.poll(() => ringTile(page)).toEqual(origin);
     const box = await page.locator("canvas").boundingBox();
-    // the top corner of the canvas shows the sky
+    // the top right corner hits no mesh (not even the skybox), unlike the top centre
     await page.mouse.move((box?.x ?? 0) + (box?.width ?? 0) - 1, box?.y ?? 0);
     await expect.poll(() => ringTile(page)).toBeNull();
   });
