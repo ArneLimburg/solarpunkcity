@@ -32,12 +32,12 @@ export const StatusBar: FC<{ state: GameState }> = ({ state }) => (
     />
     <Entry
       name="labor"
-      icon="engineering"
+      icon={resourceIcons.labor}
       value={`${Math.floor(state.resources.labor)}`}
     />
     <Entry
       name="food"
-      icon="restaurant"
+      icon={resourceIcons.food}
       value={`${Math.floor(state.resources.food)} (${
         state.foodBalance < 0 ? "−" : "+"
       }${Math.floor(Math.abs(state.foodBalance))})`}
