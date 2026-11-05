@@ -4,6 +4,7 @@ const baseURL = "http://localhost:5173/solarpunkcity/";
 
 export default defineConfig({
   testDir: "./e2e",
+  fullyParallel: true,
   // software rendering with V8 coverage is slow on CI runners
   timeout: 60_000,
   globalTeardown: "./e2e/global-teardown.ts",
@@ -18,6 +19,7 @@ export default defineConfig({
       name: "chromium",
       use: {
         ...devices["Desktop Chrome"],
+        viewport: { width: 800, height: 600 },
         launchOptions: {
           args: ["--use-angle=swiftshader", "--enable-unsafe-swiftshader"],
         },
