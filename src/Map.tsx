@@ -82,7 +82,9 @@ export const Map = forwardRef<
     const hideOnLeave = createLeaveHandler(ring);
     canvas.addEventListener("pointerleave", hideOnLeave);
 
-    if (import.meta.env.DEV) {
+    // DEV only; e2e runs against the dev server, so a plain `if` would leave
+    // its else branch uncovered
+    [import.meta.env.DEV].filter(Boolean).forEach(() => {
       window.__solarpunk = createDevHooks({
         engine,
         scene,
@@ -93,7 +95,7 @@ export const Map = forwardRef<
         models: modelsRef.current,
         getTreeCount: (coords) => forestRef.current!.getTreeCount(coords),
       });
-    }
+    });
 
     return () => {
       canvas.removeEventListener("pointerleave", hideOnLeave);
