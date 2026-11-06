@@ -188,7 +188,7 @@ jobs:
               and what you needed it for to `agent-blocked.md`.
           claude_args: |
             --model claude-sonnet-5-5
-            --max-turns 80
+            --max-turns 400
             --allowedTools "Edit,Write,Read,Glob,Grep,Bash(npm ci),Bash(npm install:*),Bash(npx playwright install:*),Bash(npm test),Bash(npm run test:e2e:*),Bash(npx vitest:*),Bash(npm run lint),Bash(npm run prettier),Bash(npx prettier:*),Bash(npm run build),Bash(npx tsc:*),Bash(git add:*),Bash(git rm:*),Bash(git mv:*),Bash(git commit:*),Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(git rebase --autostash origin/main),Bash(git rebase --continue),Bash(git rebase --abort),Bash(gh issue view:*),Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh run view:*)${{ steps.ctx.outputs.mode == 'owner-review' && format(',Bash(gh api repos/{0}/pulls/{1}/reviews/{2}),Bash(gh api --paginate repos/{0}/pulls/{1}/reviews/{2}/comments)', github.repository, steps.ctx.outputs.pr, steps.ctx.outputs.review) || '' }}"
 
       - if: steps.ctx.outputs.skip == 'false'
