@@ -4,6 +4,7 @@ import {
   RawTexture,
   StandardMaterial,
   Texture,
+  Vector3,
   type Mesh,
   type Scene,
 } from "@babylonjs/core";
@@ -19,7 +20,8 @@ import { BuildingDefinition, BuildingTypes } from "./gameDefinitions";
 import type { BuildingType } from "./gameDefinitions";
 import { getTileRotation } from "./forest";
 import { FOREST_FLOOR_SIZE, createForestFloorPixels } from "./forestFloor";
-import { createHexCorners, hexToPixel, tileKey } from "./hexGeometry";
+import { createRoundedHexOutline } from "./hexCorners";
+import { HEX_SIZE, hexToPixel, tileKey } from "./hexGeometry";
 
 const FOREST_FLOOR_COLOR = new Color3(0.2, 0.42, 0.18);
 const MEADOW_COLOR = new Color3(0.55, 0.78, 0.4);
@@ -67,7 +69,12 @@ export function createHexTile(
 ) {
   const hex = MeshBuilder.ExtrudePolygon(
     `hex_${q}_${r}`,
-    { shape: createHexCorners(), depth: 0.2 },
+    {
+      shape: createRoundedHexOutline(HEX_SIZE).map(
+        (point) => new Vector3(point.x, 0, point.z),
+      ),
+      depth: 0.2,
+    },
     scene,
   );
   hex.position = hexToPixel(q, r);

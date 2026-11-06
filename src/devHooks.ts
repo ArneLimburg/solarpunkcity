@@ -25,6 +25,7 @@ type DevHookSources = {
   // the model currently shown on a tile ("q,r")
   models: Record<string, { triangles: number }>;
   getTreeCount: DevHooks["getTreeCount"];
+  getCornerMaterial: DevHooks["getCornerMaterial"];
 };
 
 // the window.__solarpunk API used by the e2e tests
@@ -37,6 +38,7 @@ export function createDevHooks({
   tileMeshes,
   models,
   getTreeCount,
+  getCornerMaterial,
 }: DevHookSources): DevHooks {
   return {
     tileToScreen: (coords) => {
@@ -73,6 +75,7 @@ export function createDevHooks({
     getModelCount: (coords) => (models[tileKey(coords)] ? 1 : 0),
     getModelTriangleCount: (coords) => models[tileKey(coords)]?.triangles ?? 0,
     getTreeCount,
+    getCornerMaterial,
     addResources: grantResources,
   };
 }

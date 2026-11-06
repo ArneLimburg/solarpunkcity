@@ -1,4 +1,5 @@
 import { expect, test, vi } from "vitest";
+import type { CornerRenderer } from "../src/CornerRenderer";
 import type { FarmRenderer } from "../src/FarmRenderer";
 import type { ForestRenderer } from "../src/ForestRenderer";
 import type { GroundMaterials, TileMeshes } from "../src/TileRenderer";
@@ -29,20 +30,24 @@ function setup() {
   const models: Record<string, PlacedModel> = {};
   const tileMeshes = {} as TileMeshes;
   const materials = {} as GroundMaterials;
+  const update = vi.fn();
   const parts = {
+    corners: { update } as unknown as CornerRenderer,
     forest: { clearTile } as unknown as ForestRenderer,
     farms: { create } as unknown as FarmRenderer,
     tileMeshes,
     materials,
     models,
   };
-  return { parts, dispose, model, clearTile, create, models };
+  return { parts, dispose, model, clearTile, create, models, update };
 }
 
 test("a model building clears the footprint and shows its model", () => {
-  const { parts, clearTile, create, models, model } = setup();
+  const { parts, clearTile, create, models, model, update } = setup();
   placeBuilding({ q: 0, r: 0 }, "Farm", parts);
   expect(clearTile).toHaveBeenCalledTimes(7);
+  expect(update).toHaveBeenCalledTimes(1);
+  expect(update.mock.calls[0][0]).toHaveLength(7);
   expect(setFootprintGround).toHaveBeenCalledWith(
     parts.tileMeshes,
     parts.materials,

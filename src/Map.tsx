@@ -2,6 +2,7 @@ import { useRef, useEffect, forwardRef, useImperativeHandle } from "react";
 import type { Observer, PointerInfo } from "@babylonjs/core";
 import type { HexCoordinates } from "./board";
 import type { BuildingType } from "./gameDefinitions";
+import { createCornerRenderer, type CornerRenderer } from "./CornerRenderer";
 import { createFarmRenderer, type FarmRenderer } from "./FarmRenderer";
 import { createForest, type ForestRenderer } from "./ForestRenderer";
 import { HEX_SIZE, hexToPixel } from "./hexGeometry";
@@ -9,6 +10,7 @@ import {
   createGroundMaterials,
   createTiles,
   getForestTiles,
+  getTileMaterialName,
   type GroundMaterials,
   type TileMeshes,
 } from "./TileRenderer";
@@ -34,6 +36,7 @@ export const Map = forwardRef<
   const modelsRef = useRef<Record<string, PlacedModel>>({});
   const forestRef = useRef<ForestRenderer | null>(null);
   const farmsRef = useRef<FarmRenderer | null>(null);
+  const cornersRef = useRef<CornerRenderer | null>(null);
 
   // hex meshes per tile ("q,r") and the ground materials
   const tileMeshesRef = useRef<TileMeshes>({});
@@ -49,6 +52,7 @@ export const Map = forwardRef<
         farms: farmsRef.current!,
         tileMeshes: tileMeshesRef.current,
         materials: materialsRef.current!,
+        corners: cornersRef.current!,
         models: modelsRef.current,
       }),
   }));
@@ -61,6 +65,12 @@ export const Map = forwardRef<
     materialsRef.current = materials;
     const tiles = createTiles(scene, materials.forestFloor);
     tileMeshesRef.current = tiles.meshes;
+    cornersRef.current = createCornerRenderer(
+      scene,
+      materials,
+      tiles.coordinates,
+      (coords) => getTileMaterialName(tiles.meshes, coords)!,
+    );
     forestRef.current = createForest(
       scene,
       getForestTiles(tiles.coordinates),
@@ -96,6 +106,8 @@ export const Map = forwardRef<
         tileMeshes: tileMeshesRef.current,
         models: modelsRef.current,
         getTreeCount: (coords) => forestRef.current!.getTreeCount(coords),
+        getCornerMaterial: (coords, corner) =>
+          cornersRef.current!.getMaterialName({ tile: coords, corner }),
       });
     });
 
