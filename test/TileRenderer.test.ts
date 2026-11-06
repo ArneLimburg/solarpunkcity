@@ -96,7 +96,8 @@ test("a hex tile is created for every tile of the board", () => {
     material: unknown;
   };
   expect(mesh.name).toBe("hex_1_-1");
-  expect(mesh.shape).toHaveLength(6);
+  // 6 rounded corners with 4 segments, i.e. 5 points each
+  expect(mesh.shape).toHaveLength(30);
   expect(mesh.position.y).toBe(0.1);
   expect(mesh.material).toBe(forestFloor);
   expect(getTileMaterialName(meshes, { q: 1, r: -1 })).toBe("forestFloor");

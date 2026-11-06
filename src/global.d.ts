@@ -19,6 +19,11 @@ declare global {
       getModelCount(coords: HexCoordinates): number;
       getModelTriangleCount(coords: HexCoordinates): number;
       getTreeCount(coords: HexCoordinates): number;
+      // material name of the fill at corner 0..5 of a tile, undefined without fill
+      getCornerMaterial(
+        coords: HexCoordinates,
+        corner: number,
+      ): string | undefined;
       addResources(resources: Partial<Resources>): void;
     };
   }

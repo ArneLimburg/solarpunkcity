@@ -494,3 +494,43 @@ test("the ring is red over a building, and never without selection", async ({
   await expect.poll(() => ringTile(page)).toEqual(next);
   expect(await ringBlocked(page)).toBe(true);
 });
+
+test("the corner fills around a new farm follow the grounds of the tiles", async ({
+  page,
+}) => {
+  await page.goto("./");
+  await page.waitForFunction(() => window.__solarpunk !== undefined);
+  await page.evaluate(() => window.__solarpunk?.addResources({ wood: 1000 }));
+  const fill = (tile: { q: number; r: number }, corner: number) =>
+    page.evaluate(([c, i]) => window.__solarpunk?.getCornerMaterial(c, i), [
+      tile,
+      corner,
+    ] as const);
+  const farmEdge = { q: 1, r: 0 };
+  const houseTile = { q: 2, r: 0 };
+
+  // the outermost corner of the board has a single tile and no fill
+  expect(await fill({ q: GRID_RADIUS, r: 0 }, 0)).toBeUndefined();
+  expect(await fill(farmEdge, 0)).toBe("forestFloor");
+
+  await selectFarm(page);
+  const farm = await tilePosition(page, origin);
+  await page.mouse.move(farm.x, farm.y, { steps: 5 });
+  await page.mouse.click(farm.x, farm.y);
+  await expect.poll(() => buildingAt(page, origin)).toBe("Farm");
+  // farmland, forest, forest: the forest wins; farmland, forest, farmland: the farmland wins
+  expect(await fill(farmEdge, 0)).toBe("forestFloor");
+  expect(await fill(farmEdge, 1)).toBe("farmland");
+
+  // farmland, meadow, forest: three different grounds
+  await page.getByRole("button", { name: "RESIDENTIAL", exact: true }).click();
+  await page.getByRole("button", { name: "AppartmentBuilding" }).click();
+  const house = await tilePosition(page, houseTile);
+  await page.mouse.move(house.x, house.y, { steps: 5 });
+  await page.mouse.click(house.x, house.y);
+  await expect
+    .poll(() => buildingAt(page, houseTile))
+    .toBe("AppartmentBuilding");
+  expect(await fill(farmEdge, 0)).toBe("cornerMixed");
+  expect(await fill(farmEdge, 1)).toBe("farmland");
+});

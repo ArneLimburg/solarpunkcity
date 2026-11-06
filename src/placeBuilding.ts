@@ -1,5 +1,6 @@
 import { getFootprint, getFootprintRadius, type HexCoordinates } from "./board";
 import { BuildingDefinition, type BuildingType } from "./gameDefinitions";
+import type { CornerRenderer } from "./CornerRenderer";
 import { isModelType, type FarmRenderer } from "./FarmRenderer";
 import type { ForestRenderer } from "./ForestRenderer";
 import { hexToPixel, tileKey } from "./hexGeometry";
@@ -21,10 +22,11 @@ export function placeBuilding(
     farms: FarmRenderer;
     tileMeshes: TileMeshes;
     materials: GroundMaterials;
+    corners: CornerRenderer;
     models: Record<string, PlacedModel>;
   },
 ) {
-  const { forest, farms, tileMeshes, materials, models } = parts;
+  const { forest, farms, tileMeshes, materials, corners, models } = parts;
   const radius = getFootprintRadius(BuildingDefinition[type].size);
   // the building replaces trees and previous models on its whole footprint
   for (const tile of getFootprint(coords, radius)) {
@@ -33,6 +35,7 @@ export function placeBuilding(
     delete models[tileKey(tile)];
   }
   setFootprintGround(tileMeshes, materials, coords, type);
+  corners.update(getFootprint(coords, radius));
   if (isModelType(type)) {
     // models are built from code at scale 1
     models[tileKey(coords)] = farms.create(

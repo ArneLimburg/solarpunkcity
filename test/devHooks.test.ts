@@ -42,6 +42,8 @@ function setup() {
     tileMeshes: { "0,0": { name: "meadow" } } as never,
     models: { "0,0": { triangles: 42 } },
     getTreeCount: () => 3,
+    getCornerMaterial: (_coords, corner) =>
+      corner === 2 ? "meadow" : undefined,
   });
   return { hooks, toGlobal };
 }
@@ -87,6 +89,8 @@ test("the hooks expose ring, models, trees, material and buildings", () => {
   expect(hooks.getModelTriangleCount({ q: 0, r: 0 })).toBe(42);
   expect(hooks.getModelTriangleCount({ q: 1, r: 0 })).toBe(0);
   expect(hooks.getTreeCount({ q: 0, r: 0 })).toBe(3);
+  expect(hooks.getCornerMaterial({ q: 0, r: 0 }, 2)).toBe("meadow");
+  expect(hooks.getCornerMaterial({ q: 0, r: 0 }, 0)).toBeUndefined();
   expect(hooks.getBuildingType({ q: 5, r: 5 })).toBe("Forest");
   expect(typeof hooks.addResources).toBe("function");
   expect(build).toBeDefined();
