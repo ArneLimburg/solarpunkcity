@@ -35,6 +35,7 @@ export function createSkybox(scene: Scene) {
 
   skyboxMaterial.reflectionTexture = reflectionTexture;
   skybox.material = skyboxMaterial;
+  skybox.isPickable = false;
 }
 
 // engine, scene, camera, light, skybox and background ground, render loop and resizing
@@ -65,6 +66,7 @@ export function setupScene(canvas: HTMLCanvasElement) {
     scene,
   );
   ground.material = makeMaterial("hexAlt", new Color3(0.5, 0.7, 0.9), scene);
+  ground.isPickable = false;
 
   engine.runRenderLoop(() => {
     scene.render();

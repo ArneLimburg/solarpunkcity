@@ -1,15 +1,15 @@
 import { getFootprint, getFootprintRadius, type HexCoordinates } from "./board";
-import { BuildingDefinition, type BuildingType } from "./gameDefinitions";
+import {
+  BuildingDefinition,
+  BuildingTypes,
+  type BuildingType,
+} from "./gameDefinitions";
 import type { CornerRenderer } from "./CornerRenderer";
 import { isModelType, type FarmRenderer } from "./FarmRenderer";
 import type { ForestRenderer } from "./ForestRenderer";
 import { hexToPixel, tileKey } from "./hexGeometry";
 import type { WoodStorageRenderer } from "./WoodStorageRenderer";
-import {
-  setFootprintGround,
-  type GroundMaterials,
-  type TileMeshes,
-} from "./TileRenderer";
+import type { GroundMaterials, TileRenderer } from "./TileRenderer";
 
 // the model shown on a tile
 export type PlacedModel = { dispose: () => void; triangles: number };
@@ -23,23 +23,33 @@ export function placeBuilding(
     forest: ForestRenderer;
     farms: FarmRenderer;
     woodStorage: WoodStorageRenderer;
-    tileMeshes: TileMeshes;
+    tiles: TileRenderer;
     materials: GroundMaterials;
     corners: CornerRenderer;
     models: Record<string, PlacedModel>;
   },
   underConstruction = false,
 ) {
-  const { forest, farms, woodStorage, tileMeshes, materials, corners, models } =
+  const { forest, farms, woodStorage, tiles, materials, corners, models } =
     parts;
   const radius = getFootprintRadius(BuildingDefinition[type].size);
-  // the building replaces trees and previous models on its whole footprint
+  // bare soil below construction sites, farmland below farms, gravel below
+  // storages, meadow below everything else
+  const category = BuildingTypes[type].category;
+  const ground = underConstruction
+    ? materials.soil
+    : category === "FARM"
+      ? materials.farmland
+      : category === "STORAGE"
+        ? materials.gravel
+        : materials.meadow;
+  // the building replaces trees, previous models and ground on its whole footprint
   for (const tile of getFootprint(coords, radius)) {
     forest.clearTile(tile);
     models[tileKey(tile)]?.dispose();
     delete models[tileKey(tile)];
+    tiles.setGround(tile, ground);
   }
-  setFootprintGround(tileMeshes, materials, coords, type, underConstruction);
   corners.update(getFootprint(coords, radius));
   const center = hexToPixel(coords.q, coords.r);
   if (!underConstruction && type === "WoodStorage") {

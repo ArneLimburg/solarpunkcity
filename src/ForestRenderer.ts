@@ -11,7 +11,7 @@ import {
 import type { HexCoordinates } from "./board";
 import { getTreePlacements, type TreeKind } from "./forest";
 
-const TILE_TOP = 0.2; // y of the top surface of a hex tile
+export const TILE_TOP = 0.2; // y of the top surface of a hex tile
 const TRUNK_HEIGHT = 0.3;
 const HIDDEN = Matrix.Compose(
   Vector3.Zero(),
