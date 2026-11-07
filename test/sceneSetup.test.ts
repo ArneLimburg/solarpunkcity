@@ -4,7 +4,7 @@ const state = vi.hoisted(() => ({
   renderLoop: undefined as undefined | (() => void),
   engine: undefined as undefined | Record<string, ReturnType<typeof vi.fn>>,
   scene: undefined as undefined | Record<string, ReturnType<typeof vi.fn>>,
-  meshes: [] as { name: string; material?: unknown }[],
+  meshes: [] as { name: string; material?: unknown; isPickable: boolean }[],
 }));
 
 vi.mock("@babylonjs/core", () => {
@@ -44,7 +44,7 @@ vi.mock("@babylonjs/core", () => {
     upperBetaLimit = 0;
   }
   const mesh = (name: string) => {
-    const result = { name, material: undefined };
+    const result = { name, material: undefined, isPickable: true };
     state.meshes.push(result);
     return result;
   };
@@ -91,6 +91,8 @@ test("the scene has a skybox, a camera, a background ground and a render loop", 
   expect(camera.upperRadiusLimit).toBe(120);
   expect(state.meshes.map((mesh) => mesh.name)).toEqual(["skyBox", "ground"]);
   expect(state.meshes[1].material).toEqual({ name: "hexAlt" });
+  // only the pick plane of the tile renderer is pickable
+  expect(state.meshes.map((mesh) => mesh.isPickable)).toEqual([false, false]);
 
   state.renderLoop!();
   expect((scene as never as { render: unknown }).render).toHaveBeenCalled();

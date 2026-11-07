@@ -17,10 +17,6 @@ vi.mock("@babylonjs/core", () => {
   }
   return { Vector3, Matrix: { IdentityReadOnly: {} } };
 });
-vi.mock("../src/TileRenderer", () => ({
-  getTileMaterialName: (meshes: Record<string, { name: string }>, c: never) =>
-    meshes[`${(c as { q: number }).q},${(c as { r: number }).r}`].name,
-}));
 
 import { build } from "../src/game";
 import { createDevHooks } from "../src/devHooks";
@@ -39,7 +35,7 @@ function setup() {
       show: vi.fn(),
       hide: vi.fn(),
     },
-    tileMeshes: { "0,0": { name: "meadow" } } as never,
+    getTileMaterial: (coords) => (coords.q === 0 ? "meadow" : undefined),
     models: { "0,0": { triangles: 42 } },
     getTreeCount: () => 3,
     getCornerMaterial: (_coords, corner) =>
