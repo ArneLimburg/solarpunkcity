@@ -12,7 +12,6 @@ import type { BuildingType } from "./gameDefinitions";
 import { finishConstruction, grantResources } from "./game";
 import { hexToPixel, tileKey } from "./hexGeometry";
 import type { Ring } from "./SelectionRing";
-import { getTileMaterialName, type TileMeshes } from "./TileRenderer";
 
 type DevHooks = NonNullable<Window["__solarpunk"]>;
 
@@ -22,7 +21,7 @@ type DevHookSources = {
   camera: ArcRotateCamera;
   canvas: HTMLCanvasElement;
   ring: Ring;
-  tileMeshes: TileMeshes;
+  getTileMaterial: DevHooks["getTileMaterial"];
   // the model currently shown on a tile ("q,r")
   models: Record<string, { triangles: number }>;
   getTreeCount: DevHooks["getTreeCount"];
@@ -38,7 +37,7 @@ export function createDevHooks({
   camera,
   canvas,
   ring,
-  tileMeshes,
+  getTileMaterial,
   models,
   getTreeCount,
   getCornerMaterial,
@@ -76,7 +75,7 @@ export function createDevHooks({
     getRingTile: () => ring.tile,
     getRingTiles: () => [...ring.tiles],
     isRingBlocked: () => ring.blocked,
-    getTileMaterial: (coords) => getTileMaterialName(tileMeshes, coords),
+    getTileMaterial,
     getModelCount: (coords) => (models[tileKey(coords)] ? 1 : 0),
     getModelTriangleCount: (coords) => models[tileKey(coords)]?.triangles ?? 0,
     getTreeCount,
