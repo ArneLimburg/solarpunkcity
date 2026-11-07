@@ -55,21 +55,31 @@ const Section: FC<{
 export const BuildingDetails: FC<{
   type: BuildingType;
   resources: Resources;
-}> = ({ type, resources }) => {
+  onHide: () => void;
+}> = ({ type, resources, onHide }) => {
   const building = BuildingDefinition[type];
   return (
     <article
       className="small-opacity padding"
       data-testid="building-details"
+      role="button"
+      aria-label="Hide building details"
+      onClick={onHide}
       style={{
-        position: "fixed",
-        left: "1rem",
-        bottom: "4.5rem",
-        margin: 0,
+        position: "relative",
+        margin: "0 0 0 1rem",
         maxWidth: "20rem",
-        zIndex: 10,
+        alignSelf: "flex-start",
+        pointerEvents: "auto",
+        cursor: "pointer",
       }}
     >
+      <i
+        aria-hidden="true"
+        style={{ position: "absolute", top: "0.5rem", right: "0.5rem" }}
+      >
+        close
+      </i>
       <h6 className="no-margin">{building.name}</h6>
       <p className="no-margin">{building.description}</p>
       <div className="row wrap">
