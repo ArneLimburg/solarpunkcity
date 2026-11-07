@@ -173,7 +173,10 @@ jobs:
             - Read files only with `Read`, `Glob` and `Grep`, and change them only with `Edit` and
               `Write`, never with shell commands (`cat`, `sed`, `python3`, heredocs, `cd`): they are not
               allowed and will be denied. To run single tests use `npx vitest run <file>`, to format
-              use `npx prettier --write <path>...`.
+              use `npx prettier --write <path>...`. Run e2e tests only through the npm script, e.g.
+              `npm run test:e2e -- e2e/smoke.spec.ts -g "<name>"`; `npx playwright` is denied, and so
+              is piping into other commands (`| head`, `| grep`). A partial e2e run fails the coverage
+              thresholds; only the full `npm run test:e2e` has to pass them.
             - Add or update dependencies only with `npm install`, never by editing `package-lock.json`.
             - Run `npm run lint`, `npm run build` and `npm test` (if the project has a `test` script)
               and fix all failures before committing.
