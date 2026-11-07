@@ -126,4 +126,9 @@ test("farms get farmland and other buildings a meadow on their footprint", () =>
   setFootprintGround(meshes, materials, { q: 0, r: 0 }, "AppartmentBuilding");
   expect(getTileMaterialName(meshes, { q: 0, r: 0 })).toBe("meadow");
   expect(getTileMaterialName(meshes, { q: 1, r: 0 })).toBe("farmland");
+
+  setFootprintGround(meshes, materials, { q: 0, r: 0 }, "Farm", true);
+  expect(getTileMaterialName(meshes, { q: 0, r: 0 })).toBe("soil");
+  expect(getTileMaterialName(meshes, { q: 1, r: 0 })).toBe("soil");
+  expect(materials.soil.diffuseTexture).toBeUndefined();
 });

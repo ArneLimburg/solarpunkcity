@@ -26,6 +26,7 @@ import { build } from "../src/game";
 import { createDevHooks } from "../src/devHooks";
 
 function setup() {
+  const showBuilding = vi.fn();
   const toGlobal = vi.fn(() => "viewport");
   const hooks = createDevHooks({
     engine: { getRenderWidth: () => 200, getRenderHeight: () => 100 } as Engine,
@@ -44,9 +45,17 @@ function setup() {
     getTreeCount: () => 3,
     getCornerMaterial: (_coords, corner) =>
       corner === 2 ? "meadow" : undefined,
+    showBuilding,
   });
-  return { hooks, toGlobal };
+  return { hooks, toGlobal, showBuilding };
 }
+
+test("finishConstruction shows the models of the finished sites", () => {
+  const { hooks, showBuilding } = setup();
+  build("OrganicHomestead", { q: 7, r: 7 });
+  hooks.finishConstruction();
+  expect(showBuilding).toHaveBeenCalledWith({ q: 7, r: 7 }, "OrganicHomestead");
+});
 
 test("tileToScreen scales projected positions to the canvas size", () => {
   const { hooks, toGlobal } = setup();
@@ -92,6 +101,7 @@ test("the hooks expose ring, models, trees, material and buildings", () => {
   expect(hooks.getCornerMaterial({ q: 0, r: 0 }, 2)).toBe("meadow");
   expect(hooks.getCornerMaterial({ q: 0, r: 0 }, 0)).toBeUndefined();
   expect(hooks.getBuildingType({ q: 5, r: 5 })).toBe("Forest");
+  expect(hooks.isUnderConstruction({ q: 5, r: 5 })).toBe(false);
   expect(typeof hooks.addResources).toBe("function");
   expect(build).toBeDefined();
 });

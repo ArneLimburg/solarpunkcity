@@ -101,6 +101,11 @@ export const BuildingDetails: FC<{
         testId="details-cost"
         errors={unaffordableCosts(type, resources)}
       />
+      {building.maxBuilders > 0 && (
+        <div className="small-text" data-testid="details-builders">
+          Builders per week: max {building.maxBuilders}
+        </div>
+      )}
       <Section
         title="Produces per week"
         resources={building.produces}

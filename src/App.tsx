@@ -16,6 +16,7 @@ import {
   calculateWeek,
   canBuild,
   getState,
+  takeCompletedBuildings,
   type GameState,
 } from "./game";
 import { BuildingDetails } from "./BuildingDetails";
@@ -47,15 +48,26 @@ const BottomPanel: FC<{ state: GameState; children?: ReactNode }> = ({
 export const App: FC = () => {
   const [state, setState] = useState(getState);
 
+  const mapRef = useRef<{
+    addBuilding: (
+      coords: HexCoordinates,
+      type: BuildingType,
+      underConstruction?: boolean,
+    ) => void;
+  } | null>(null);
+
   useEffect(() => {
-    const interval = setInterval(() => setState(calculateWeek()), 1000);
+    const interval = setInterval(() => {
+      setState(calculateWeek());
+      // the model of a finished building replaces its construction site
+      for (const { coords, type } of takeCompletedBuildings()) {
+        mapRef.current?.addBuilding(coords, type);
+      }
+    }, 1000);
 
     return () => clearInterval(interval);
   }, []);
 
-  const mapRef = useRef<{
-    addBuilding: (coords: HexCoordinates, type: BuildingType) => void;
-  } | null>(null);
   const [selectedBuildingType, setSelectedBuildingType] = useState<
     BuildingType | undefined
   >();
@@ -74,7 +86,7 @@ export const App: FC = () => {
       if (type && canBuild(type, coords)) {
         build(type, coords);
         setState(getState());
-        mapRef.current?.addBuilding(coords, type);
+        mapRef.current?.addBuilding(coords, type, true);
         selectBuildingType(undefined);
       }
     },

@@ -7,8 +7,9 @@ import {
   type Engine,
   type Scene,
 } from "@babylonjs/core";
-import { getBuilding } from "./board";
-import { grantResources } from "./game";
+import { getBuilding, isUnderConstruction, type HexCoordinates } from "./board";
+import type { BuildingType } from "./gameDefinitions";
+import { finishConstruction, grantResources } from "./game";
 import { hexToPixel, tileKey } from "./hexGeometry";
 import type { Ring } from "./SelectionRing";
 import { getTileMaterialName, type TileMeshes } from "./TileRenderer";
@@ -26,6 +27,8 @@ type DevHookSources = {
   models: Record<string, { triangles: number }>;
   getTreeCount: DevHooks["getTreeCount"];
   getCornerMaterial: DevHooks["getCornerMaterial"];
+  // shows the model of a finished building
+  showBuilding: (coords: HexCoordinates, type: BuildingType) => void;
 };
 
 // the window.__solarpunk API used by the e2e tests
@@ -39,6 +42,7 @@ export function createDevHooks({
   models,
   getTreeCount,
   getCornerMaterial,
+  showBuilding,
 }: DevHookSources): DevHooks {
   return {
     tileToScreen: (coords) => {
@@ -68,6 +72,7 @@ export function createDevHooks({
       };
     },
     getBuildingType: (coords) => getBuilding(coords)?.type,
+    isUnderConstruction,
     getRingTile: () => ring.tile,
     getRingTiles: () => [...ring.tiles],
     isRingBlocked: () => ring.blocked,
@@ -77,5 +82,9 @@ export function createDevHooks({
     getTreeCount,
     getCornerMaterial,
     addResources: grantResources,
+    finishConstruction: () =>
+      finishConstruction().forEach(({ coords, type }) =>
+        showBuilding(coords, type),
+      ),
   };
 }

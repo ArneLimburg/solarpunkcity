@@ -59,7 +59,8 @@ export type Building = {
   size: number;
   resident: number;
   ecology: number; // per tile, forest is the reference
-  cost: Resources;
+  cost: Resources; // labor is the construction work in worker-weeks
+  maxBuilders: number; // workers per construction site and week
   produces: Resources;
   consumes: Resources;
   recycling?: Resources;
@@ -72,7 +73,8 @@ export const BuildingDefinition: Record<BuildingType, Building> = {
     size: 1,
     resident: 3,
     ecology: 0.5,
-    cost: { ...emptyResources, wood: 4 }, // 40 cu m
+    cost: { ...emptyResources, wood: 4, labor: 4 }, // 40 cu m
+    maxBuilders: 2,
     produces: { ...emptyResources, food: 3 },
     consumes: { ...emptyResources, labor: 2 },
   },
@@ -83,7 +85,8 @@ export const BuildingDefinition: Record<BuildingType, Building> = {
     size: 7,
     resident: 2,
     ecology: 0.2,
-    cost: { ...emptyResources, wood: 25 },
+    cost: { ...emptyResources, wood: 25, labor: 24 },
+    maxBuilders: 6,
     produces: { ...emptyResources, food: 20 },
     consumes: { ...emptyResources, labor: 4 },
   },
@@ -94,7 +97,8 @@ export const BuildingDefinition: Record<BuildingType, Building> = {
     size: 19,
     resident: 0,
     ecology: -5,
-    cost: { ...emptyResources, wood: 65 },
+    cost: { ...emptyResources, wood: 65, labor: 80 },
+    maxBuilders: 10,
     produces: { ...emptyResources, food: 60 },
     consumes: { ...emptyResources, labor: 8 },
   },
@@ -106,6 +110,7 @@ export const BuildingDefinition: Record<BuildingType, Building> = {
     resident: 0,
     ecology: 1,
     cost: { ...emptyResources }, // requires forestry
+    maxBuilders: 0,
     produces: { ...emptyResources, wood: 0.5 },
     consumes: { ...emptyResources, labor: 1 }, // later water
     recycling: { ...emptyResources, wood: 3 },
@@ -117,7 +122,8 @@ export const BuildingDefinition: Record<BuildingType, Building> = {
     size: 1,
     resident: 15,
     ecology: 0,
-    cost: { ...emptyResources, wood: 10 },
+    cost: { ...emptyResources, wood: 10, labor: 20 },
+    maxBuilders: 4,
     produces: emptyResources,
     consumes: { ...emptyResources }, // later water and energy
   },

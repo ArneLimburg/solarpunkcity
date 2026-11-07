@@ -11,6 +11,8 @@ The player starts with a plot of land and limited resources. Over time, they bui
 
 ## Gameplay
 
+The complete rules are described in [Game mechanics](docs/game-mechanics.md).
+
 ### Resource Management:
 
 The key resources are energy, water, food, materials, and ecological balance.

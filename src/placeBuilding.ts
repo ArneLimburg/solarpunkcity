@@ -13,7 +13,8 @@ import {
 // the model shown on a tile
 export type PlacedModel = { dispose: () => void; triangles: number };
 
-// replaces trees, models and ground on the footprint of a building
+// replaces trees, models and ground on the footprint of a building; a
+// construction site shows bare soil and no model
 export function placeBuilding(
   coords: HexCoordinates,
   type: BuildingType,
@@ -25,6 +26,7 @@ export function placeBuilding(
     corners: CornerRenderer;
     models: Record<string, PlacedModel>;
   },
+  underConstruction = false,
 ) {
   const { forest, farms, tileMeshes, materials, corners, models } = parts;
   const radius = getFootprintRadius(BuildingDefinition[type].size);
@@ -34,9 +36,9 @@ export function placeBuilding(
     models[tileKey(tile)]?.dispose();
     delete models[tileKey(tile)];
   }
-  setFootprintGround(tileMeshes, materials, coords, type);
+  setFootprintGround(tileMeshes, materials, coords, type, underConstruction);
   corners.update(getFootprint(coords, radius));
-  if (isModelType(type)) {
+  if (!underConstruction && isModelType(type)) {
     // models are built from code at scale 1
     models[tileKey(coords)] = farms.create(
       type,

@@ -1,13 +1,17 @@
 import { describe, expect, test } from "vitest";
 import {
+  completeSites,
   getBuilding,
   getBuildings,
+  getConstructionSites,
   getFootprint,
   getFootprintRadius,
   getTileBuildings,
   isOnBoard,
+  isUnderConstruction,
   placeBuilding,
   setBuilding,
+  workOnSite,
 } from "../src/board";
 import { BuildingDefinition } from "../src/gameDefinitions";
 
@@ -77,4 +81,30 @@ test("a placed building is counted once but occupies all its tiles", () => {
   expect(getBuildings().length).toBe(2791 - 6);
   expect(getTileBuildings().length).toBe(2791);
   expect(getBuilding({ q: 1, r: -1 })).toBe(BuildingDefinition.Farm);
+});
+
+test("construction sites are tracked in placement order until completed", () => {
+  const farm = BuildingDefinition.Farm;
+  placeBuilding({ q: 10, r: 0 }, farm, 3);
+  placeBuilding({ q: -10, r: 0 }, farm, 5);
+  setBuilding({ q: 0, r: 10 }, farm);
+  expect(isUnderConstruction({ q: 10, r: 1 })).toBe(true);
+  expect(isUnderConstruction({ q: 0, r: 10 })).toBe(false);
+  expect(isUnderConstruction({ q: 99, r: 99 })).toBe(false);
+  expect(getConstructionSites().map((site) => site.remainingWork)).toEqual([
+    3, 5,
+  ]);
+  // sites are no buildings, their tiles count with ecology 0
+  expect(getBuildings().length).toBe(2791 - 6 - 2 * 7);
+  expect(
+    getTileBuildings().filter((building) => building.ecology === 0),
+  ).toHaveLength(14);
+
+  workOnSite(getConstructionSites()[0], 3);
+  workOnSite(getConstructionSites()[1], 2);
+  const completed = completeSites();
+  expect(completed.map((site) => site.center)).toEqual([{ q: 10, r: 0 }]);
+  expect(isUnderConstruction({ q: 10, r: 0 })).toBe(false);
+  expect(isUnderConstruction({ q: -10, r: 0 })).toBe(true);
+  expect(getConstructionSites()).toHaveLength(1);
 });

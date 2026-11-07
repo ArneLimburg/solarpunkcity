@@ -167,7 +167,7 @@ test("build recycles all footprint tiles of the old buildings", () => {
 });
 
 test("a farm produces and houses once, not once per tile", () => {
-  game.build("Farm", { q: 0, r: 0 });
+  board.placeBuilding({ q: 0, r: 0 }, definitions.BuildingDefinition.Farm);
   expect(game.getState().housing).toBe(2);
   expect(board.getBuildings().length).toBe(board.getTileBuildings().length - 6);
 });
@@ -192,7 +192,10 @@ test("a large building produces its food once, not once per tile", () => {
 test("ecology counts every footprint tile", () => {
   game.grantResources({ wood: 100 });
   const tiles = board.getTileBuildings().length;
-  game.build("AgroIndustrial", { q: 0, r: 0 });
+  board.placeBuilding(
+    { q: 0, r: 0 },
+    definitions.BuildingDefinition.AgroIndustrial,
+  );
   const expected = ((tiles - 19 + 19 * -5) / tiles) * 100;
   expect(game.getState().ecology).toBeCloseTo(expected);
 });
@@ -545,5 +548,98 @@ test("getState reflects a build", () => {
   game.build("AppartmentBuilding", { q: 0, r: 0 });
   const after = game.getState();
   expect(after.resources.wood).toBeLessThan(before.resources.wood);
-  expect(after.housing).toBeGreaterThan(before.housing);
+  expect(after.constructionSites).toBe(before.constructionSites + 1);
+});
+
+test("the labor of the cost is not paid from the stock", () => {
+  game.build("Farm", { q: 0, r: 0 });
+  expect(game.getState().resources.labor).toBe(0);
+  expect(game.getState().resources.wood).toBe(10 + 7 * 3 - 25);
+});
+
+test("canBuild does not check labor", () => {
+  expect(game.getState().resources.labor).toBe(0);
+  expect(game.canBuild("OrganicHomestead", { q: 0, r: 0 })).toBe(true);
+});
+
+test("a construction site gives no housing, no ecology and cannot be built over", () => {
+  game.grantResources({ wood: 100 });
+  const ecology = game.getState().ecology;
+  game.build("AppartmentBuilding", { q: 0, r: 0 });
+  expect(game.getState().housing).toBe(0);
+  expect(game.getState().ecology).toBeLessThan(ecology);
+  expect(board.isUnderConstruction({ q: 0, r: 0 })).toBe(true);
+  expect(game.canBuild("OrganicHomestead", { q: 0, r: 0 })).toBe(false);
+  expect(game.canPlace("OrganicHomestead", { q: 0, r: 0 })).toBe(false);
+});
+
+test("an organic homestead is finished after 2 weeks and produces from week 3", () => {
+  game.build("OrganicHomestead", { q: 0, r: 0 });
+  const week1 = game.calculateWeek();
+  expect(week1.constructionSites).toBe(1);
+  expect(week1.foodBalance).toBe(-2);
+  expect(game.takeCompletedBuildings()).toEqual([]);
+  const week2 = game.calculateWeek();
+  expect(week2.constructionSites).toBe(0);
+  expect(week2.foodBalance).toBe(-2); // not produced in the week it is finished
+  expect(game.takeCompletedBuildings()).toEqual([
+    { coords: { q: 0, r: 0 }, type: "OrganicHomestead" },
+  ]);
+  expect(game.takeCompletedBuildings()).toEqual([]);
+  expect(board.isUnderConstruction({ q: 0, r: 0 })).toBe(false);
+  expect(game.calculateWeek().foodBalance).toBe(1); // 2 workers: 3 food
+});
+
+test("a single worker finishes a farm after 24 weeks", () => {
+  game.build("Farm", { q: 0, r: 0 });
+  game.grantResources({ food: -10 }); // hunger: the population shrinks to 1
+  expect(game.calculateWeek().population).toBe(1);
+  game.grantResources({ food: 1000 });
+  for (let week = 1; week < 23; week++) {
+    expect(game.calculateWeek().constructionSites).toBe(1);
+  }
+  const state = game.calculateWeek(); // housing 0: the population stays 1
+  expect(state.population).toBe(1);
+  expect(state.constructionSites).toBe(0);
+});
+
+test("sites get at most maxBuilders workers, the oldest first, the rest to forests", () => {
+  board.placeBuilding({ q: 0, r: 0 }, testBuilding({ maxBuilders: 1 }), 10);
+  board.placeBuilding({ q: 5, r: 0 }, testBuilding({ maxBuilders: 5 }), 10);
+  game.grantResources({ food: 100 });
+  const remaining = () =>
+    board.getConstructionSites().map((site) => site.remainingWork);
+  game.calculateWeek(); // 2 workers: 1 on the oldest site, 1 on the next
+  expect(remaining()).toEqual([9, 9]);
+});
+
+test("leftover labor goes to the next site and then to other productions", () => {
+  board.placeBuilding(
+    { q: 0, r: 0 },
+    testBuilding({ maxBuilders: 5 }),
+    1, // needs a single worker
+  );
+  board.placeBuilding({ q: 5, r: 0 }, testBuilding({ maxBuilders: 5 }), 10);
+  const week = game.calculateWeek(); // population 2
+  // the first site is finished, the second one gets the leftover worker
+  expect(board.getConstructionSites().map((s) => s.remainingWork)).toEqual([9]);
+  expect(week.resources.labor).toBe(0);
+});
+
+test("food buildings are staffed before sites, sites before forests", () => {
+  board.setBuilding({ q: 0, r: 0 }, farm(2, 1));
+  board.placeBuilding({ q: 5, r: 0 }, testBuilding({ maxBuilders: 5 }), 10);
+  // food demand 2, farm needs 1 worker (2 food); the other worker builds
+  const { resources } = game.calculateWeek();
+  expect(board.getConstructionSites()[0].remainingWork).toBe(9);
+  expect(resources.wood).toBeCloseTo(10);
+});
+
+test("a site that is finished with less labor than maxBuilders only uses its remaining work", () => {
+  board.placeBuilding({ q: 0, r: 0 }, testBuilding({ maxBuilders: 5 }), 1);
+  const { resources } = game.calculateWeek();
+  expect(board.getConstructionSites()).toEqual([]);
+  // 1 worker builds, the other one works in a forest
+  expect(resources.wood).toBeCloseTo(10.5);
+  expect(resources.labor).toBe(0);
 });

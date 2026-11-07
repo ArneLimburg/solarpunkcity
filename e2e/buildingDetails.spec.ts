@@ -31,6 +31,11 @@ test("shows the organic homestead details", async ({ page }) => {
   await expect(chip(page, "details-cost", "wood")).toHaveText(/4$/);
   await expect(chip(page, "details-produces", "food")).toHaveText(/3$/);
   await expect(chip(page, "details-consumes", "labor")).toHaveText(/2$/);
+  await expect(chip(page, "details-cost", "labor")).toHaveText(/4$/);
+  await expect(chip(page, "details-cost", "labor")).not.toHaveClass(/error/);
+  await expect(panel(page).getByTestId("details-builders")).toHaveText(
+    "Builders per week: max 2",
+  );
   await expect(detail(page, "water")).toHaveCount(0);
   for (const side of ["Top", "Right", "Bottom", "Left"]) {
     await expect(panel(page)).toHaveCSS(

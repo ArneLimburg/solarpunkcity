@@ -1,7 +1,23 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { expect, test } from "vitest";
-import { BuildingCategories, BuildingTypes } from "../src/gameDefinitions";
+import {
+  BuildingCategories,
+  BuildingDefinition,
+  BuildingTypes,
+} from "../src/gameDefinitions";
+
+test("construction work and maximum builders of every building", () => {
+  const work = (name: keyof typeof BuildingDefinition) => [
+    BuildingDefinition[name].cost.labor,
+    BuildingDefinition[name].maxBuilders,
+  ];
+  expect(work("OrganicHomestead")).toEqual([4, 2]);
+  expect(work("AppartmentBuilding")).toEqual([20, 4]);
+  expect(work("Farm")).toEqual([24, 6]);
+  expect(work("AgroIndustrial")).toEqual([80, 10]);
+  expect(work("Forest")).toEqual([0, 0]);
+});
 
 const exists = (icon: string) => existsSync(join("public", icon));
 

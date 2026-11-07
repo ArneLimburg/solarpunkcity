@@ -49,6 +49,11 @@ export const StatusBar: FC<{ state: GameState }> = ({ state }) => (
       }${Math.floor(Math.abs(state.foodBalance))})`}
       error={state.foodBalance < 0}
     />
+    <Entry
+      name="construction sites"
+      icon="construction"
+      value={`${state.constructionSites}`}
+    />
     <Entry name="ecology" icon="eco" value={`${Math.floor(state.ecology)} %`} />
     <Entry
       name="satisfaction"
