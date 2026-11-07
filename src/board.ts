@@ -7,34 +7,93 @@ export type HexCoordinates = {
   r: number;
 };
 
-// a building that was placed on the board, shared by all tiles of its footprint
-type PlacedBuilding = { building: Building; center: HexCoordinates };
+// a building that was placed on the board, shared by all tiles of its footprint;
+// as long as remainingWork is set it is a construction site
+export type PlacedBuilding = {
+  building: Building;
+  center: HexCoordinates;
+  remainingWork?: number;
+  sequence: number; // placement order, oldest first
+};
 
+let nextSequence = 0;
 const tiles = initBoard();
 type HexLocation = string;
 
-// every placed building once (for production and housing)
-export function getBuildings(): Building[] {
-  return [...new Set(tiles.values())].map((placed) => placed.building);
+function uniquePlaced(): PlacedBuilding[] {
+  return [...new Set(tiles.values())];
 }
 
-// the building of every tile (for per-tile values such as ecology)
+// every finished building once (for production and housing)
+export function getBuildings(): Building[] {
+  return uniquePlaced()
+    .filter((placed) => placed.remainingWork === undefined)
+    .map((placed) => placed.building);
+}
+
+// the construction sites in placement order (oldest first)
+export function getConstructionSites(): PlacedBuilding[] {
+  return uniquePlaced()
+    .filter((placed) => placed.remainingWork !== undefined)
+    .sort((a, b) => a.sequence - b.sequence);
+}
+
+// reduces the remaining work of a site; it stays a site until completeSites
+export function workOnSite(site: PlacedBuilding, workers: number) {
+  site.remainingWork = site.remainingWork! - workers;
+}
+
+// turns the sites without remaining work into finished buildings
+export function completeSites(): PlacedBuilding[] {
+  const completed = getConstructionSites().filter(
+    (site) => site.remainingWork! <= 0,
+  );
+  for (const site of completed) {
+    delete site.remainingWork;
+  }
+  return completed;
+}
+
+// the building of every tile (for per-tile values such as ecology); the tiles
+// of a construction site count with ecology 0
 export function getTileBuildings(): Building[] {
-  return [...tiles.values()].map((placed) => placed.building);
+  return [...tiles.values()].map((placed) =>
+    placed.remainingWork === undefined
+      ? placed.building
+      : { ...placed.building, ecology: 0 },
+  );
 }
 
 export function getBuilding(location: HexCoordinates) {
   return tiles.get(toHexLocation(location))?.building;
 }
 
-// places a building on a single tile
-export function setBuilding(location: HexCoordinates, building: Building) {
-  tiles.set(toHexLocation(location), { building, center: location });
+export function isUnderConstruction(location: HexCoordinates): boolean {
+  return tiles.get(toHexLocation(location))?.remainingWork !== undefined;
 }
 
-// places a building on its whole footprint around the center
-export function placeBuilding(center: HexCoordinates, building: Building) {
-  const placed = { building, center };
+// places a building on a single tile
+export function setBuilding(location: HexCoordinates, building: Building) {
+  tiles.set(toHexLocation(location), {
+    building,
+    center: location,
+    sequence: nextSequence++,
+  });
+}
+
+// places a building on its whole footprint around the center; with
+// remainingWork > 0 it is a construction site
+export function placeBuilding(
+  center: HexCoordinates,
+  building: Building,
+  remainingWork = 0,
+) {
+  const placed: PlacedBuilding = {
+    building,
+    center,
+    sequence: nextSequence++,
+    ...(remainingWork > 0 && { remainingWork }),
+  };
   for (const tile of getFootprint(center, getFootprintRadius(building.size))) {
     tiles.set(toHexLocation(tile), placed);
   }
@@ -83,6 +142,7 @@ function initBoard() {
         board.set(toHexLocation({ q, r }), {
           building: BuildingDefinition.Forest,
           center: { q, r },
+          sequence: nextSequence++,
         });
       }
     }

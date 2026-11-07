@@ -10,7 +10,10 @@ function maxRecycling(resource: keyof Resources): number {
   );
 }
 
-/** Cost resources that cannot be paid even if every tile recycles the most. */
+/**
+ * Cost resources that cannot be paid even if every tile recycles the most.
+ * Labor is construction work done over several weeks, so it is never missing.
+ */
 export function unaffordableCosts(
   type: BuildingType,
   available: Resources,
@@ -19,7 +22,9 @@ export function unaffordableCosts(
   return new Set(
     nonZeroResources(cost)
       .filter(
-        ([name, value]) => available[name] + size * maxRecycling(name) < value,
+        ([name, value]) =>
+          name !== "labor" &&
+          available[name] + size * maxRecycling(name) < value,
       )
       .map(([name]) => name),
   );

@@ -14,5 +14,12 @@ export async function tilePosition(page: Page, coords: HexCoordinates) {
   return { x: box.x + position.x, y: box.y + position.y };
 }
 
+// skips the weeks of construction work
+export const finishConstruction = (page: Page) =>
+  page.evaluate(() => window.__solarpunk?.finishConstruction());
+
+export const isUnderConstruction = (page: Page, coords: HexCoordinates) =>
+  page.evaluate((c) => window.__solarpunk?.isUnderConstruction(c), coords);
+
 export const buildingAt = (page: Page, coords: HexCoordinates) =>
   page.evaluate((c) => window.__solarpunk?.getBuildingType(c), coords);

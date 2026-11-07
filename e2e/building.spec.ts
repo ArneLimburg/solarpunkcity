@@ -1,6 +1,11 @@
 import type { Page } from "@playwright/test";
 import { test, expect } from "./fixtures";
-import { buildingAt, tilePosition } from "./helpers";
+import {
+  buildingAt,
+  finishConstruction,
+  isUnderConstruction,
+  tilePosition,
+} from "./helpers";
 import { GRID_RADIUS, isOnBoard } from "../src/board";
 
 const origin = { q: 0, r: 0 };
@@ -201,6 +206,7 @@ test.describe("touch", () => {
     // send both taps at once so they stay within Babylon's double tap delay
     await Promise.all([page.touchscreen.tap(x, y), page.touchscreen.tap(x, y)]);
     await expect.poll(() => buildingAt(page, origin)).toBe("OrganicHomestead");
+    await finishConstruction(page);
     await expect
       .poll(() =>
         page.evaluate((c) => window.__solarpunk?.getModelCount(c), origin),
@@ -215,6 +221,7 @@ test("a double click builds exactly once", async ({ page }) => {
   await page.mouse.move(x, y, { steps: 5 });
   await page.mouse.dblclick(x, y);
   await expect.poll(() => buildingAt(page, origin)).toBe("OrganicHomestead");
+  await finishConstruction(page);
   const modelCount = () =>
     page.evaluate((c) => window.__solarpunk?.getModelCount(c), origin);
   await expect.poll(modelCount).toBe(1);
@@ -231,6 +238,17 @@ test("a click builds exactly once", async ({ page }) => {
   expect(await modelCount()).toBe(0);
   await page.mouse.click(first.x, first.y);
   await expect.poll(() => buildingAt(page, origin)).toBe("OrganicHomestead");
+  // a construction site has bare soil and no model
+  expect(await isUnderConstruction(page, origin)).toBe(true);
+  expect(
+    await page.evaluate((c) => window.__solarpunk?.getTileMaterial(c), origin),
+  ).toBe("soil");
+  expect(await modelCount()).toBe(0);
+  await finishConstruction(page);
+  expect(await isUnderConstruction(page, origin)).toBe(false);
+  expect(
+    await page.evaluate((c) => window.__solarpunk?.getTileMaterial(c), origin),
+  ).toBe("farmland");
   await expect.poll(modelCount).toBe(1);
   await page.waitForTimeout(1000);
   expect(await modelCount()).toBe(1);
@@ -241,6 +259,38 @@ test("a click builds exactly once", async ({ page }) => {
   await page.mouse.click(second.x, second.y);
   await page.waitForTimeout(500);
   expect(await buildingAt(page, next)).toBe("Forest");
+});
+
+test("the status bar counts the construction sites", async ({ page }) => {
+  await setup(page);
+  const sites = page.getByTestId("status-construction sites");
+  await expect(sites).toHaveText(/construction0$/);
+  const { x, y } = await tilePosition(page, origin);
+  await page.mouse.move(x, y, { steps: 5 });
+  await page.mouse.click(x, y);
+  await expect(sites).toHaveText(/construction1$/);
+  await finishConstruction(page);
+  // the next weekly tick updates the status bar
+  await expect(sites).toHaveText(/construction0$/);
+});
+
+test("a finished building replaces its construction site after its weeks of work", async ({
+  page,
+}) => {
+  await setup(page);
+  const { x, y } = await tilePosition(page, origin);
+  await page.mouse.move(x, y, { steps: 5 });
+  await page.mouse.click(x, y);
+  await expect.poll(() => buildingAt(page, origin)).toBe("OrganicHomestead");
+  // 4 worker-weeks with 2 workers: the weekly tick finishes it after 2 weeks
+  await expect
+    .poll(() => isUnderConstruction(page, origin), { timeout: 15000 })
+    .toBe(false);
+  await expect
+    .poll(() =>
+      page.evaluate((c) => window.__solarpunk?.getModelCount(c), origin),
+    )
+    .toBe(1);
 });
 
 test("every board tile starts as forest floor", async ({ page }) => {
@@ -273,6 +323,10 @@ test("a residential building turns the tile into meadow", async ({ page }) => {
   await page.mouse.move(x, y, { steps: 5 });
   await page.mouse.click(x, y);
   await expect.poll(() => buildingAt(page, origin)).toBe("AppartmentBuilding");
+  expect(
+    await page.evaluate((c) => window.__solarpunk?.getTileMaterial(c), origin),
+  ).toBe("soil");
+  await finishConstruction(page);
   expect(
     await page.evaluate((c) => window.__solarpunk?.getTileMaterial(c), origin),
   ).toBe("meadow");
@@ -309,6 +363,12 @@ test("a farm occupies 7 tiles with one model and farmland", async ({
     await expect.poll(() => buildingAt(page, tile)).toBe("Farm");
     expect(
       await page.evaluate((c) => window.__solarpunk?.getTileMaterial(c), tile),
+    ).toBe("soil");
+  }
+  await finishConstruction(page);
+  for (const tile of footprint) {
+    expect(
+      await page.evaluate((c) => window.__solarpunk?.getTileMaterial(c), tile),
     ).toBe("farmland");
   }
   await expect.poll(() => modelCount(origin)).toBe(1);
@@ -331,8 +391,10 @@ test("building replaces the trees of a tile with one model", async ({
   const { x, y } = await tilePosition(page, origin);
   await page.mouse.move(x, y, { steps: 5 });
   await page.mouse.click(x, y);
-  await expect.poll(() => modelCount(origin)).toBe(1);
+  await expect.poll(() => buildingAt(page, origin)).toBe("OrganicHomestead");
   expect(await treeCount(origin)).toBe(0);
+  await finishConstruction(page);
+  await expect.poll(() => modelCount(origin)).toBe(1);
   expect(await treeCount(next)).toBe(5);
 });
 
@@ -355,6 +417,7 @@ for (const { type, budget } of FARM_BUDGETS) {
     await page.mouse.move(x, y, { steps: 5 });
     await page.mouse.click(x, y);
     await expect.poll(() => buildingAt(page, origin)).toBe(type);
+    await finishConstruction(page);
 
     const modelCount = () =>
       page.evaluate((c) => window.__solarpunk?.getModelCount(c), origin);
@@ -377,6 +440,7 @@ async function buildAtOrigin(page: Page, category: string, type: string) {
   await page.mouse.move(x, y, { steps: 5 });
   await page.mouse.click(x, y);
   await expect.poll(() => buildingAt(page, origin)).toBe(type);
+  await finishConstruction(page);
 }
 
 test("an apartment building is one low-poly model within budget", async ({
@@ -518,6 +582,7 @@ test("the corner fills around a new farm follow the grounds of the tiles", async
   await page.mouse.move(farm.x, farm.y, { steps: 5 });
   await page.mouse.click(farm.x, farm.y);
   await expect.poll(() => buildingAt(page, origin)).toBe("Farm");
+  await finishConstruction(page);
   // farmland, forest, forest: the forest wins; farmland, forest, farmland: the farmland wins
   expect(await fill(farmEdge, 0)).toBe("forestFloor");
   expect(await fill(farmEdge, 1)).toBe("farmland");
@@ -531,6 +596,7 @@ test("the corner fills around a new farm follow the grounds of the tiles", async
   await expect
     .poll(() => buildingAt(page, houseTile))
     .toBe("AppartmentBuilding");
+  await finishConstruction(page);
   expect(await fill(farmEdge, 0)).toBe("cornerMixed");
   expect(await fill(farmEdge, 1)).toBe("farmland");
 });

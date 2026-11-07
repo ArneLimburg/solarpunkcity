@@ -37,3 +37,9 @@ test("unaffordableCosts accounts for the best-case recycling", () => {
   ]);
   expect(unaffordableCosts("AppartmentBuilding", wood(7)).size).toBe(0);
 });
+
+test("unaffordableCosts never reports the construction work", () => {
+  expect(unaffordableCosts("Farm", { ...emptyResources, wood: 100 }).size).toBe(
+    0,
+  );
+});

@@ -53,9 +53,26 @@ test("a model building clears the footprint and shows its model", () => {
     parts.materials,
     { q: 0, r: 0 },
     "Farm",
+    false,
   );
   expect(create).toHaveBeenCalledWith("Farm", hexToPixel(0, 0));
   expect(models["0,0"]).toBe(model);
+});
+
+test("a construction site shows bare soil and no model", () => {
+  const { parts, clearTile, create, models, update } = setup();
+  placeBuilding({ q: 0, r: 0 }, "Farm", parts, true);
+  expect(clearTile).toHaveBeenCalledTimes(7);
+  expect(update).toHaveBeenCalledTimes(1);
+  expect(setFootprintGround).toHaveBeenLastCalledWith(
+    parts.tileMeshes,
+    parts.materials,
+    { q: 0, r: 0 },
+    "Farm",
+    true,
+  );
+  expect(create).not.toHaveBeenCalled();
+  expect(models).toEqual({});
 });
 
 test("previous models on the footprint are disposed", () => {

@@ -1,6 +1,9 @@
 import {
+  completeSites,
   getBuilding,
   getBuildings,
+  getConstructionSites,
+  workOnSite,
   getFootprint,
   getFootprintRadius,
   getTileBuildings,
@@ -53,7 +56,12 @@ export function canBuild(
   for (const tile of getFootprintOf(buildingDefinition, coords)) {
     newResources = addResources(newResources, getBuilding(tile)!.recycling!);
   }
-  return hasEnoughResources(newResources, buildingDefinition.cost);
+  return hasEnoughResources(newResources, getMaterialCost(buildingDefinition));
+}
+
+// the labor of the cost is construction work, it is not paid from the stock
+function getMaterialCost(building: Building): Resources {
+  return { ...building.cost, labor: 0 };
 }
 
 function getFootprintOf(building: Building, center: HexCoordinates) {
@@ -76,8 +84,11 @@ export function build(buildingType: BuildingType, coords: HexCoordinates) {
       newResources = addResources(newResources, oldBuilding.recycling);
     }
   }
-  currentResources = subtractResources(newResources, newBuilding.cost);
-  placeBuilding(coords, newBuilding);
+  currentResources = subtractResources(
+    newResources,
+    getMaterialCost(newBuilding),
+  );
+  placeBuilding(coords, newBuilding, newBuilding.cost.labor);
 }
 
 export type GameState = {
@@ -87,7 +98,35 @@ export type GameState = {
   ecology: number;
   satisfaction: number;
   foodBalance: number;
+  constructionSites: number;
 };
+
+// the buildings that were finished by the last weekly tick, not yet taken
+let completedBuildings: { coords: HexCoordinates; type: BuildingType }[] = [];
+
+// finishes all construction sites at once (cheat for the e2e tests)
+export function finishConstruction() {
+  for (const site of getConstructionSites()) {
+    workOnSite(site, site.remainingWork!);
+  }
+  collectCompletedBuildings();
+  return takeCompletedBuildings();
+}
+
+function collectCompletedBuildings() {
+  completedBuildings.push(
+    ...completeSites().map((site) => ({
+      coords: site.center,
+      type: site.building.type,
+    })),
+  );
+}
+
+export function takeCompletedBuildings() {
+  const completed = completedBuildings;
+  completedBuildings = [];
+  return completed;
+}
 
 export function getState(): GameState {
   return {
@@ -97,6 +136,7 @@ export function getState(): GameState {
     ecology: getEcology(),
     satisfaction: getSatisfaction(),
     foodBalance: currentFoodBalance,
+    constructionSites: getConstructionSites().length,
   };
 }
 
@@ -203,8 +243,26 @@ function calculateDevelopment() {
     currentResources.food = availableFood - startPopulation;
     currentPopulation += getGrowth(); // new residents work from next week on
   }
-  currentResources.labor = labor;
+  currentResources.labor = labor - construct(labor);
   calculateOtherProductions();
+  // sites finished this week take part from the next week on
+  collectCompletedBuildings();
+}
+
+// distributes the labor on the construction sites, oldest first; returns the
+// labor that was used
+function construct(labor: number): number {
+  let used = 0;
+  for (const site of getConstructionSites()) {
+    const workers = Math.min(
+      site.building.maxBuilders,
+      site.remainingWork!,
+      labor - used,
+    );
+    workOnSite(site, workers);
+    used += workers;
+  }
+  return used;
 }
 
 function calculateOtherProductions() {

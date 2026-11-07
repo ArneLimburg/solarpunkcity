@@ -25,7 +25,13 @@ import { createDevHooks } from "./devHooks";
 import { placeBuilding, type PlacedModel } from "./placeBuilding";
 
 export const Map = forwardRef<
-  { addBuilding: (coords: HexCoordinates, type: BuildingType) => void },
+  {
+    addBuilding: (
+      coords: HexCoordinates,
+      type: BuildingType,
+      underConstruction?: boolean,
+    ) => void;
+  },
   {
     onSelected: (coordinates: HexCoordinates) => void;
     previewType?: BuildingType;
@@ -45,17 +51,26 @@ export const Map = forwardRef<
   const previewTypeRef = useRef(previewType);
   previewTypeRef.current = previewType;
 
-  useImperativeHandle(ref, () => ({
-    addBuilding: (coords: HexCoordinates, type: BuildingType) =>
-      placeBuilding(coords, type, {
+  const place = (
+    coords: HexCoordinates,
+    type: BuildingType,
+    underConstruction?: boolean,
+  ) =>
+    placeBuilding(
+      coords,
+      type,
+      {
         forest: forestRef.current!,
         farms: farmsRef.current!,
         tileMeshes: tileMeshesRef.current,
         materials: materialsRef.current!,
         corners: cornersRef.current!,
         models: modelsRef.current,
-      }),
-  }));
+      },
+      underConstruction,
+    );
+
+  useImperativeHandle(ref, () => ({ addBuilding: place }));
 
   useEffect(() => {
     const canvas = canvasRef.current!;
@@ -108,6 +123,7 @@ export const Map = forwardRef<
         getTreeCount: (coords) => forestRef.current!.getTreeCount(coords),
         getCornerMaterial: (coords, corner) =>
           cornersRef.current!.getMaterialName({ tile: coords, corner }),
+        showBuilding: (coords, type) => place(coords, type, false),
       });
     });
 

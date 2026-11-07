@@ -12,6 +12,7 @@ declare global {
     __solarpunk?: {
       tileToScreen(coords: HexCoordinates): { x: number; y: number } | null;
       getBuildingType(coords: HexCoordinates): BuildingType | undefined;
+      isUnderConstruction(coords: HexCoordinates): boolean;
       getRingTile(): HexCoordinates | null;
       getRingTiles(): HexCoordinates[];
       isRingBlocked(): boolean;
@@ -25,6 +26,8 @@ declare global {
         corner: number,
       ): string | undefined;
       addResources(resources: Partial<Resources>): void;
+      // finishes all construction sites at once
+      finishConstruction(): void;
     };
   }
 }
