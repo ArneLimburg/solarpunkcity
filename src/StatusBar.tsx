@@ -23,7 +23,13 @@ export const StatusBar: FC<{ state: GameState }> = ({ state }) => (
   <nav
     className="bottom small-opacity"
     data-testid="status-bar"
-    style={{ flexWrap: "wrap", height: "auto", minHeight: "3rem" }}
+    style={{
+      position: "static",
+      flexWrap: "wrap",
+      height: "auto",
+      minHeight: "3rem",
+      pointerEvents: "auto",
+    }}
   >
     <Entry
       name="population"

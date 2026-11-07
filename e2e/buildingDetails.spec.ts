@@ -91,6 +91,92 @@ test("hides after Escape, deselecting and placing", async ({ page }) => {
   await expect(panel(page)).toHaveCount(0);
 });
 
+const statusBar = (page: Page) => page.getByTestId("status-bar");
+
+async function expectAboveStatusBar(page: Page) {
+  const p = await panel(page).boundingBox();
+  const s = await statusBar(page).boundingBox();
+  expect(p).not.toBeNull();
+  expect(s).not.toBeNull();
+  const panelBottom = p!.y + p!.height;
+  expect(panelBottom).toBeLessThanOrEqual(s!.y + 1);
+  expect(panelBottom).toBeGreaterThan(s!.y - 8);
+}
+
+test("sits above a wrapping status bar on mobile", async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 812 });
+  await setup(page);
+  await page.evaluate(() =>
+    window.__solarpunk?.addResources({ ore: 5, steel: 5 }),
+  );
+  await button(page, "FARM").click();
+  await button(page, "OrganicHomestead").click();
+  await expect(panel(page)).toBeVisible();
+  await expectAboveStatusBar(page);
+});
+
+test("sits above the status bar on desktop", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await setup(page);
+  await button(page, "FARM").click();
+  await button(page, "OrganicHomestead").click();
+  await expectAboveStatusBar(page);
+});
+
+test("has a close icon, a pointer cursor and an aria-label", async ({
+  page,
+}) => {
+  await setup(page);
+  await button(page, "FARM").click();
+  await button(page, "OrganicHomestead").click();
+  await expect(panel(page)).toHaveAttribute(
+    "aria-label",
+    "Hide building details",
+  );
+  await expect(panel(page)).toHaveCSS("cursor", "pointer");
+  await expect(panel(page).locator("i", { hasText: "close" })).toHaveCount(1);
+});
+
+test("hides on click, keeps the selection and shows again on reselect", async ({
+  page,
+}) => {
+  await setup(page);
+  await button(page, "FARM").click();
+  const homestead = button(page, "OrganicHomestead");
+  await homestead.click();
+  await panel(page).click();
+  await expect(panel(page)).toHaveCount(0);
+  await expect(homestead).toHaveAttribute("aria-pressed", "true");
+
+  await homestead.click();
+  await homestead.click();
+  await expect(panel(page)).toBeVisible();
+
+  await panel(page).click();
+  await expect(panel(page)).toHaveCount(0);
+  await button(page, "AgroIndustrial").click();
+  await expect(panel(page)).toBeVisible();
+});
+
+test("clicking the panel does not build below it, building still works", async ({
+  page,
+}) => {
+  await setup(page);
+  await button(page, "FARM").click();
+  await button(page, "OrganicHomestead").click();
+  const box = (await panel(page).boundingBox())!;
+  await panel(page).click();
+  await page.waitForTimeout(300);
+  await expect(panel(page)).toHaveCount(0);
+  expect(box).not.toBeNull();
+
+  const { x, y } = await tilePosition(page, origin);
+  await page.mouse.move(x, y, { steps: 5 });
+  await page.mouse.click(x, y);
+  await page.waitForTimeout(500);
+  expect(await buildingAt(page, origin)).toBe("OrganicHomestead");
+});
+
 test("marks unaffordable costs and updates without reselecting", async ({
   page,
 }) => {
