@@ -146,14 +146,18 @@ test("hides on click, keeps the selection and shows again on reselect", async ({
   await homestead.click();
   await panel(page).click();
   await expect(panel(page)).toHaveCount(0);
+  await button(page, "FARM").click();
   await expect(homestead).toHaveAttribute("aria-pressed", "true");
 
   await homestead.click();
+  await expect(panel(page)).toHaveCount(0);
+  await button(page, "FARM").click();
   await homestead.click();
   await expect(panel(page)).toBeVisible();
 
   await panel(page).click();
   await expect(panel(page)).toHaveCount(0);
+  await button(page, "FARM").click();
   await button(page, "AgroIndustrial").click();
   await expect(panel(page)).toBeVisible();
 });
