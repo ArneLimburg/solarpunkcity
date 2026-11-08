@@ -48,8 +48,8 @@ export function placeBuilding(
     forest.clearTile(tile);
     models[tileKey(tile)]?.dispose();
     delete models[tileKey(tile)];
-    tiles.setGround(tile, ground);
   }
+  tiles.setGrounds(getFootprint(coords, radius), ground);
   corners.update(getFootprint(coords, radius));
   const center = hexToPixel(coords.q, coords.r);
   if (!underConstruction && type === "WoodStorage") {
