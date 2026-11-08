@@ -24,11 +24,21 @@ function uniquePlaced(): PlacedBuilding[] {
   return [...new Set(tiles.values())];
 }
 
+// every finished building once, as placed (for production and housing)
+export function getPlacedBuildings(): PlacedBuilding[] {
+  return uniquePlaced().filter((placed) => placed.remainingWork === undefined);
+}
+
 // every finished building once (for production and housing)
 export function getBuildings(): Building[] {
-  return uniquePlaced()
-    .filter((placed) => placed.remainingWork === undefined)
-    .map((placed) => placed.building);
+  return getPlacedBuildings().map((placed) => placed.building);
+}
+
+// the placed building (with its center) that covers a tile
+export function getPlacedBuilding(
+  location: HexCoordinates,
+): PlacedBuilding | undefined {
+  return tiles.get(toHexLocation(location));
 }
 
 // the construction sites in placement order (oldest first)
