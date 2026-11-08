@@ -9,17 +9,19 @@ import {
 } from "react";
 import { Map } from "./Map";
 import { Menu } from "./Menu";
-import type { HexCoordinates } from "./board";
+import { getPlacedBuilding, type HexCoordinates } from "./board";
 import type { BuildingType } from "./gameDefinitions";
 import {
   build,
   calculateWeek,
   canBuild,
+  getBuildingReport,
   getState,
   takeCompletedBuildings,
   type GameState,
 } from "./game";
 import { BuildingDetails } from "./BuildingDetails";
+import { BuildingInfo } from "./BuildingInfo";
 import { StatusBar } from "./StatusBar";
 
 // Fixed bottom container: panels stack directly above the status bar,
@@ -75,23 +77,50 @@ export const App: FC = () => {
   const selectedBuildingTypeRef = useRef<BuildingType | undefined>(undefined);
   const [detailsHidden, setDetailsHidden] = useState(false);
   const hideDetails = useCallback(() => setDetailsHidden(true), []);
-  const selectBuildingType = useCallback((type: BuildingType | undefined) => {
-    selectedBuildingTypeRef.current = type;
-    setSelectedBuildingType(type);
-    if (type) setDetailsHidden(false);
+  // center of the placed building whose last week is shown
+  const [infoCenter, setInfoCenter] = useState<HexCoordinates | undefined>();
+  const infoCenterRef = useRef<HexCoordinates | undefined>(undefined);
+  const showInfo = useCallback((center: HexCoordinates | undefined) => {
+    infoCenterRef.current = center;
+    setInfoCenter(center);
   }, []);
+  const selectBuildingType = useCallback(
+    (type: BuildingType | undefined) => {
+      selectedBuildingTypeRef.current = type;
+      setSelectedBuildingType(type);
+      if (type) setDetailsHidden(false);
+      showInfo(undefined);
+    },
+    [showInfo],
+  );
   const mapSelectionListener = useCallback(
     (coords: HexCoordinates) => {
       const type = selectedBuildingTypeRef.current;
-      if (type && canBuild(type, coords)) {
-        build(type, coords);
-        setState(getState());
-        mapRef.current?.addBuilding(coords, type, true);
-        selectBuildingType(undefined);
+      if (type) {
+        if (canBuild(type, coords)) {
+          build(type, coords);
+          setState(getState());
+          mapRef.current?.addBuilding(coords, type, true);
+          selectBuildingType(undefined);
+        }
+        return;
       }
+      const placed = getPlacedBuilding(coords);
+      const current = infoCenterRef.current;
+      const isSame =
+        placed &&
+        current &&
+        placed.center.q === current.q &&
+        placed.center.r === current.r;
+      showInfo(
+        placed && placed.building.type !== "Forest" && !isSame
+          ? placed.center
+          : undefined,
+      );
     },
-    [selectBuildingType],
+    [selectBuildingType, showInfo],
   );
+  const infoPlaced = infoCenter && getPlacedBuilding(infoCenter);
   return (
     <>
       <Menu selected={selectedBuildingType} onSelect={selectBuildingType} />
@@ -108,6 +137,15 @@ export const App: FC = () => {
             type={selectedBuildingType}
             resources={state.resources}
             onHide={hideDetails}
+          />
+        )}
+        {infoPlaced && (
+          <BuildingInfo
+            building={infoPlaced.building}
+            center={infoPlaced.center}
+            report={getBuildingReport(infoPlaced.center)}
+            population={state.population}
+            housing={state.housing}
           />
         )}
       </BottomPanel>
