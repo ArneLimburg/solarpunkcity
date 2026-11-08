@@ -235,7 +235,8 @@ test("a click builds exactly once", async ({ page }) => {
   await page.mouse.move(first.x, first.y, { steps: 5 });
   const modelCount = () =>
     page.evaluate((c) => window.__solarpunk?.getModelCount(c), origin);
-  expect(await modelCount()).toBe(0);
+  // the settlers' camp stands on the origin at the start
+  expect(await modelCount()).toBe(1);
   await page.mouse.click(first.x, first.y);
   await expect.poll(() => buildingAt(page, origin)).toBe("OrganicHomestead");
   // a construction site has bare soil and no model
