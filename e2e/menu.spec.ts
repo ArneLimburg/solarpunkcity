@@ -93,7 +93,7 @@ test("Escape clears the selection", async ({ page }) => {
   await selectHomestead(page);
   await page.keyboard.press("Escape");
   await clickOrigin(page);
-  expect(await buildingAt(page, origin)).toBe("Forest");
+  expect(await buildingAt(page, origin)).toBe("SettlersCamp");
 });
 
 test("all menu icons load and the farm types differ", async ({ page }) => {
@@ -122,5 +122,5 @@ test("a click on the selected type clears the selection", async ({ page }) => {
   await button(page, "FARM").click();
   await button(page, "OrganicHomestead").click();
   await clickOrigin(page);
-  expect(await buildingAt(page, origin)).toBe("Forest");
+  expect(await buildingAt(page, origin)).toBe("SettlersCamp");
 });

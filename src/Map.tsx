@@ -100,6 +100,8 @@ export const Map = forwardRef<
     );
     farmsRef.current = createFarmRenderer(scene, HEX_SIZE);
     woodStorageRef.current = createWoodStorageRenderer(scene, HEX_SIZE);
+    // the game starts with the settlers' camp in the middle of the board
+    place({ q: 0, r: 0 }, "SettlersCamp");
 
     const ring = createRing(scene);
     const preview = createPreview(() => previewTypeRef.current);

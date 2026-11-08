@@ -92,8 +92,18 @@ test("the apartment building is built from code with one opaque mesh", () => {
   expect(model.triangles).toBeLessThanOrEqual(1000);
 });
 
-test("isModelType accepts the farms and the apartment building only", () => {
+test("the settlers' camp is built from code with one opaque mesh", () => {
+  meshes.length = 0;
+  const renderer = createFarmRenderer({} as Scene, 1);
+  const model = renderer.create("SettlersCamp", { x: 0, z: 0 });
+  expect(meshes).toHaveLength(1);
+  expect(model.triangles).toBeGreaterThan(0);
+  expect(model.triangles).toBeLessThan(1000);
+});
+
+test("isModelType accepts the farms, the apartment building and the camp only", () => {
   expect(isModelType("Farm")).toBe(true);
   expect(isModelType("AppartmentBuilding")).toBe(true);
+  expect(isModelType("SettlersCamp")).toBe(true);
   expect(isModelType("Forest")).toBe(false);
 });
