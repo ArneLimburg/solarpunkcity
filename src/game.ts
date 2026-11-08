@@ -379,7 +379,6 @@ function calculateOtherProductions() {
     }
     currentResources = subtractResources(currentResources, building.consumes);
     currentResources = addResources(currentResources, building.produces);
-<<<<<<< HEAD
     if (building.produces.wood > 0) {
       currentResources.wood = Math.min(currentResources.wood, woodCapacity);
     }
