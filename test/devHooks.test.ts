@@ -57,6 +57,14 @@ test("finishConstruction shows the models of the finished sites", () => {
   expect(showBuilding).toHaveBeenCalledWith({ q: 7, r: 7 }, "OrganicHomestead");
 });
 
+test("addWoodStorage builds a finished wood storage and shows it", () => {
+  const { hooks, showBuilding } = setup();
+  hooks.addWoodStorage({ q: 8, r: 8 });
+  expect(showBuilding).toHaveBeenCalledWith({ q: 8, r: 8 }, "WoodStorage");
+  expect(hooks.getBuildingType({ q: 8, r: 8 })).toBe("WoodStorage");
+  expect(hooks.isUnderConstruction({ q: 8, r: 8 })).toBe(false);
+});
+
 test("tileToScreen scales projected positions to the canvas size", () => {
   const { hooks, toGlobal } = setup();
   project.mockReturnValue({ x: 100, y: 50, z: 0.5 });

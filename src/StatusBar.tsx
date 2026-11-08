@@ -61,7 +61,17 @@ export const StatusBar: FC<{ state: GameState }> = ({ state }) => (
       value={`${Math.floor(state.satisfaction)} %`}
     />
     {stockResources.map((name) =>
-      state.resources[name] > 0 ? (
+      name === "wood" ? (
+        <Entry
+          key={name}
+          name={name}
+          icon={resourceIcons[name]}
+          value={`${Math.floor(state.resources.wood)} / ${Math.floor(
+            state.capacity.wood,
+          )}`}
+          error={state.capacity.wood === 0}
+        />
+      ) : state.resources[name] > 0 ? (
         <Entry
           key={name}
           name={name}

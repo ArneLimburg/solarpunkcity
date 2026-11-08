@@ -2,6 +2,7 @@ import { expect, test, vi } from "vitest";
 import type { CornerRenderer } from "../src/CornerRenderer";
 import type { FarmRenderer } from "../src/FarmRenderer";
 import type { ForestRenderer } from "../src/ForestRenderer";
+import type { WoodStorageRenderer } from "../src/WoodStorageRenderer";
 import type { GroundMaterials, TileMeshes } from "../src/TileRenderer";
 import { hexToPixel } from "../src/hexGeometry";
 
@@ -31,16 +32,42 @@ function setup() {
   const tileMeshes = {} as TileMeshes;
   const materials = {} as GroundMaterials;
   const update = vi.fn();
+  const createLogYard = vi.fn(() => model);
   const parts = {
     corners: { update } as unknown as CornerRenderer,
     forest: { clearTile } as unknown as ForestRenderer,
     farms: { create } as unknown as FarmRenderer,
+    woodStorage: { create: createLogYard } as unknown as WoodStorageRenderer,
     tileMeshes,
     materials,
     models,
   };
-  return { parts, dispose, model, clearTile, create, models, update };
+  return {
+    parts,
+    dispose,
+    model,
+    clearTile,
+    create,
+    createLogYard,
+    models,
+    update,
+  };
 }
+
+test("a wood storage shows the log yard", () => {
+  const { parts, create, createLogYard, models, model } = setup();
+  placeBuilding({ q: 0, r: 0 }, "WoodStorage", parts);
+  expect(createLogYard).toHaveBeenCalledWith(hexToPixel(0, 0));
+  expect(create).not.toHaveBeenCalled();
+  expect(models["0,0"]).toBe(model);
+});
+
+test("a wood storage under construction shows no model", () => {
+  const { parts, createLogYard, models } = setup();
+  placeBuilding({ q: 0, r: 0 }, "WoodStorage", parts, true);
+  expect(createLogYard).not.toHaveBeenCalled();
+  expect(models).toEqual({});
+});
 
 test("a model building clears the footprint and shows its model", () => {
   const { parts, clearTile, create, models, model, update } = setup();

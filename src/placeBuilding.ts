@@ -4,6 +4,7 @@ import type { CornerRenderer } from "./CornerRenderer";
 import { isModelType, type FarmRenderer } from "./FarmRenderer";
 import type { ForestRenderer } from "./ForestRenderer";
 import { hexToPixel, tileKey } from "./hexGeometry";
+import type { WoodStorageRenderer } from "./WoodStorageRenderer";
 import {
   setFootprintGround,
   type GroundMaterials,
@@ -21,6 +22,7 @@ export function placeBuilding(
   parts: {
     forest: ForestRenderer;
     farms: FarmRenderer;
+    woodStorage: WoodStorageRenderer;
     tileMeshes: TileMeshes;
     materials: GroundMaterials;
     corners: CornerRenderer;
@@ -28,7 +30,8 @@ export function placeBuilding(
   },
   underConstruction = false,
 ) {
-  const { forest, farms, tileMeshes, materials, corners, models } = parts;
+  const { forest, farms, woodStorage, tileMeshes, materials, corners, models } =
+    parts;
   const radius = getFootprintRadius(BuildingDefinition[type].size);
   // the building replaces trees and previous models on its whole footprint
   for (const tile of getFootprint(coords, radius)) {
@@ -38,11 +41,11 @@ export function placeBuilding(
   }
   setFootprintGround(tileMeshes, materials, coords, type, underConstruction);
   corners.update(getFootprint(coords, radius));
-  if (!underConstruction && isModelType(type)) {
+  const center = hexToPixel(coords.q, coords.r);
+  if (!underConstruction && type === "WoodStorage") {
+    models[tileKey(coords)] = woodStorage.create(center);
+  } else if (!underConstruction && isModelType(type)) {
     // models are built from code at scale 1
-    models[tileKey(coords)] = farms.create(
-      type,
-      hexToPixel(coords.q, coords.r),
-    );
+    models[tileKey(coords)] = farms.create(type, center);
   }
 }

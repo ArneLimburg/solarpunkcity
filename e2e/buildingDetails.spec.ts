@@ -1,13 +1,13 @@
 import type { Page } from "@playwright/test";
 import { test, expect } from "./fixtures";
-import { buildingAt, tilePosition } from "./helpers";
+import { buildingAt, grantWood, tilePosition } from "./helpers";
 
 const origin = { q: 0, r: 0 };
 
 async function setup(page: Page) {
   await page.goto("./");
   await page.waitForFunction(() => window.__solarpunk !== undefined);
-  await page.evaluate(() => window.__solarpunk?.addResources({ wood: 100 }));
+  await grantWood(page);
 }
 
 const button = (page: Page, name: string) =>

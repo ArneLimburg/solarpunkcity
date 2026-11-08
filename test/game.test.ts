@@ -11,6 +11,20 @@ beforeEach(async () => {
   board = await import("../src/board");
   game = await import("../src/game");
   definitions = await import("../src/gameDefinitions");
+  // a game starts without wood and without storage; these tests are about
+  // other rules, so they start with 10 wood and plenty of room for it
+  // (the storage rules are covered in storage.test.ts)
+  board.setBuilding(
+    { q: 0, r: -30 },
+    testBuilding({
+      ecology: 1,
+      storage: {
+        ...definitions.BuildingDefinition.Forest.produces,
+        wood: 1000,
+      },
+    }),
+  );
+  game.grantResources({ wood: 10 });
 });
 
 function testBuilding(overrides: Partial<Building>): Building {
@@ -426,8 +440,8 @@ test("getState returns the current values", () => {
   expect(state.satisfaction).toBe(100);
 });
 
-test("a fresh game starts with 10 wood", () => {
-  expect(game.INITIAL_RESOURCES.wood).toBe(10);
+test("a fresh game starts with 0 wood", () => {
+  expect(game.INITIAL_RESOURCES.wood).toBe(0);
 });
 
 test("clearing a forest yields 3 wood, a forest produces 0.5 wood", () => {

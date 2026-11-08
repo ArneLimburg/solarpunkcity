@@ -6,7 +6,7 @@ import {
   unaffordableCosts,
 } from "./buildingDetails";
 import { BuildingDefinition, type BuildingType } from "./gameDefinitions";
-import type { Resources } from "./resources";
+import { emptyResources, type Resources } from "./resources";
 import { resourceIcons } from "./resourceIcons";
 
 const Chip: FC<{
@@ -106,6 +106,11 @@ export const BuildingDetails: FC<{
           Builders per week: max {building.maxBuilders}
         </div>
       )}
+      <Section
+        title="Storage"
+        resources={building.storage ?? emptyResources}
+        testId="details-storage"
+      />
       <Section
         title="Produces per week"
         resources={building.produces}

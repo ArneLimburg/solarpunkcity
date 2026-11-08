@@ -17,6 +17,17 @@ test("construction work and maximum builders of every building", () => {
   expect(work("Farm")).toEqual([24, 6]);
   expect(work("AgroIndustrial")).toEqual([80, 10]);
   expect(work("Forest")).toEqual([0, 0]);
+  expect(work("WoodStorage")).toEqual([0, 0]);
+});
+
+test("the wood storage is a free storage building without recycling", () => {
+  const storage = BuildingDefinition.WoodStorage;
+  expect(BuildingTypes.WoodStorage.category).toBe("STORAGE");
+  expect(BuildingCategories.STORAGE.buildable).toBe(true);
+  expect(storage.storage?.wood).toBe(100);
+  expect(Object.values(storage.cost).every((value) => value === 0)).toBe(true);
+  expect(storage.size).toBe(1);
+  expect(storage.recycling).toBeUndefined();
 });
 
 const exists = (icon: string) => existsSync(join("public", icon));

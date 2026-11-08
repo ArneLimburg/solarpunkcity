@@ -4,6 +4,10 @@ import type { HexCoordinates } from "./board";
 import type { BuildingType } from "./gameDefinitions";
 import { createCornerRenderer, type CornerRenderer } from "./CornerRenderer";
 import { createFarmRenderer, type FarmRenderer } from "./FarmRenderer";
+import {
+  createWoodStorageRenderer,
+  type WoodStorageRenderer,
+} from "./WoodStorageRenderer";
 import { createForest, type ForestRenderer } from "./ForestRenderer";
 import { HEX_SIZE, hexToPixel } from "./hexGeometry";
 import {
@@ -42,6 +46,7 @@ export const Map = forwardRef<
   const modelsRef = useRef<Record<string, PlacedModel>>({});
   const forestRef = useRef<ForestRenderer | null>(null);
   const farmsRef = useRef<FarmRenderer | null>(null);
+  const woodStorageRef = useRef<WoodStorageRenderer | null>(null);
   const cornersRef = useRef<CornerRenderer | null>(null);
 
   // hex meshes per tile ("q,r") and the ground materials
@@ -62,6 +67,7 @@ export const Map = forwardRef<
       {
         forest: forestRef.current!,
         farms: farmsRef.current!,
+        woodStorage: woodStorageRef.current!,
         tileMeshes: tileMeshesRef.current,
         materials: materialsRef.current!,
         corners: cornersRef.current!,
@@ -93,6 +99,7 @@ export const Map = forwardRef<
       (tile) => hexToPixel(tile.q, tile.r),
     );
     farmsRef.current = createFarmRenderer(scene, HEX_SIZE);
+    woodStorageRef.current = createWoodStorageRenderer(scene, HEX_SIZE);
 
     const ring = createRing(scene);
     const preview = createPreview(() => previewTypeRef.current);

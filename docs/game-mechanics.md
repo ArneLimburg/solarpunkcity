@@ -8,7 +8,8 @@ week passes every second. Everything below happens once per week unless stated o
 - The board is a field of hexagonal tiles: a centre tile and 30 rings around it, 2,791 tiles in
   total.
 - At the start every tile is covered by forest.
-- The settlement starts with **2 residents**, **10 wood** and **10 food**.
+- The settlement starts with **2 residents**, **0 wood** and **10 food**. It has no wood storage
+  yet, so the wood capacity is 0 (see section 2).
 - There are no houses and no farms yet. Residents do not need a house to be there at the
   start, but new residents only move in where there is housing (see section 5).
 
@@ -19,6 +20,12 @@ week passes every second. Everything below happens once per week unless stated o
 | Wood     | Comes from forests (0.5 wood per forest per week) and from clearing forest. It is kept in a stock. | Paid when you place a building.                                           |
 | Food     | Comes from farms. It is kept in a stock, which works as a buffer.                                  | Every resident eats 1 food per week.                                      |
 | Labor    | Equals the number of residents. Every resident is one worker per week. It is **not** stored.       | Staffing farms, constructing buildings and working in forests (for wood). |
+
+**Storage.** Wood needs a place to be stored. The capacity for wood is the sum of the storage of
+all finished buildings: every wood storage adds 100 wood, without any wood storage the capacity
+is 0. The wood stock never exceeds the capacity. Other resources are not capped yet. The status
+bar always shows wood as `stock / capacity` (for example `3 / 100`); with a capacity of 0 the
+entry is shown in the error style.
 
 Unused labor is lost at the end of the week. The labor shown in the status bar is the labor that
 was left over after all work of the last week.
@@ -35,7 +42,7 @@ What happens when you place a building:
 - The **wood cost** is paid immediately.
 - Every forest tile under the building is cleared and gives you **3 wood**. This wood can be used
   to pay for the building itself, so a building may be placed even if the stock alone is not
-  enough.
+  enough. The wood that is not used right away has to fit into the storages (see below).
 - The building is not finished yet. It becomes a construction site (see section 4).
 
 Building is **not possible** if
@@ -43,7 +50,11 @@ Building is **not possible** if
 - part of the building would lie outside the board,
 - part of the building would lie on a tile that already holds a building, or a construction site
   (only forest can be cleared), or
-- the wood in your stock plus the wood from the cleared forest is less than the wood cost.
+- the wood in your stock plus the wood from the cleared forest is less than the wood cost, or
+- the wood in your stock plus the wood from the cleared forest minus the wood cost would be more
+  than the wood capacity (including the storage of the building that is placed). The ring is red
+  in this case. A wood storage can therefore always be placed on forest as long as its own 100
+  capacity makes room for the cleared wood.
 
 The work needed for the construction is **not** checked when placing and no work is taken from
 any stock: the residents do it over the following weeks.
@@ -96,7 +107,9 @@ builders: a single resident would need 24 weeks, 6 residents only 4 weeks.
    week.
 4. **Other production.** The workers that are still free do the remaining work, such as
    forestry: every forest tile that gets a worker produces 0.5 wood. A building that cannot be
-   staffed fully or lacks other inputs does not produce anything.
+   staffed fully or lacks other inputs does not produce anything. Forestry only works while the
+   wood stock is below the capacity; the produced wood is capped so that the stock never exceeds
+   the capacity. Without a wood storage no forest works and its labor stays free.
 5. **Population growth.** If everyone could eat, the population grows. The growth is the smallest
    of
    - 10 % of the population, multiplied by the satisfaction (a satisfaction of 50 % halves it)
@@ -122,21 +135,26 @@ builders: a single resident would need 24 weeks, 6 residents only 4 weeks.
 
 ## 7. All buildings
 
-| Building             | Tiles | Wood | Work (worker-weeks) | Builders per week | Produces per week | Consumes per week | Residents | Ecology per tile |
-| -------------------- | ----- | ---- | ------------------- | ----------------- | ----------------- | ----------------- | --------- | ---------------- |
-| Organic homestead    | 1     | 4    | 4                   | 2                 | 3 food            | 2 workers         | 3         | +0.5             |
-| Apartment building   | 1     | 10   | 20                  | 4                 | –                 | –                 | 15        | 0                |
-| Farm                 | 7     | 25   | 24                  | 6                 | 20 food           | 4 workers         | 2         | +0.2             |
-| Agro-industrial farm | 19    | 65   | 80                  | 10                | 60 food           | 8 workers         | 0         | −5               |
-| Forest               | 1     | –    | –                   | –                 | 0.5 wood          | 1 worker          | 0         | +1               |
+| Building             | Tiles | Wood | Work (worker-weeks)  | Builders per week | Produces per week | Consumes per week | Residents | Ecology per tile |
+| -------------------- | ----- | ---- | -------------------- | ----------------- | ----------------- | ----------------- | --------- | ---------------- |
+| Organic homestead    | 1     | 4    | 4                    | 2                 | 3 food            | 2 workers         | 3         | +0.5             |
+| Apartment building   | 1     | 10   | 20                   | 4                 | –                 | –                 | 15        | 0                |
+| Farm                 | 7     | 25   | 24                   | 6                 | 20 food           | 4 workers         | 2         | +0.2             |
+| Agro-industrial farm | 19    | 65   | 80                   | 10                | 60 food           | 8 workers         | 0         | −5               |
+| Wood storage         | 1     | –    | – (finished at once) | –                 | –                 | –                 | 0         | 0                |
+| Forest               | 1     | –    | –                    | –                 | 0.5 wood          | 1 worker          | 0         | +1               |
 
-The forest cannot be built. A cleared forest tile gives 3 wood.
+The wood storage is free, is finished immediately when placed (no construction site, gravel
+ground and a log yard on the map), stores 100 wood and cannot be built over. The forest cannot
+be built. A cleared forest tile gives 3 wood.
 
 ## 8. Example: the first weeks
 
-- **Start (week 0):** 2 residents, 10 wood, 10 food. You place an organic homestead. It costs 4
-  wood, but clearing the forest tile gives 3 wood: the stock is now 9 wood. The tile shows bare
-  soil.
+- **Start (week 0):** 2 residents, 0 wood, 10 food. An organic homestead costs 4 wood and
+  clearing a forest tile gives only 3, so you first place a wood storage (it costs nothing and
+  its 3 cleared wood are stored). The wood capacity is now 100. Forests produce wood from now on;
+  assume the stock is 9 wood. You place an organic homestead. It costs 4 wood, but clearing the
+  forest tile gives 3 wood: the stock is now 8 wood. The tile shows bare soil.
 - **Week 1:** The 2 residents eat 2 food (8 left). No farm exists, so both residents work on the
   homestead (2 of its 4 worker-weeks). Nobody is free for forestry, so there is no new wood.
   There is no housing, so the population cannot grow.
