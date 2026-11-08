@@ -27,12 +27,14 @@ const FOREST_FLOOR_COLOR = new Color3(0.2, 0.42, 0.18);
 const MEADOW_COLOR = new Color3(0.55, 0.78, 0.4);
 const FARMLAND_COLOR = new Color3(0.55, 0.45, 0.3);
 const SOIL_COLOR = new Color3(0.4, 0.26, 0.15);
+const GRAVEL_COLOR = new Color3(0.78, 0.7, 0.55);
 
 export type GroundMaterials = {
   forestFloor: StandardMaterial;
   meadow: StandardMaterial;
   farmland: StandardMaterial;
   soil: StandardMaterial;
+  gravel: StandardMaterial;
 };
 
 // hex meshes per tile ("q,r")
@@ -61,6 +63,7 @@ export function createGroundMaterials(scene: Scene): GroundMaterials {
     meadow: makeMaterial("meadow", MEADOW_COLOR, scene),
     farmland: makeMaterial("farmland", FARMLAND_COLOR, scene),
     soil: makeMaterial("soil", SOIL_COLOR, scene),
+    gravel: makeMaterial("gravel", GRAVEL_COLOR, scene),
   };
 }
 
@@ -107,8 +110,8 @@ export function getForestTiles(coordinates: HexCoordinates[]) {
   return coordinates.filter((tile) => getBuilding(tile)?.type === "Forest");
 }
 
-// bare soil below construction sites, farmland below farms, meadow below
-// everything else
+// bare soil below construction sites, farmland below farms, gravel below
+// storages, meadow below everything else
 export function setFootprintGround(
   meshes: TileMeshes,
   materials: GroundMaterials,
@@ -117,12 +120,14 @@ export function setFootprintGround(
   underConstruction = false,
 ) {
   const radius = getFootprintRadius(BuildingDefinition[type].size);
-  const farm = BuildingTypes[type].category === "FARM";
+  const category = BuildingTypes[type].category;
   const ground = underConstruction
     ? materials.soil
-    : farm
+    : category === "FARM"
       ? materials.farmland
-      : materials.meadow;
+      : category === "STORAGE"
+        ? materials.gravel
+        : materials.meadow;
   for (const tile of getFootprint(coords, radius)) {
     meshes[tileKey(tile)].material = ground;
   }

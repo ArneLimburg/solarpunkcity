@@ -10,7 +10,7 @@ import {
 import { Map } from "./Map";
 import { Menu } from "./Menu";
 import type { HexCoordinates } from "./board";
-import type { BuildingType } from "./gameDefinitions";
+import { BuildingDefinition, type BuildingType } from "./gameDefinitions";
 import {
   build,
   calculateWeek,
@@ -86,7 +86,12 @@ export const App: FC = () => {
       if (type && canBuild(type, coords)) {
         build(type, coords);
         setState(getState());
-        mapRef.current?.addBuilding(coords, type, true);
+        // buildings without construction work are finished immediately
+        mapRef.current?.addBuilding(
+          coords,
+          type,
+          BuildingDefinition[type].cost.labor > 0,
+        );
         selectBuildingType(undefined);
       }
     },

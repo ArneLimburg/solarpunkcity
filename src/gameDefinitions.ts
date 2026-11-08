@@ -20,6 +20,11 @@ export const BuildingCategories = {
     buildable: true,
     icon: "residential/residential.svg",
   },
+  STORAGE: {
+    name: "STORAGE",
+    buildable: true,
+    icon: "storage/storage.svg",
+  },
   FOREST: {
     name: "FOREST",
     buildable: false,
@@ -43,6 +48,10 @@ export const BuildingTypes = {
     category: "RESIDENTIAL",
     icon: "residential/appartment-building.svg",
   },
+  WoodStorage: {
+    category: "STORAGE",
+    icon: "storage/wood-storage.svg",
+  },
   Forest: {
     category: "FOREST",
     icon: "forest/forest.svg",
@@ -63,6 +72,7 @@ export type Building = {
   maxBuilders: number; // workers per construction site and week
   produces: Resources;
   consumes: Resources;
+  storage?: Resources; // capacity the building adds
   recycling?: Resources;
 };
 export const BuildingDefinition: Record<BuildingType, Building> = {
@@ -114,6 +124,19 @@ export const BuildingDefinition: Record<BuildingType, Building> = {
     produces: { ...emptyResources, wood: 0.5 },
     consumes: { ...emptyResources, labor: 1 }, // later water
     recycling: { ...emptyResources, wood: 3 },
+  },
+  WoodStorage: {
+    name: "Wood storage",
+    type: "WoodStorage",
+    description: "Stores up to 100 wood from clearing and forestry",
+    size: 1,
+    resident: 0,
+    ecology: 0,
+    cost: { ...emptyResources }, // finished immediately: no labor
+    maxBuilders: 0,
+    produces: { ...emptyResources },
+    consumes: { ...emptyResources },
+    storage: { ...emptyResources, wood: 100 },
   },
   AppartmentBuilding: {
     name: "Appartment Building",

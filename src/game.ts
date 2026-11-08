@@ -26,7 +26,7 @@ import {
 
 export const INITIAL_RESOURCES: Resources = {
   ...emptyResources,
-  wood: 10,
+  wood: 0,
   food: 10,
 };
 let currentResources: Resources = { ...INITIAL_RESOURCES };
@@ -52,11 +52,47 @@ export function canBuild(
     return false;
   }
   const buildingDefinition = BuildingDefinition[buildingType];
-  let newResources = currentResources;
-  for (const tile of getFootprintOf(buildingDefinition, coords)) {
-    newResources = addResources(newResources, getBuilding(tile)!.recycling!);
+  return (
+    hasEnoughResources(
+      getResourcesAfterClearing(buildingDefinition, coords),
+      getMaterialCost(buildingDefinition),
+    ) && fitsStorage(buildingType, coords)
+  );
+}
+
+// the stock plus the recycling of the footprint; the footprint must be placeable
+function getResourcesAfterClearing(
+  building: Building,
+  coords: HexCoordinates,
+): Resources {
+  let resources = currentResources;
+  for (const tile of getFootprintOf(building, coords)) {
+    resources = addResources(resources, getBuilding(tile)!.recycling!);
   }
-  return hasEnoughResources(newResources, getMaterialCost(buildingDefinition));
+  return resources;
+}
+
+// whether the wood that is not used right away fits into the storages (with
+// the storage of the new building); the footprint must be placeable
+export function fitsStorage(
+  buildingType: BuildingType,
+  coords: HexCoordinates,
+): boolean {
+  const building = BuildingDefinition[buildingType];
+  return (
+    getResourcesAfterClearing(building, coords).wood - building.cost.wood <=
+    getCapacity().wood + (building.storage?.wood ?? 0)
+  );
+}
+
+// the capacity of a resource is the storage of all finished buildings; only
+// wood is capped so far, everything else is unlimited
+export function getCapacity(): Resources {
+  return getBuildings().reduce(
+    (capacity, building) =>
+      addResources(capacity, building.storage ?? emptyResources),
+    emptyResources,
+  );
 }
 
 // the labor of the cost is construction work, it is not paid from the stock
@@ -93,6 +129,7 @@ export function build(buildingType: BuildingType, coords: HexCoordinates) {
 
 export type GameState = {
   resources: Resources;
+  capacity: Resources;
   population: number;
   housing: number;
   ecology: number;
@@ -131,6 +168,7 @@ export function takeCompletedBuildings() {
 export function getState(): GameState {
   return {
     resources: { ...currentResources },
+    capacity: getCapacity(),
     population: currentPopulation,
     housing: getAvailableHousing(),
     ecology: getEcology(),
@@ -267,14 +305,22 @@ function construct(labor: number): number {
 
 function calculateOtherProductions() {
   // TODO prioritize buildings
+  const woodCapacity = getCapacity().wood;
   for (const building of getBuildings()) {
     if (building.produces.food > 0) {
       continue; // food is already produced in calculateDevelopment
+    }
+    // forestry stops (and keeps its labor free) when the storages are full
+    if (building.produces.wood > 0 && currentResources.wood >= woodCapacity) {
+      continue;
     }
     if (!hasEnoughResources(currentResources, building.consumes)) {
       continue; // no partial production
     }
     currentResources = subtractResources(currentResources, building.consumes);
     currentResources = addResources(currentResources, building.produces);
+    if (building.produces.wood > 0) {
+      currentResources.wood = Math.min(currentResources.wood, woodCapacity);
+    }
   }
 }

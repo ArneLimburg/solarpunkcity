@@ -3,6 +3,7 @@ import { test, expect } from "./fixtures";
 import {
   buildingAt,
   finishConstruction,
+  grantWood,
   isUnderConstruction,
   tilePosition,
 } from "./helpers";
@@ -15,7 +16,7 @@ const next = { q: 1, r: 0 };
 async function setup(page: Page) {
   await page.goto("./");
   await page.waitForFunction(() => window.__solarpunk !== undefined);
-  await page.evaluate(() => window.__solarpunk?.addResources({ wood: 100 }));
+  await grantWood(page);
   await page.getByRole("button", { name: "FARM", exact: true }).click();
   await page.getByRole("button", { name: "OrganicHomestead" }).click();
 }
@@ -313,7 +314,7 @@ test("every board tile starts as forest floor", async ({ page }) => {
 test("a residential building turns the tile into meadow", async ({ page }) => {
   await page.goto("./");
   await page.waitForFunction(() => window.__solarpunk !== undefined);
-  await page.evaluate(() => window.__solarpunk?.addResources({ wood: 100 }));
+  await grantWood(page);
   expect(
     await page.evaluate((c) => window.__solarpunk?.getTileMaterial(c), origin),
   ).toBe("forestFloor");
@@ -337,7 +338,7 @@ test("a farm occupies 7 tiles with one model and farmland", async ({
 }) => {
   await page.goto("./");
   await page.waitForFunction(() => window.__solarpunk !== undefined);
-  await page.evaluate(() => window.__solarpunk?.addResources({ wood: 100 }));
+  await grantWood(page);
   await page.getByRole("button", { name: "FARM", exact: true }).click();
   await page.getByRole("button", { name: "Farm", exact: true }).click();
 
@@ -410,7 +411,7 @@ for (const { type, budget } of FARM_BUDGETS) {
   }) => {
     await page.goto("./");
     await page.waitForFunction(() => window.__solarpunk !== undefined);
-    await page.evaluate(() => window.__solarpunk?.addResources({ wood: 100 }));
+    await grantWood(page);
     await page.getByRole("button", { name: "FARM", exact: true }).click();
     await page.getByRole("button", { name: type, exact: true }).click();
     const { x, y } = await tilePosition(page, origin);
@@ -433,7 +434,7 @@ for (const { type, budget } of FARM_BUDGETS) {
 async function buildAtOrigin(page: Page, category: string, type: string) {
   await page.goto("./");
   await page.waitForFunction(() => window.__solarpunk !== undefined);
-  await page.evaluate(() => window.__solarpunk?.addResources({ wood: 1000 }));
+  await grantWood(page);
   await page.getByRole("button", { name: category, exact: true }).click();
   await page.getByRole("button", { name: type, exact: true }).click();
   const { x, y } = await tilePosition(page, origin);
@@ -564,7 +565,7 @@ test("the corner fills around a new farm follow the grounds of the tiles", async
 }) => {
   await page.goto("./");
   await page.waitForFunction(() => window.__solarpunk !== undefined);
-  await page.evaluate(() => window.__solarpunk?.addResources({ wood: 1000 }));
+  await grantWood(page);
   const fill = (tile: { q: number; r: number }, corner: number) =>
     page.evaluate(([c, i]) => window.__solarpunk?.getCornerMaterial(c, i), [
       tile,

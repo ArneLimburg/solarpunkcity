@@ -9,7 +9,7 @@ import {
 } from "@babylonjs/core";
 import { getBuilding, isUnderConstruction, type HexCoordinates } from "./board";
 import type { BuildingType } from "./gameDefinitions";
-import { finishConstruction, grantResources } from "./game";
+import { build, finishConstruction, grantResources } from "./game";
 import { hexToPixel, tileKey } from "./hexGeometry";
 import type { Ring } from "./SelectionRing";
 import { getTileMaterialName, type TileMeshes } from "./TileRenderer";
@@ -82,6 +82,10 @@ export function createDevHooks({
     getTreeCount,
     getCornerMaterial,
     addResources: grantResources,
+    addWoodStorage: (coords) => {
+      build("WoodStorage", coords);
+      showBuilding(coords, "WoodStorage");
+    },
     finishConstruction: () =>
       finishConstruction().forEach(({ coords, type }) =>
         showBuilding(coords, type),

@@ -26,6 +26,8 @@ declare global {
         corner: number,
       ): string | undefined;
       addResources(resources: Partial<Resources>): void;
+      // places a finished wood storage (free) without any checks
+      addWoodStorage(coords: HexCoordinates): void;
       // finishes all construction sites at once
       finishConstruction(): void;
     };

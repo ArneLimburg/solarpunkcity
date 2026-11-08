@@ -50,6 +50,8 @@ Always run `npm run lint`, `npm run build` and `npm test` before considering a c
 - `src/devHooks.ts` – builds the DEV-only `window.__solarpunk` object used by e2e tests
 - `src/farms.ts`, `src/apartment.ts`, `src/farmGeometry.ts`, `src/FarmRenderer.ts` – building
   models built from code (layout, geometry, instanced rendering)
+- `src/woodStorage.ts`, `src/WoodStorageRenderer.ts` – log yard model of the wood storage (pure
+  log layout and geometry, instanced rendering)
 - `src/forest.ts`, `src/ForestRenderer.ts` – procedural forest with thin instances
 - `src/forestFloor.ts` – pure pixel generator of the forest floor texture
 - `src/Menu.tsx` – building selection app bar
