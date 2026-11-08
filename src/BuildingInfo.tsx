@@ -75,7 +75,12 @@ export const BuildingInfo: FC<{
         </div>
         <span className="chip no-margin" data-testid="info-ecology">
           <i>eco</i>
-          <span>{formatEcology(building.ecology * building.size)}</span>
+          <span>
+            {/* rounded against floating point noise such as 1.4000000000000001 */}
+            {formatEcology(
+              Math.round(building.ecology * building.size * 100) / 100,
+            )}
+          </span>
         </span>
       </div>
       {building.resident > 0 && (
