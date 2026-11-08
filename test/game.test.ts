@@ -11,6 +11,9 @@ beforeEach(async () => {
   board = await import("../src/board");
   game = await import("../src/game");
   definitions = await import("../src/gameDefinitions");
+  // these tests assume an all-forest board; the settlers' camp has its own
+  // tests in settlersCamp.test.ts
+  board.setBuilding({ q: 0, r: 0 }, definitions.BuildingDefinition.Forest);
 });
 
 function testBuilding(overrides: Partial<Building>): Building {

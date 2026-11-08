@@ -93,6 +93,8 @@ export const Map = forwardRef<
       (tile) => hexToPixel(tile.q, tile.r),
     );
     farmsRef.current = createFarmRenderer(scene, HEX_SIZE);
+    // the game starts with the settlers' camp in the middle of the board
+    place({ q: 0, r: 0 }, "SettlersCamp");
 
     const ring = createRing(scene);
     const preview = createPreview(() => previewTypeRef.current);
