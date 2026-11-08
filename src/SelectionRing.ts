@@ -14,7 +14,7 @@ import {
 } from "./board";
 import { BuildingDefinition, type BuildingType } from "./gameDefinitions";
 import { canPlace } from "./game";
-import { HEX_SIZE, hexToPixel, pixelToHex } from "./hexGeometry";
+import { HEX_SIZE, TILE_TOP, hexToPixel, pixelToHex } from "./hexGeometry";
 import { makeMaterial } from "./TileRenderer";
 
 export type Ring = {
@@ -58,7 +58,7 @@ export function createRing(scene: Scene): Ring {
       hideMeshes();
       const mesh = getMesh(radius);
       const center = hexToPixel(coordinates.q, coordinates.r);
-      mesh.position.set(center.x, 0.1, center.z);
+      mesh.position.set(center.x, TILE_TOP, center.z);
       mesh.material = blocked ? blockedMaterial : highlightMaterial;
       mesh.setEnabled(true);
       ring.tiles = getFootprint(coordinates, radius).filter(isOnBoard);

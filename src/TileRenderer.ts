@@ -16,11 +16,10 @@ import {
   isOnBoard,
   type HexCoordinates,
 } from "./board";
-import { TILE_TOP } from "./ForestRenderer";
 import { getTileRotation } from "./forest";
 import { FOREST_FLOOR_SIZE, createForestFloorPixels } from "./forestFloor";
 import { createRoundedHexOutline } from "./hexCorners";
-import { HEX_SIZE, hexToPixel, tileKey } from "./hexGeometry";
+import { HEX_SIZE, TILE_TOP, hexToPixel, tileKey } from "./hexGeometry";
 
 const FOREST_FLOOR_COLOR = new Color3(0.2, 0.42, 0.18);
 const MEADOW_COLOR = new Color3(0.55, 0.78, 0.4);
@@ -65,6 +64,8 @@ export type TileRenderer = {
   tiles: HexCoordinates[];
   // moves a tile to the instance buffer of another ground material
   setGround: (coords: HexCoordinates, material: StandardMaterial) => void;
+  // moves several tiles at once; each touched buffer is uploaded only once
+  setGrounds: (coords: HexCoordinates[], material: StandardMaterial) => void;
   // name of the current ground material of a tile
   getGround: (coords: HexCoordinates) => string | undefined;
 };
@@ -90,7 +91,7 @@ export function createTileRenderer(
       return Matrix.Compose(
         Vector3.One(),
         Quaternion.RotationAxis(Vector3.Up(), getTileRotation(tile)),
-        new Vector3(center.x, 0.1, center.z),
+        new Vector3(center.x, TILE_TOP, center.z),
       ).asArray() as number[];
     }),
   );
@@ -101,10 +102,8 @@ export function createTileRenderer(
     (point) => new Vector3(point.x, 0, point.z),
   );
   // per ground material: its base mesh, its matrix buffer and the tiles in buffer order
-  const layers: Record<
-    string,
-    { mesh: Mesh; data: Float32Array; keys: string[] }
-  > = {};
+  type Layer = { mesh: Mesh; data: Float32Array; keys: string[] };
+  const layers: Record<string, Layer> = {};
   const grounds: Record<string, string> = {}; // material name per tile
   const slots: Record<string, number> = {}; // buffer slot per tile
   for (const material of Object.values(materials)) {
@@ -123,7 +122,11 @@ export function createTileRenderer(
     mesh.thinInstanceSetBuffer("matrix", data, 16, false);
     // the bounds cover the whole board, so no layer is culled by mistake
     mesh.thinInstanceRefreshBoundingInfo(true);
+    // keep the full-board bounds, Babylon must not shrink them to the current instances
+    mesh.doNotSyncBoundingInfo = true;
     mesh.thinInstanceCount = keys.length;
+    // an empty layer would be drawn once as a plain mesh at the origin
+    mesh.isVisible = keys.length > 0;
     keys.forEach((key, slot) => {
       grounds[key] = material.name;
       slots[key] = slot;
@@ -143,39 +146,53 @@ export function createTileRenderer(
   pickPlane.visibility = 0; // invisible, but still hit by picking
   pickPlane.isPickable = true;
 
-  const publish = ({ mesh, keys }: { mesh: Mesh; keys: string[] }) => {
-    mesh.thinInstanceCount = keys.length;
-    mesh.thinInstanceBufferUpdated("matrix");
+  // layers whose buffer changed and has not been uploaded yet
+  const dirty = new Set<Layer>();
+  const flush = () => {
+    for (const { mesh, keys } of dirty) {
+      mesh.thinInstanceCount = keys.length;
+      mesh.isVisible = keys.length > 0;
+      mesh.thinInstanceBufferUpdated("matrix");
+    }
+    dirty.clear();
+  };
+
+  const move = (coords: HexCoordinates, material: StandardMaterial) => {
+    const key = tileKey(coords);
+    const from = layers[grounds[key]];
+    const to = layers[material.name];
+    if (from === to) return;
+    // the last tile of the old buffer fills the gap (a no-op if it is the tile itself)
+    const slot = slots[key];
+    const lastKey = from.keys[from.keys.length - 1];
+    from.data.copyWithin(
+      slot * 16,
+      slots[lastKey] * 16,
+      slots[lastKey] * 16 + 16,
+    );
+    from.keys[slot] = lastKey;
+    slots[lastKey] = slot;
+    from.keys.pop();
+
+    slots[key] = to.keys.length;
+    to.data.set(
+      matrices.subarray(matrixOffsets[key], matrixOffsets[key] + 16),
+      slots[key] * 16,
+    );
+    to.keys.push(key);
+    grounds[key] = material.name;
+    dirty.add(from).add(to);
   };
 
   return {
     tiles,
     setGround: (coords, material) => {
-      const key = tileKey(coords);
-      const from = layers[grounds[key]];
-      const to = layers[material.name];
-      if (from === to) return;
-      // the last tile of the old buffer fills the gap (a no-op if it is the tile itself)
-      const slot = slots[key];
-      const lastKey = from.keys[from.keys.length - 1];
-      from.data.copyWithin(
-        slot * 16,
-        slots[lastKey] * 16,
-        slots[lastKey] * 16 + 16,
-      );
-      from.keys[slot] = lastKey;
-      slots[lastKey] = slot;
-      from.keys.pop();
-      publish(from);
-
-      slots[key] = to.keys.length;
-      to.data.set(
-        matrices.subarray(matrixOffsets[key], matrixOffsets[key] + 16),
-        slots[key] * 16,
-      );
-      to.keys.push(key);
-      grounds[key] = material.name;
-      publish(to);
+      move(coords, material);
+      flush();
+    },
+    setGrounds: (coordinates, material) => {
+      coordinates.forEach((coords) => move(coords, material));
+      flush();
     },
     getGround: (coords) => grounds[tileKey(coords)],
   };

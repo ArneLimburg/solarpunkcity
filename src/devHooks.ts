@@ -10,7 +10,7 @@ import {
 import { getBuilding, isUnderConstruction, type HexCoordinates } from "./board";
 import type { BuildingType } from "./gameDefinitions";
 import { finishConstruction, grantResources } from "./game";
-import { hexToPixel, tileKey } from "./hexGeometry";
+import { TILE_TOP, hexToPixel, tileKey } from "./hexGeometry";
 import type { Ring } from "./SelectionRing";
 
 type DevHooks = NonNullable<Window["__solarpunk"]>;
@@ -46,7 +46,7 @@ export function createDevHooks({
   return {
     tileToScreen: (coords) => {
       const world = hexToPixel(coords.q, coords.r);
-      world.y = 0.1;
+      world.y = TILE_TOP;
       const width = engine.getRenderWidth();
       const height = engine.getRenderHeight();
       const projected = Vector3.Project(

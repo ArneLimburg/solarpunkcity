@@ -26,7 +26,7 @@ function setup() {
   const clearTile = vi.fn();
   const create = vi.fn(() => model);
   const models: Record<string, PlacedModel> = {};
-  const setGround = vi.fn();
+  const setGrounds = vi.fn();
   const materials = {
     meadow: { name: "meadow" },
     farmland: { name: "farmland" },
@@ -37,7 +37,7 @@ function setup() {
     corners: { update } as unknown as CornerRenderer,
     forest: { clearTile } as unknown as ForestRenderer,
     farms: { create } as unknown as FarmRenderer,
-    tiles: { setGround } as unknown as TileRenderer,
+    tiles: { setGrounds } as unknown as TileRenderer,
     materials,
     models,
   };
@@ -49,36 +49,33 @@ function setup() {
     create,
     models,
     update,
-    setGround,
+    setGrounds,
   };
 }
 
 test("a model building clears the footprint and shows its model", () => {
-  const { parts, clearTile, create, models, model, update, setGround } =
+  const { parts, clearTile, create, models, model, update, setGrounds } =
     setup();
   placeBuilding({ q: 0, r: 0 }, "Farm", parts);
   expect(clearTile).toHaveBeenCalledTimes(7);
   expect(update).toHaveBeenCalledTimes(1);
   expect(update.mock.calls[0][0]).toHaveLength(7);
   // farms get farmland on their whole footprint
-  expect(setGround).toHaveBeenCalledTimes(7);
-  expect(setGround).toHaveBeenCalledWith(
-    { q: 1, r: 0 },
-    parts.materials.farmland,
-  );
+  expect(setGrounds).toHaveBeenCalledTimes(1);
+  expect(setGrounds.mock.calls[0][0]).toHaveLength(7);
+  expect(setGrounds.mock.calls[0][0]).toContainEqual({ q: 1, r: 0 });
+  expect(setGrounds.mock.calls[0][1]).toBe(parts.materials.farmland);
   expect(create).toHaveBeenCalledWith("Farm", hexToPixel(0, 0));
   expect(models["0,0"]).toBe(model);
 });
 
 test("a construction site shows bare soil and no model", () => {
-  const { parts, clearTile, create, models, update, setGround } = setup();
+  const { parts, clearTile, create, models, update, setGrounds } = setup();
   placeBuilding({ q: 0, r: 0 }, "Farm", parts, true);
   expect(clearTile).toHaveBeenCalledTimes(7);
   expect(update).toHaveBeenCalledTimes(1);
-  expect(setGround).toHaveBeenCalledTimes(7);
-  for (const call of setGround.mock.calls) {
-    expect(call[1]).toBe(parts.materials.soil);
-  }
+  expect(setGrounds).toHaveBeenCalledTimes(1);
+  expect(setGrounds.mock.calls[0][1]).toBe(parts.materials.soil);
   expect(create).not.toHaveBeenCalled();
   expect(models).toEqual({});
 });
@@ -92,11 +89,11 @@ test("previous models on the footprint are disposed", () => {
 });
 
 test("a building without a model only changes trees and ground", () => {
-  const { parts, clearTile, create, models, setGround } = setup();
+  const { parts, clearTile, create, models, setGrounds } = setup();
   placeBuilding({ q: 0, r: 0 }, "Forest", parts);
   expect(clearTile).toHaveBeenCalled();
-  expect(setGround).toHaveBeenCalledWith(
-    { q: 0, r: 0 },
+  expect(setGrounds).toHaveBeenCalledWith(
+    [{ q: 0, r: 0 }],
     parts.materials.meadow,
   );
   expect(create).not.toHaveBeenCalled();

@@ -8,6 +8,8 @@ type FakeMesh = {
   material?: { name: string };
   isPickable: boolean;
   visibility: number;
+  isVisible: boolean;
+  doNotSyncBoundingInfo: boolean;
   position: { y: number };
   buffer?: Float32Array;
   thinInstanceCount: number;
@@ -18,7 +20,6 @@ type FakeMesh = {
 
 const created = vi.hoisted(() => [] as unknown[]);
 
-vi.mock("../src/ForestRenderer", () => ({ TILE_TOP: 0.2 }));
 vi.mock("@babylonjs/core", () => {
   class Vector3 {
     static One = () => new Vector3(1, 1, 1);
@@ -57,6 +58,8 @@ vi.mock("@babylonjs/core", () => {
       name,
       isPickable: true,
       visibility: 1,
+      isVisible: true,
+      doNotSyncBoundingInfo: false,
       position: { y: 0 },
       thinInstanceCount: 0,
       thinInstanceSetBuffer: vi.fn(
@@ -115,7 +118,7 @@ vi.mock("@babylonjs/core", () => {
 import { GRID_RADIUS, isOnBoard, setBuilding } from "../src/board";
 import { BuildingDefinition } from "../src/gameDefinitions";
 import { getTileRotation } from "../src/forest";
-import { hexToPixel } from "../src/hexGeometry";
+import { TILE_TOP, hexToPixel } from "../src/hexGeometry";
 import {
   createGroundMaterials,
   createTileRenderer,
@@ -189,7 +192,14 @@ test("exactly one base mesh per ground material holds the tiles as thin instance
     // 6 rounded corners with 4 segments, i.e. 5 points each
     expect(tileMesh.shape).toHaveLength(30);
     expect(tileMesh.thinInstanceRefreshBoundingInfo).toHaveBeenCalledWith(true);
+    // Babylon must not shrink the full-board bounds to the current instances
+    expect(tileMesh.doNotSyncBoundingInfo).toBe(true);
   }
+  // empty layers are hidden, otherwise they are drawn once at the origin
+  expect(mesh(materials.forestFloor).isVisible).toBe(true);
+  expect(mesh(materials.meadow).isVisible).toBe(false);
+  expect(mesh(materials.farmland).isVisible).toBe(false);
+  expect(mesh(materials.soil).isVisible).toBe(false);
   expect(mesh(materials.meadow).material).toBe(materials.meadow);
 
   expect(mesh(materials.forestFloor).thinInstanceCount).toBe(TILE_COUNT);
@@ -207,7 +217,7 @@ test("one invisible pickable plane at the tile top is the only pickable mesh", (
   const pickable = meshes.filter((m) => m.isPickable);
   expect(pickable.map((m) => m.name)).toEqual(["tilePickPlane"]);
   expect(pickable[0].visibility).toBe(0);
-  expect(pickable[0].position.y).toBe(0.2);
+  expect(pickable[0].position.y).toBe(TILE_TOP);
   // the plane covers the whole board
   const farthest = hexToPixel(GRID_RADIUS, 0).x;
   expect(pickable[0].options!.width / 2).toBeGreaterThan(farthest);
@@ -250,6 +260,51 @@ test("setGround moves a tile to the buffer of another material", () => {
   renderer.setGround({ q: 0, r: 0 }, materials.farmland);
   expect(placed(meadow)).toEqual(new Set([matrixOf(1, 0)]));
   expect(placed(farmland)).toEqual(new Set([matrixOf(2, -1), matrixOf(0, 0)]));
+});
+
+test("layers are hidden when empty and visible again when they hold tiles", () => {
+  const { materials, renderer, mesh } = setup();
+  const meadow = mesh(materials.meadow);
+  renderer.setGround({ q: 1, r: 0 }, materials.meadow);
+  expect(meadow.isVisible).toBe(true);
+  renderer.setGround({ q: 1, r: 0 }, materials.forestFloor);
+  expect(meadow.isVisible).toBe(false);
+  expect(meadow.thinInstanceCount).toBe(0);
+});
+
+test("setGrounds uploads each touched layer once", () => {
+  const { materials, renderer, mesh } = setup();
+  const forest = mesh(materials.forestFloor);
+  const meadow = mesh(materials.meadow);
+  const farmland = mesh(materials.farmland);
+  const footprint = [
+    { q: 0, r: 0 },
+    { q: 1, r: 0 },
+    { q: 0, r: 1 },
+  ];
+  renderer.setGrounds(footprint, materials.meadow);
+  expect(forest.thinInstanceBufferUpdated).toHaveBeenCalledTimes(1);
+  expect(meadow.thinInstanceBufferUpdated).toHaveBeenCalledTimes(1);
+  expect(farmland.thinInstanceBufferUpdated).not.toHaveBeenCalled();
+  expect(meadow.thinInstanceCount).toBe(3);
+  expect(forest.thinInstanceCount).toBe(TILE_COUNT - 3);
+  expect(placed(meadow)).toEqual(
+    new Set(footprint.map(({ q, r }) => matrixOf(q, r))),
+  );
+
+  // moving them on to another layer touches the old and the new layer once
+  meadow.thinInstanceBufferUpdated.mockClear();
+  renderer.setGrounds(footprint, materials.farmland);
+  expect(meadow.thinInstanceBufferUpdated).toHaveBeenCalledTimes(1);
+  expect(farmland.thinInstanceBufferUpdated).toHaveBeenCalledTimes(1);
+  expect(forest.thinInstanceBufferUpdated).toHaveBeenCalledTimes(1);
+  expect(meadow.isVisible).toBe(false);
+  expect(farmland.thinInstanceCount).toBe(3);
+
+  // tiles that already have the ground are not uploaded again
+  farmland.thinInstanceBufferUpdated.mockClear();
+  renderer.setGrounds(footprint, materials.farmland);
+  expect(farmland.thinInstanceBufferUpdated).not.toHaveBeenCalled();
 });
 
 test("only tiles that hold a forest are returned as forest tiles", () => {
