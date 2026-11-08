@@ -7,11 +7,16 @@ week passes every second. Everything below happens once per week unless stated o
 
 - The board is a field of hexagonal tiles: a centre tile and 30 rings around it, 2,791 tiles in
   total.
-- At the start every tile is covered by forest.
+- At the start every tile is covered by forest, except the centre tile: it holds the
+  **settlers' camp**.
 - The settlement starts with **2 residents**, **0 wood** and **10 food**. It has no wood storage
   yet, so the wood capacity is 0 (see section 2).
-- There are no houses and no farms yet. Residents do not need a house to be there at the
-  start, but new residents only move in where there is housing (see section 5).
+- The camp houses the 2 first settlers and feeds them on its own: it produces 2 food per week
+  (reduced by the harvest factor, section 5) and needs no labor, so both settlers are free to
+  build from the first week on. New residents only move in where there is more housing (see
+  section 5), so for growth you need real housing and food buildings.
+- The camp can be built over like a forest tile; it gives no wood back. Afterwards its housing
+  and food production are gone (no resident moves out).
 
 ## 2. Resources
 
@@ -143,27 +148,27 @@ builders: a single resident would need 24 weeks, 6 residents only 4 weeks.
 | Agro-industrial farm | 19    | 65   | 80                   | 10                | 60 food           | 8 workers         | 0         | −5               |
 | Wood storage         | 1     | –    | – (finished at once) | –                 | –                 | –                 | 0         | 0                |
 | Forest               | 1     | –    | –                    | –                 | 0.5 wood          | 1 worker          | 0         | +1               |
+| Settlers' camp       | 1     | –    | –                    | –                 | 2 food            | –                 | 2         | 0                |
 
 The wood storage is free, is finished immediately when placed (no construction site, gravel
-ground and a log yard on the map), stores 100 wood and cannot be built over. The forest cannot
-be built. A cleared forest tile gives 3 wood.
+ground and a log yard on the map), stores 100 wood and cannot be built over. The forest and the
+settlers' camp cannot be built. A cleared forest tile gives 3 wood, the camp gives nothing.
 
 ## 8. Example: the first weeks
 
-- **Start (week 0):** 2 residents, 0 wood, 10 food. An organic homestead costs 4 wood and
+- **Start (week 0):** 2 residents in the settlers' camp, 0 wood, 10 food. An organic homestead costs 4 wood and
   clearing a forest tile gives only 3, so you first place a wood storage (it costs nothing and
   its 3 cleared wood are stored). The wood capacity is now 100. Forests produce wood from now on;
-  assume the stock is 9 wood. You place an organic homestead. It costs 4 wood, but clearing the
-  forest tile gives 3 wood: the stock is now 8 wood. The tile shows bare soil.
-- **Week 1:** The 2 residents eat 2 food (8 left). No farm exists, so both residents work on the
-  homestead (2 of its 4 worker-weeks). Nobody is free for forestry, so there is no new wood.
-  There is no housing, so the population cannot grow.
-- **Week 2:** The residents eat again (6 food left) and finish the homestead. The soil is
-  replaced by the homestead, but it does not produce yet.
-- **Week 3:** The homestead is staffed first: 2 workers produce 3 food. The residents eat 2, so
-  the stock rises to 7 food. The homestead offers housing for 3, so one more resident can move
-  in: the population grows to 3.
-- **Week 4:** There are 3 residents who need 3 food. The homestead again uses 2 workers and
-  produces 3 food, which covers exactly what the residents eat. The third resident works in a
-  forest and produces 0.5 wood. The city is in balance: for further growth it needs more
-  housing and more farms.
+  assume the stock is 9 wood. You place an organic homestead on a forest tile next to the camp.
+  It costs 4 wood, but clearing the forest tile gives 3 wood: the stock is now 8 wood. The tile
+  shows bare soil.
+- **Week 1:** The camp produces 2 food and the 2 residents eat 2 food (10 left). The camp needs
+  no labor, so both residents work on the homestead (2 of its 4 worker-weeks). Nobody is free
+  for forestry, so there is no new wood. Housing is 2, so the population cannot grow.
+- **Week 2:** Same food balance (10 food left); the residents finish the homestead. The soil is
+  replaced by the homestead, but it does not take part yet.
+- **Week 3:** The camp already covers the 2 residents, so the homestead needs no workers.
+  Housing is now 2 + 3 = 5, so one more resident can move in: the population grows to 3.
+- **Week 4:** There are 3 residents who need 3 food. The camp produces 2, so the homestead is
+  staffed with 1 worker (1.5 food). The 2 other residents work in forests and produce 1 wood.
+  The city is in balance: for further growth it needs more housing and more farms.

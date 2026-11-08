@@ -140,7 +140,10 @@ function initBoard() {
     for (let r = -GRID_RADIUS; r <= GRID_RADIUS; r++) {
       if (isOnBoard({ q, r })) {
         board.set(toHexLocation({ q, r }), {
-          building: BuildingDefinition.Forest,
+          building:
+            q === 0 && r === 0
+              ? BuildingDefinition.SettlersCamp
+              : BuildingDefinition.Forest,
           center: { q, r },
           sequence: nextSequence++,
         });

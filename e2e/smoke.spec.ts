@@ -1,4 +1,5 @@
 import { test, expect } from "./fixtures";
+import { tilePosition } from "./helpers";
 import { BuildingCategories, BuildingTypes } from "../src/gameDefinitions";
 
 test("app loads", async ({ page }) => {
@@ -60,14 +61,24 @@ test("food entry is marked as error when the balance is negative", async ({
   page,
 }) => {
   await page.goto("./");
+  await page.waitForFunction(() => window.__solarpunk !== undefined);
+  await page.evaluate(() => window.__solarpunk?.addResources({ wood: 100 }));
   const food = page.getByTestId("status-food");
-  // without farms the 2 residents eat 2 food per week
+  // the settlers' camp feeds the 2 residents
+  await expect(food).not.toHaveClass(/error/);
+  // building over the camp removes the food production
+  await page.getByRole("button", { name: "FARM", exact: true }).click();
+  await page.getByRole("button", { name: "OrganicHomestead" }).click();
+  const { x, y } = await tilePosition(page, { q: 0, r: 0 });
+  await page.mouse.move(x, y, { steps: 5 });
+  await page.mouse.click(x, y);
   await expect(food).toContainText("(−2)");
   await expect(food).toHaveClass(/error/);
 });
 
 test("status bar shows ecology and satisfaction", async ({ page }) => {
   await page.goto("./");
-  await expect(page.getByTestId("status-ecology")).toContainText("100 %");
-  await expect(page.getByTestId("status-satisfaction")).toContainText("100 %");
+  // the camp tile has no ecology, so it is just below 100 %
+  await expect(page.getByTestId("status-ecology")).toContainText("99 %");
+  await expect(page.getByTestId("status-satisfaction")).toContainText("99 %");
 });
