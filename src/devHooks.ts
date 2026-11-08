@@ -22,6 +22,7 @@ type DevHookSources = {
   canvas: HTMLCanvasElement;
   ring: Ring;
   getTileMaterial: DevHooks["getTileMaterial"];
+  getTileInstanceStats: DevHooks["getTileInstanceStats"];
   // the model currently shown on a tile ("q,r")
   models: Record<string, { triangles: number }>;
   getTreeCount: DevHooks["getTreeCount"];
@@ -38,6 +39,7 @@ export function createDevHooks({
   canvas,
   ring,
   getTileMaterial,
+  getTileInstanceStats,
   models,
   getTreeCount,
   getCornerMaterial,
@@ -76,6 +78,7 @@ export function createDevHooks({
     getRingTiles: () => [...ring.tiles],
     isRingBlocked: () => ring.blocked,
     getTileMaterial,
+    getTileInstanceStats,
     getModelCount: (coords) => (models[tileKey(coords)] ? 1 : 0),
     getModelTriangleCount: (coords) => models[tileKey(coords)]?.triangles ?? 0,
     getTreeCount,
