@@ -2,6 +2,8 @@ import {
   completeSites,
   getBuilding,
   getBuildings,
+  getPlacedBuilding,
+  getPlacedBuildings,
   getConstructionSites,
   workOnSite,
   getFootprint,
@@ -10,6 +12,7 @@ import {
   isOnBoard,
   placeBuilding,
   type HexCoordinates,
+  type PlacedBuilding,
 } from "./board";
 import {
   BuildingDefinition,
@@ -33,6 +36,27 @@ let currentResources: Resources = { ...INITIAL_RESOURCES };
 export const INITIAL_POPULATION = 2;
 let currentPopulation = INITIAL_POPULATION;
 let currentFoodBalance = 0;
+
+// why a building with production did not produce
+export type BuildingStatus = "not-needed" | "no-workers" | "missing-resources";
+
+// what a building did in the last weekly tick
+export type BuildingReport = {
+  workers: number; // assigned workers
+  produced: Resources;
+  consumed: Resources; // including labor (= workers)
+  status?: BuildingStatus;
+};
+
+// reports of the last week by placed building; a replaced or new building has none
+let reports = new Map<PlacedBuilding, BuildingReport>();
+
+export function getBuildingReport(
+  center: HexCoordinates,
+): BuildingReport | undefined {
+  const placed = getPlacedBuilding(center);
+  return placed && reports.get(placed);
+}
 
 // whether the footprint is on the board and free of buildings without recycling
 export function canPlace(
@@ -193,16 +217,17 @@ function getGrowth(): number {
 
 // highest food per worker first; Array.sort is stable, so equal efficiency
 // keeps the board order
-function getFoodBuildingsByEfficiency(): Building[] {
+function getFoodBuildingsByEfficiency(): PlacedBuilding[] {
   // without labor demand the efficiency is Infinity
-  const efficiency = (building: Building) =>
+  const efficiency = ({ building }: PlacedBuilding) =>
     building.produces.food / building.consumes.labor;
-  return getBuildings()
-    .filter((building) => building.produces.food > 0)
+  return getPlacedBuildings()
+    .filter(({ building }) => building.produces.food > 0)
     .sort((a, b) => efficiency(b) - efficiency(a));
 }
 
 function calculateDevelopment() {
+  reports = new Map();
   const startPopulation = currentPopulation;
   // labor is not stockpiled: it equals the population
   let labor = startPopulation;
@@ -211,15 +236,29 @@ function calculateDevelopment() {
   // as this week's demand needs; the food stock stays a buffer
   const harvestFactor = getHarvestFactor();
   let producedFood = 0;
-  for (const building of getFoodBuildingsByEfficiency()) {
+  for (const placed of getFoodBuildingsByEfficiency()) {
+    const { building } = placed;
     const needed = building.consumes.labor;
     if (needed === 0) {
-      producedFood += building.produces.food * harvestFactor; // no staff needed
+      const food = building.produces.food * harvestFactor; // no staff needed
+      producedFood += food;
+      reports.set(placed, {
+        workers: 0,
+        produced: { ...emptyResources, food },
+        consumed: { ...emptyResources },
+      });
       continue;
     }
     const missingFood = startPopulation - producedFood;
     if (missingFood <= 0) {
-      break;
+      // the demand is covered, the remaining buildings get no workers
+      reports.set(placed, {
+        workers: 0,
+        produced: { ...emptyResources },
+        consumed: { ...emptyResources },
+        status: "not-needed",
+      });
+      continue;
     }
     const foodPerWorker = building.produces.food / needed;
     const workers = Math.min(
@@ -227,8 +266,15 @@ function calculateDevelopment() {
       needed,
       labor,
     );
-    producedFood += foodPerWorker * workers * harvestFactor;
+    const food = foodPerWorker * workers * harvestFactor;
+    producedFood += food;
     labor -= workers;
+    reports.set(placed, {
+      workers,
+      produced: { ...emptyResources, food },
+      consumed: { ...emptyResources, labor: workers },
+      ...(workers === 0 && { status: "no-workers" as const }),
+    });
   }
   // TODO food should spoil later; storage buildings (storage capacity) may be needed
   const availableFood = currentResources.food + producedFood;
@@ -265,16 +311,35 @@ function construct(labor: number): number {
   return used;
 }
 
+function nonZeroValues(resources: Resources): boolean {
+  return Object.values(resources).some((value) => value !== 0);
+}
+
 function calculateOtherProductions() {
   // TODO prioritize buildings
-  for (const building of getBuildings()) {
+  for (const placed of getPlacedBuildings()) {
+    const { building } = placed;
     if (building.produces.food > 0) {
       continue; // food is already produced in calculateDevelopment
     }
     if (!hasEnoughResources(currentResources, building.consumes)) {
-      continue; // no partial production
+      // no partial production
+      reports.set(placed, {
+        workers: 0,
+        produced: { ...emptyResources },
+        consumed: { ...emptyResources },
+        ...(nonZeroValues(building.produces) && {
+          status: "missing-resources" as const,
+        }),
+      });
+      continue;
     }
     currentResources = subtractResources(currentResources, building.consumes);
     currentResources = addResources(currentResources, building.produces);
+    reports.set(placed, {
+      workers: building.consumes.labor,
+      produced: { ...building.produces },
+      consumed: { ...building.consumes },
+    });
   }
 }
