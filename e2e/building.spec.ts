@@ -29,7 +29,7 @@ test.describe("mouse", () => {
     const { x, y } = await tilePosition(page, origin);
     await page.mouse.move(x, y, { steps: 5 });
     await expect.poll(() => ringTile(page)).toEqual(origin);
-    expect(await buildingAt(page, origin)).toBe("Forest");
+    expect(await buildingAt(page, origin)).toBe("SettlersCamp");
   });
 
   test("clicking builds", async ({ page }) => {
@@ -50,7 +50,7 @@ test.describe("mouse", () => {
     await page.mouse.up();
     // wait longer than Babylon's double tap detection
     await page.waitForTimeout(500);
-    expect(await buildingAt(page, origin)).toBe("Forest");
+    expect(await buildingAt(page, origin)).toBe("SettlersCamp");
     expect(await buildingAt(page, east)).toBe("Forest");
   });
 
@@ -59,7 +59,7 @@ test.describe("mouse", () => {
     const { x, y } = await tilePosition(page, origin);
     await page.mouse.click(x, y, { button: "right" });
     await page.waitForTimeout(500);
-    expect(await buildingAt(page, origin)).toBe("Forest");
+    expect(await buildingAt(page, origin)).toBe("SettlersCamp");
   });
 
   test("ring is hidden when the pointer leaves the canvas", async ({
@@ -153,7 +153,7 @@ test.describe("touch", () => {
     await page.touchscreen.tap(x, y);
     await expect.poll(() => ringTile(page)).toEqual(origin);
     await page.waitForTimeout(500);
-    expect(await buildingAt(page, origin)).toBe("Forest");
+    expect(await buildingAt(page, origin)).toBe("SettlersCamp");
   });
 
   test("second tap on the ring builds", async ({ page }) => {
@@ -180,7 +180,7 @@ test.describe("touch", () => {
     await page.touchscreen.tap(second.x, second.y);
     await expect.poll(() => ringTile(page)).toEqual(next);
     await page.waitForTimeout(500);
-    expect(await buildingAt(page, origin)).toBe("Forest");
+    expect(await buildingAt(page, origin)).toBe("SettlersCamp");
     expect(await buildingAt(page, next)).toBe("Forest");
   });
 
@@ -196,7 +196,7 @@ test.describe("touch", () => {
       page.touchscreen.tap(second.x, second.y),
     ]);
     await expect.poll(() => ringTile(page)).toEqual(next);
-    expect(await buildingAt(page, origin)).toBe("Forest");
+    expect(await buildingAt(page, origin)).toBe("SettlersCamp");
     expect(await buildingAt(page, next)).toBe("Forest");
   });
 
@@ -235,7 +235,8 @@ test("a click builds exactly once", async ({ page }) => {
   await page.mouse.move(first.x, first.y, { steps: 5 });
   const modelCount = () =>
     page.evaluate((c) => window.__solarpunk?.getModelCount(c), origin);
-  expect(await modelCount()).toBe(0);
+  // the settlers' camp stands on the origin at the start
+  expect(await modelCount()).toBe(1);
   await page.mouse.click(first.x, first.y);
   await expect.poll(() => buildingAt(page, origin)).toBe("OrganicHomestead");
   // a construction site has bare soil and no model
@@ -293,13 +294,15 @@ test("a finished building replaces its construction site after its weeks of work
     .toBe(1);
 });
 
-test("every board tile starts as forest floor", async ({ page }) => {
+test("every board tile except the camp starts as forest floor", async ({
+  page,
+}) => {
   await page.goto("./");
   await page.waitForFunction(() => window.__solarpunk !== undefined);
   const tiles = [];
   for (let q = -GRID_RADIUS; q <= GRID_RADIUS; q++) {
     for (let r = -GRID_RADIUS; r <= GRID_RADIUS; r++) {
-      if (isOnBoard({ q, r })) tiles.push({ q, r });
+      if (isOnBoard({ q, r }) && (q !== 0 || r !== 0)) tiles.push({ q, r });
     }
   }
   const materials = await page.evaluate(
@@ -308,6 +311,34 @@ test("every board tile starts as forest floor", async ({ page }) => {
   );
   expect(materials).toHaveLength(tiles.length);
   expect(materials.every((m) => m === "forestFloor")).toBe(true);
+  expect(
+    await page.evaluate((c) => window.__solarpunk?.getTileMaterial(c), origin),
+  ).toBe("meadow");
+});
+
+test("the camp is shown as one model and disappears when built over", async ({
+  page,
+}) => {
+  await page.goto("./");
+  await page.waitForFunction(() => window.__solarpunk !== undefined);
+  const modelCount = () =>
+    page.evaluate((c) => window.__solarpunk?.getModelCount(c), origin);
+  const triangles = () =>
+    page.evaluate((c) => window.__solarpunk?.getModelTriangleCount(c), origin);
+  expect(await buildingAt(page, origin)).toBe("SettlersCamp");
+  expect(await modelCount()).toBe(1);
+  expect(await triangles()).toBeGreaterThan(0);
+  expect(await triangles()).toBeLessThan(1000);
+  expect(
+    await page.evaluate((c) => window.__solarpunk?.getTreeCount(c), origin),
+  ).toBe(0);
+
+  await setup(page);
+  const { x, y } = await tilePosition(page, origin);
+  await page.mouse.move(x, y, { steps: 5 });
+  await page.mouse.click(x, y);
+  await expect.poll(() => buildingAt(page, origin)).toBe("OrganicHomestead");
+  expect(await modelCount()).toBe(0);
 });
 
 test("a residential building turns the tile into meadow", async ({ page }) => {
@@ -316,7 +347,7 @@ test("a residential building turns the tile into meadow", async ({ page }) => {
   await page.evaluate(() => window.__solarpunk?.addResources({ wood: 100 }));
   expect(
     await page.evaluate((c) => window.__solarpunk?.getTileMaterial(c), origin),
-  ).toBe("forestFloor");
+  ).toBe("meadow"); // the camp
   await page.getByRole("button", { name: "RESIDENTIAL", exact: true }).click();
   await page.getByRole("button", { name: "AppartmentBuilding" }).click();
   const { x, y } = await tilePosition(page, origin);
@@ -385,7 +416,7 @@ test("building replaces the trees of a tile with one model", async ({
     page.evaluate((t) => window.__solarpunk?.getTreeCount(t), c);
   const modelCount = (c: { q: number; r: number }) =>
     page.evaluate((t) => window.__solarpunk?.getModelCount(t), c);
-  expect(await treeCount(origin)).toBe(5);
+  expect(await treeCount(origin)).toBe(0); // the camp has no trees
   expect(await treeCount(next)).toBe(5);
 
   const { x, y } = await tilePosition(page, origin);
@@ -575,7 +606,7 @@ test("the corner fills around a new farm follow the grounds of the tiles", async
 
   // the outermost corner of the board has a single tile and no fill
   expect(await fill({ q: GRID_RADIUS, r: 0 }, 0)).toBeUndefined();
-  expect(await fill(farmEdge, 0)).toBe("forestFloor");
+  expect(await fill({ q: 5, r: 0 }, 0)).toBe("forestFloor");
 
   await selectFarm(page);
   const farm = await tilePosition(page, origin);

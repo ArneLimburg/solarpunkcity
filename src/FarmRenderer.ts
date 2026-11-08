@@ -7,6 +7,7 @@ import {
 } from "@babylonjs/core";
 import { buildGeometry } from "./farmGeometry";
 import { getApartmentLayout } from "./apartment";
+import { getSettlersCampLayout } from "./settlersCamp";
 import {
   GLASS_ALPHA,
   getFarmLayout,
@@ -18,15 +19,22 @@ import {
 const TILE_TOP = 0.1; // y of the top surface of a hex tile
 
 // building types whose model is built from code
-export type ModelType = FarmType | "AppartmentBuilding";
+export type ModelType = FarmType | "AppartmentBuilding" | "SettlersCamp";
 
 export function isModelType(type: string): type is ModelType {
-  return isFarmType(type as FarmType) || type === "AppartmentBuilding";
+  return (
+    isFarmType(type as FarmType) ||
+    type === "AppartmentBuilding" ||
+    type === "SettlersCamp"
+  );
 }
 
 function getLayout(type: ModelType, hexSize: number): FarmPart[] {
-  return isFarmType(type)
-    ? getFarmLayout(type, hexSize)
+  if (isFarmType(type)) {
+    return getFarmLayout(type, hexSize);
+  }
+  return type === "SettlersCamp"
+    ? getSettlersCampLayout(hexSize)
     : getApartmentLayout(hexSize);
 }
 
