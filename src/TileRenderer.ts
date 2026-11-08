@@ -62,12 +62,13 @@ export function createGroundMaterials(scene: Scene): GroundMaterials {
 export type TileRenderer = {
   // every tile of the board (axial coordinates)
   tiles: HexCoordinates[];
-  // moves a tile to the instance buffer of another ground material
-  setGround: (coords: HexCoordinates, material: StandardMaterial) => void;
-  // moves several tiles at once; each touched buffer is uploaded only once
+  // moves tiles to the instance buffer of another ground material; each touched buffer is
+  // uploaded only once
   setGrounds: (coords: HexCoordinates[], material: StandardMaterial) => void;
   // name of the current ground material of a tile
   getGround: (coords: HexCoordinates) => string | undefined;
+  // thin instances over all layers and how many of their matrices consist of finite numbers only
+  getInstanceStats: () => { instances: number; finiteMatrices: number };
 };
 
 // Draws the board with one base mesh per ground material; every tile is a thin instance of the
@@ -85,18 +86,17 @@ export function createTileRenderer(
   }
 
   // the matrix of every tile, 16 floats per tile in board order
-  const matrices = new Float32Array(
-    tiles.flatMap((tile) => {
-      const center = hexToPixel(tile.q, tile.r);
-      return Matrix.Compose(
-        Vector3.One(),
-        Quaternion.RotationAxis(Vector3.Up(), getTileRotation(tile)),
-        new Vector3(center.x, TILE_TOP, center.z),
-      ).asArray() as number[];
-    }),
-  );
+  const matrices = new Float32Array(tiles.length * 16);
   const matrixOffsets: Record<string, number> = {};
-  tiles.forEach((tile, i) => (matrixOffsets[tileKey(tile)] = i * 16));
+  tiles.forEach((tile, i) => {
+    const center = hexToPixel(tile.q, tile.r);
+    Matrix.Compose(
+      Vector3.One(),
+      Quaternion.RotationAxis(Vector3.Up(), getTileRotation(tile)),
+      new Vector3(center.x, TILE_TOP, center.z),
+    ).copyToArray(matrices, i * 16);
+    matrixOffsets[tileKey(tile)] = i * 16;
+  });
 
   const shape = createRoundedHexOutline(HEX_SIZE).map(
     (point) => new Vector3(point.x, 0, point.z),
@@ -186,15 +186,24 @@ export function createTileRenderer(
 
   return {
     tiles,
-    setGround: (coords, material) => {
-      move(coords, material);
-      flush();
-    },
     setGrounds: (coordinates, material) => {
       coordinates.forEach((coords) => move(coords, material));
       flush();
     },
     getGround: (coords) => grounds[tileKey(coords)],
+    getInstanceStats: () => {
+      let instances = 0;
+      let finiteMatrices = 0;
+      for (const { mesh, data } of Object.values(layers)) {
+        instances += mesh.thinInstanceCount;
+        for (let i = 0; i < mesh.thinInstanceCount; i++) {
+          if (data.subarray(i * 16, i * 16 + 16).every(Number.isFinite)) {
+            finiteMatrices++;
+          }
+        }
+      }
+      return { instances, finiteMatrices };
+    },
   };
 }
 

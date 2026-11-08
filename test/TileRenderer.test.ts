@@ -84,14 +84,16 @@ vi.mock("@babylonjs/core", () => {
         _scale: unknown,
         rotation: { angle: number },
         position: { x: number; z: number },
-      ) => ({
-        asArray: () => [
-          rotation.angle,
-          position.x,
-          position.z,
-          ...new Array(13).fill(0),
-        ],
-      }),
+      ) => {
+        const values = new Float32Array(16);
+        values.set([rotation.angle, position.x, position.z]);
+        return {
+          // like Babylon, which returns a Float32Array and not an Array
+          asArray: () => values,
+          copyToArray: (target: Float32Array, offset: number) =>
+            target.set(values, offset),
+        };
+      },
     },
     Texture: { BILINEAR_SAMPLINGMODE: 3 },
     RawTexture: {
@@ -115,7 +117,12 @@ vi.mock("@babylonjs/core", () => {
   };
 });
 
-import { GRID_RADIUS, isOnBoard, setBuilding } from "../src/board";
+import {
+  GRID_RADIUS,
+  isOnBoard,
+  setBuilding,
+  type HexCoordinates,
+} from "../src/board";
 import { BuildingDefinition } from "../src/gameDefinitions";
 import { getTileRotation } from "../src/forest";
 import { TILE_TOP, hexToPixel } from "../src/hexGeometry";
@@ -136,7 +143,9 @@ function setup() {
   const meshes = created as FakeMesh[];
   const mesh = (material: StandardMaterial) =>
     meshes.find((m) => m.name === `tile_${material.name}`)!;
-  return { materials, renderer, meshes, mesh };
+  const setGround = (coords: HexCoordinates, material: StandardMaterial) =>
+    renderer.setGrounds([coords], material);
+  return { materials, renderer, meshes, mesh, setGround };
 }
 
 // the [angle, x, z] of the matrices in the buffer of a mesh
@@ -209,6 +218,14 @@ test("exactly one base mesh per ground material holds the tiles as thin instance
   const forest = placed(mesh(materials.forestFloor));
   expect(forest.size).toBe(TILE_COUNT);
   expect(forest.has(matrixOf(2, -1))).toBe(true);
+  // one finite matrix of 16 numbers per tile
+  const buffer = mesh(materials.forestFloor).buffer!;
+  expect(buffer).toHaveLength(TILE_COUNT * 16);
+  expect(buffer.every(Number.isFinite)).toBe(true);
+  expect(renderer.getInstanceStats()).toEqual({
+    instances: TILE_COUNT,
+    finiteMatrices: TILE_COUNT,
+  });
   expect(renderer.getGround({ q: 1, r: -1 })).toBe("forestFloor");
 });
 
@@ -223,13 +240,22 @@ test("one invisible pickable plane at the tile top is the only pickable mesh", (
   expect(pickable[0].options!.width / 2).toBeGreaterThan(farthest);
 });
 
-test("setGround moves a tile to the buffer of another material", () => {
+test("the instance stats do not count non-finite matrices", () => {
   const { materials, renderer, mesh } = setup();
+  mesh(materials.forestFloor).buffer![16] = NaN;
+  expect(renderer.getInstanceStats()).toEqual({
+    instances: TILE_COUNT,
+    finiteMatrices: TILE_COUNT - 1,
+  });
+});
+
+test("setGrounds moves a tile to the buffer of another material", () => {
+  const { materials, renderer, mesh, setGround } = setup();
   const forest = mesh(materials.forestFloor);
   const meadow = mesh(materials.meadow);
   const farmland = mesh(materials.farmland);
 
-  renderer.setGround({ q: 2, r: -1 }, materials.meadow);
+  setGround({ q: 2, r: -1 }, materials.meadow);
   expect(renderer.getGround({ q: 2, r: -1 })).toBe("meadow");
   expect(renderer.getGround({ q: 0, r: 0 })).toBe("forestFloor");
   expect(forest.thinInstanceCount).toBe(TILE_COUNT - 1);
@@ -242,12 +268,12 @@ test("setGround moves a tile to the buffer of another material", () => {
 
   // the same material again changes nothing
   meadow.thinInstanceBufferUpdated.mockClear();
-  renderer.setGround({ q: 2, r: -1 }, materials.meadow);
+  setGround({ q: 2, r: -1 }, materials.meadow);
   expect(meadow.thinInstanceBufferUpdated).not.toHaveBeenCalled();
 
   // moving the tile on, and moving the last tile of a buffer
-  renderer.setGround({ q: 0, r: 0 }, materials.meadow);
-  renderer.setGround({ q: 2, r: -1 }, materials.farmland);
+  setGround({ q: 0, r: 0 }, materials.meadow);
+  setGround({ q: 2, r: -1 }, materials.farmland);
   expect(placed(meadow)).toEqual(new Set([matrixOf(0, 0)]));
   expect(placed(farmland)).toEqual(new Set([matrixOf(2, -1)]));
   expect(renderer.getGround({ q: 2, r: -1 })).toBe("farmland");
@@ -256,18 +282,18 @@ test("setGround moves a tile to the buffer of another material", () => {
   expect(placed(forest).size).toBe(TILE_COUNT - 2);
 
   // an earlier tile of a buffer is replaced by the last one
-  renderer.setGround({ q: 1, r: 0 }, materials.meadow);
-  renderer.setGround({ q: 0, r: 0 }, materials.farmland);
+  setGround({ q: 1, r: 0 }, materials.meadow);
+  setGround({ q: 0, r: 0 }, materials.farmland);
   expect(placed(meadow)).toEqual(new Set([matrixOf(1, 0)]));
   expect(placed(farmland)).toEqual(new Set([matrixOf(2, -1), matrixOf(0, 0)]));
 });
 
 test("layers are hidden when empty and visible again when they hold tiles", () => {
-  const { materials, renderer, mesh } = setup();
+  const { materials, mesh, setGround } = setup();
   const meadow = mesh(materials.meadow);
-  renderer.setGround({ q: 1, r: 0 }, materials.meadow);
+  setGround({ q: 1, r: 0 }, materials.meadow);
   expect(meadow.isVisible).toBe(true);
-  renderer.setGround({ q: 1, r: 0 }, materials.forestFloor);
+  setGround({ q: 1, r: 0 }, materials.forestFloor);
   expect(meadow.isVisible).toBe(false);
   expect(meadow.thinInstanceCount).toBe(0);
 });

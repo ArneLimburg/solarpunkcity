@@ -118,6 +118,7 @@ export const Map = forwardRef<
         canvas,
         ring,
         getTileMaterial: (coords) => tiles.getGround(coords),
+        getTileInstanceStats: tiles.getInstanceStats,
         models: modelsRef.current,
         getTreeCount: (coords) => forestRef.current!.getTreeCount(coords),
         getCornerMaterial: (coords, corner) =>
