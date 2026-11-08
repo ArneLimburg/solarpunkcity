@@ -1,4 +1,5 @@
 import { test, expect } from "./fixtures";
+import { GRID_RADIUS } from "../src/board";
 import { BuildingCategories, BuildingTypes } from "../src/gameDefinitions";
 
 test("app loads", async ({ page }) => {
@@ -20,6 +21,21 @@ test("app loads", async ({ page }) => {
   await page.waitForLoadState("networkidle");
 
   expect(errors).toEqual([]);
+});
+
+test("the tile layers hold exactly one finite matrix per board tile", async ({
+  page,
+}) => {
+  await page.goto("./");
+  await expect(page.locator("canvas")).toBeVisible();
+  await page.waitForFunction(() => window.__solarpunk !== undefined);
+  const stats = await page.evaluate(() =>
+    window.__solarpunk!.getTileInstanceStats(),
+  );
+  const tileCount = 3 * GRID_RADIUS * (GRID_RADIUS + 1) + 1;
+  expect(stats.instances).toBe(tileCount);
+  expect(Number.isInteger(stats.instances)).toBe(true);
+  expect(stats.finiteMatrices).toBe(tileCount);
 });
 
 test("menu shows categories", async ({ page }) => {

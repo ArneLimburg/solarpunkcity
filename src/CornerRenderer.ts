@@ -16,7 +16,7 @@ import {
   getVertexFill,
   type TileCorner,
 } from "./hexCorners";
-import { HEX_SIZE, hexToPixel, tileKey } from "./hexGeometry";
+import { HEX_SIZE, TILE_TOP, hexToPixel, tileKey } from "./hexGeometry";
 import { makeMaterial, type GroundMaterials } from "./TileRenderer";
 
 const MIXED_COLOR = new Color3(0.25, 0.2, 0.15);
@@ -66,7 +66,7 @@ export function createCornerRenderer(
       matrices[pieceKey(corner)] = Matrix.Compose(
         Vector3.One(),
         Quaternion.RotationAxis(Vector3.Up(), getCornerRotation(corner.corner)),
-        new Vector3(center.x, 0.1, center.z),
+        new Vector3(center.x, TILE_TOP, center.z),
       ).asArray() as number[];
     }
   }

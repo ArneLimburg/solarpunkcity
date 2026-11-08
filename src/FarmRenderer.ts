@@ -7,6 +7,7 @@ import {
 } from "@babylonjs/core";
 import { buildGeometry } from "./farmGeometry";
 import { getApartmentLayout } from "./apartment";
+import { TILE_TOP } from "./hexGeometry";
 import {
   GLASS_ALPHA,
   getFarmLayout,
@@ -14,8 +15,6 @@ import {
   type FarmPart,
   type FarmType,
 } from "./farms";
-
-const TILE_TOP = 0.1; // y of the top surface of a hex tile
 
 // building types whose model is built from code
 export type ModelType = FarmType | "AppartmentBuilding";

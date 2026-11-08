@@ -8,11 +8,10 @@ import { createForest, type ForestRenderer } from "./ForestRenderer";
 import { HEX_SIZE, hexToPixel } from "./hexGeometry";
 import {
   createGroundMaterials,
-  createTiles,
+  createTileRenderer,
   getForestTiles,
-  getTileMaterialName,
   type GroundMaterials,
-  type TileMeshes,
+  type TileRenderer,
 } from "./TileRenderer";
 import {
   createLeaveHandler,
@@ -44,8 +43,8 @@ export const Map = forwardRef<
   const farmsRef = useRef<FarmRenderer | null>(null);
   const cornersRef = useRef<CornerRenderer | null>(null);
 
-  // hex meshes per tile ("q,r") and the ground materials
-  const tileMeshesRef = useRef<TileMeshes>({});
+  // the tile renderer and the ground materials
+  const tilesRef = useRef<TileRenderer | null>(null);
   const materialsRef = useRef<GroundMaterials | null>(null);
   // mirrors the prop so that the stable pointer handler can read it
   const previewTypeRef = useRef(previewType);
@@ -62,7 +61,7 @@ export const Map = forwardRef<
       {
         forest: forestRef.current!,
         farms: farmsRef.current!,
-        tileMeshes: tileMeshesRef.current,
+        tiles: tilesRef.current!,
         materials: materialsRef.current!,
         corners: cornersRef.current!,
         models: modelsRef.current,
@@ -78,17 +77,17 @@ export const Map = forwardRef<
 
     const materials = createGroundMaterials(scene);
     materialsRef.current = materials;
-    const tiles = createTiles(scene, materials.forestFloor);
-    tileMeshesRef.current = tiles.meshes;
+    const tiles = createTileRenderer(scene, materials);
+    tilesRef.current = tiles;
     cornersRef.current = createCornerRenderer(
       scene,
       materials,
-      tiles.coordinates,
-      (coords) => getTileMaterialName(tiles.meshes, coords)!,
+      tiles.tiles,
+      (coords) => tiles.getGround(coords)!,
     );
     forestRef.current = createForest(
       scene,
-      getForestTiles(tiles.coordinates),
+      getForestTiles(tiles.tiles),
       HEX_SIZE,
       (tile) => hexToPixel(tile.q, tile.r),
     );
@@ -118,7 +117,8 @@ export const Map = forwardRef<
         camera,
         canvas,
         ring,
-        tileMeshes: tileMeshesRef.current,
+        getTileMaterial: (coords) => tiles.getGround(coords),
+        getTileInstanceStats: tiles.getInstanceStats,
         models: modelsRef.current,
         getTreeCount: (coords) => forestRef.current!.getTreeCount(coords),
         getCornerMaterial: (coords, corner) =>

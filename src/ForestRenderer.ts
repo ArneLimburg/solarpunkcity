@@ -10,8 +10,8 @@ import {
 } from "@babylonjs/core";
 import type { HexCoordinates } from "./board";
 import { getTreePlacements, type TreeKind } from "./forest";
+import { TILE_TOP } from "./hexGeometry";
 
-const TILE_TOP = 0.2; // y of the top surface of a hex tile
 const TRUNK_HEIGHT = 0.3;
 const HIDDEN = Matrix.Compose(
   Vector3.Zero(),

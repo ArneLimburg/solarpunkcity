@@ -17,6 +17,8 @@ declare global {
       getRingTiles(): HexCoordinates[];
       isRingBlocked(): boolean;
       getTileMaterial(coords: HexCoordinates): string | undefined;
+      // thin instances of all tile layers and how many of their matrices are finite
+      getTileInstanceStats(): { instances: number; finiteMatrices: number };
       getModelCount(coords: HexCoordinates): number;
       getModelTriangleCount(coords: HexCoordinates): number;
       getTreeCount(coords: HexCoordinates): number;

@@ -17,10 +17,6 @@ vi.mock("@babylonjs/core", () => {
   }
   return { Vector3, Matrix: { IdentityReadOnly: {} } };
 });
-vi.mock("../src/TileRenderer", () => ({
-  getTileMaterialName: (meshes: Record<string, { name: string }>, c: never) =>
-    meshes[`${(c as { q: number }).q},${(c as { r: number }).r}`].name,
-}));
 
 import { build } from "../src/game";
 import { createDevHooks } from "../src/devHooks";
@@ -40,7 +36,8 @@ function setup() {
       show: vi.fn(),
       hide: vi.fn(),
     },
-    tileMeshes: { "0,0": { name: "meadow" } } as never,
+    getTileMaterial: (coords) => (coords.q === 0 ? "meadow" : undefined),
+    getTileInstanceStats: () => ({ instances: 7, finiteMatrices: 7 }),
     models: { "0,0": { triangles: 42 } },
     getTreeCount: () => 3,
     getCornerMaterial: (_coords, corner) =>
@@ -93,6 +90,10 @@ test("the hooks expose ring, models, trees, material and buildings", () => {
   expect(tiles).not.toBe(hooks.getRingTiles());
   expect(hooks.isRingBlocked()).toBe(true);
   expect(hooks.getTileMaterial({ q: 0, r: 0 })).toBe("meadow");
+  expect(hooks.getTileInstanceStats()).toEqual({
+    instances: 7,
+    finiteMatrices: 7,
+  });
   expect(hooks.getModelCount({ q: 0, r: 0 })).toBe(1);
   expect(hooks.getModelCount({ q: 1, r: 0 })).toBe(0);
   expect(hooks.getModelTriangleCount({ q: 0, r: 0 })).toBe(42);
