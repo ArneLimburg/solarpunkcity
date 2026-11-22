@@ -1,0 +1,71 @@
+# Keeps agent pull requests moving although GitHub runs no pull_request or pull_request_review
+# workflows while a pull request has merge conflicts. After every push to main (and every
+# 30 minutes, to catch reviews submitted on an already conflicting pull request) it starts
+# implement.yaml for each open agent pull request on an `agent/**` branch that
+# - has an open "changes requested" review of the owner on its current commit (the event that
+#   should have started implement.yaml may have been dropped),
+# - is labeled `review:changes` and conflicts with main (same reason), or
+# - is behind main (rebase; implement.yaml calls the agent only for conflicts).
+# implement.yaml checks again whether its task is still open, so starting it twice is harmless.
+name: Agent Sync
+
+on:
+  push:
+    branches:
+      - main
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+
+permissions:
+  actions: write
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: agent-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Start implement.yaml for pull requests that need it
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          prs=$(gh pr list --state open --label agent-pr --limit 100 \
+            --json number,headRefName,isCrossRepository,labels \
+            --jq '.[] | select(.isCrossRepository | not) | select(.headRefName | startswith("agent/"))
+              | select([.labels[].name] | index("agent-blocked") | not) | .number')
+
+          for pr in $prs; do
+            # GitHub computes mergeability lazily after a push to main.
+            for _ in $(seq 1 12); do
+              info=$(gh pr view "$pr" --json mergeable,headRefOid,labels)
+              [ "$(echo "$info" | jq -r .mergeable)" != "UNKNOWN" ] && break
+              sleep 10
+            done
+            mergeable=$(echo "$info" | jq -r .mergeable)
+            head=$(echo "$info" | jq -r .headRefOid)
+            labels=$(echo "$info" | jq -r '.labels[].name')
+            behind=$(gh api "repos/$GH_REPO/compare/main...$head" --jq .behind_by)
+
+            # The owner's latest verdict, if it is a change request on the current commit.
+            review=$(gh api "repos/$GH_REPO/pulls/$pr/reviews?per_page=100" --jq "
+              [.[] | select(.user.login == \"$OWNER\" and (.state == \"CHANGES_REQUESTED\" or .state == \"APPROVED\"))]
+              | last | select(.state == \"CHANGES_REQUESTED\" and .commit_id == \"$head\") | .id // empty")
+
+            if [ -n "$review" ]; then
+              echo "#$pr: open change request $review of the owner"
+              gh workflow run implement.yaml -f pr="$pr" -f review="$review"
+            elif [ "$mergeable" = "CONFLICTING" ] || [ "${behind:-0}" -gt 0 ]; then
+              echo "#$pr: mergeable=$mergeable, $behind commit(s) behind main"
+              gh workflow run implement.yaml -f pr="$pr"
+            else
+              echo "#$pr: nothing to do"
+            fi
+          done

@@ -93,10 +93,19 @@ Tickets become pull requests without manual steps; the repository owner reviews 
    In both cases a branch that is behind `main` is first rebased onto it by the agent, which
    also resolves conflicts; the workflow then force-pushes with lease. A ruleset allows force
    pushes only on `agent/**` branches (admins bypass it).
-5. Merging into `main` requires the commit status `agent-review` (ruleset). For `agent-pr` pull
+5. GitHub runs no `pull_request` or `pull_request_review` workflows while a pull request has
+   merge conflicts, so `.github/workflows/agent-sync.yaml` starts `implement.yaml` itself (input
+   `pr`) after every push to `main` and every 30 minutes: for an open "changes requested" review
+   of the owner on the current commit, for `review:changes` on a conflicting pull request, and
+   for every agent pull request behind `main`. A rebase without conflicts is done by a script and
+   keeps the `agent-review` approval; conflicts are resolved by the agent. After that, an approved
+   pull request gets `review:rebase` and is reviewed again by Opus (not a new round), and one
+   under owner review goes back to the owner. To start it by hand:
+   `gh workflow run implement.yaml -f pr=<n>` (add `-f review=<id>` for an owner review).
+6. Merging into `main` requires the commit status `agent-review` (ruleset). For `agent-pr` pull
    requests it is set by Agent Review (success on approval) or by an approving review of the owner
-   (`.github/workflows/agent-review-gate.yaml`); every new commit resets it to pending. All other
-   pull requests pass immediately.
+   (`.github/workflows/agent-review-gate.yaml`); every new commit resets it to pending, except a
+   rebase without conflicts. All other pull requests pass immediately.
 
 Agents run as the GitHub App from `AGENT_APP_ID` / `AGENT_APP_PRIVATE_KEY` so their pushes,
 pull requests and labels trigger the next workflow. They must not change files in `.github/` or
