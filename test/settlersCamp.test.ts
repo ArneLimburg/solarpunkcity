@@ -78,6 +78,9 @@ test("below 90 % ecology the camp produces less than 2 food", () => {
 });
 
 test("building over the camp removes housing and food without a refund", () => {
+  // a game starts without wood and storage: provide both
+  game.build("WoodStorage", { q: 10, r: 0 });
+  game.grantResources({ wood: 10 });
   const before = game.getState().resources;
   expect(game.canBuild("OrganicHomestead", { q: 0, r: 0 })).toBe(true);
   game.build("OrganicHomestead", { q: 0, r: 0 });
@@ -91,6 +94,8 @@ test("building over the camp removes housing and food without a refund", () => {
 });
 
 test("a large building can cover the camp", () => {
+  game.build("WoodStorage", { q: 10, r: 0 });
+  game.grantResources({ wood: 30 });
   expect(game.canBuild("Farm", { q: 1, r: 0 })).toBe(true);
 });
 

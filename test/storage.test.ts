@@ -23,9 +23,9 @@ test("a new game has 0 wood and no capacity", () => {
 });
 
 test("a homestead cannot clear forest at game start, a wood storage can", () => {
-  expect(game.canBuild("OrganicHomestead", { q: 0, r: 0 })).toBe(false);
-  expect(game.canBuild("WoodStorage", { q: 0, r: 0 })).toBe(true);
-  placeStorage({ q: 0, r: 0 });
+  expect(game.canBuild("OrganicHomestead", { q: 1, r: 0 })).toBe(false);
+  expect(game.canBuild("WoodStorage", { q: 1, r: 0 })).toBe(true);
+  placeStorage({ q: 1, r: 0 });
   const state = game.getState();
   expect(state.resources.wood).toBe(3);
   expect(state.capacity.wood).toBe(100);
@@ -44,16 +44,16 @@ test("clearing is limited by the capacity", () => {
   const homestead = definitions.BuildingDefinition.OrganicHomestead;
   homestead.cost = { ...homestead.cost, wood: 1 }; // clearing leaves 2 wood
   game.grantResources({ wood: 95 }); // 98 wood: 98 + 3 - 1 = 100 fits
-  expect(game.canBuild("OrganicHomestead", { q: 0, r: 0 })).toBe(true);
+  expect(game.canBuild("OrganicHomestead", { q: 1, r: 0 })).toBe(true);
   game.grantResources({ wood: 1 }); // 99 + 3 - 1 = 101 does not fit
-  expect(game.canBuild("OrganicHomestead", { q: 0, r: 0 })).toBe(false);
+  expect(game.canBuild("OrganicHomestead", { q: 1, r: 0 })).toBe(false);
 });
 
 test("a wood storage adds its capacity before the limit is checked", () => {
   placeStorage();
   game.grantResources({ wood: 97 }); // 100 wood, full
-  expect(game.canBuild("WoodStorage", { q: 0, r: 0 })).toBe(true);
-  placeStorage({ q: 0, r: 0 });
+  expect(game.canBuild("WoodStorage", { q: 1, r: 0 })).toBe(true);
+  placeStorage({ q: 1, r: 0 });
   expect(game.getState().resources.wood).toBe(103);
   expect(game.getState().capacity.wood).toBe(200);
 });
