@@ -4,6 +4,7 @@ import reactHooks from "eslint-plugin-react-hooks";
 import reactRefresh from "eslint-plugin-react-refresh";
 import tseslint from "typescript-eslint";
 import { defineConfig, globalIgnores } from "eslint/config";
+import localRules from "./eslint-rules/no-case-collision.js";
 
 export default defineConfig([
   globalIgnores([
@@ -25,5 +26,7 @@ export default defineConfig([
       ecmaVersion: 2020,
       globals: globals.browser,
     },
+    plugins: { local: localRules },
+    rules: { "local/no-case-collision": "error" },
   },
 ]);

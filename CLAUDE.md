@@ -61,6 +61,7 @@ Game state currently lives in module-level variables in `board.ts` and `game.ts`
 
 ## Conventions
 
+- File names must not differ only in casing (enforced by ESLint).
 - Keep game rules in `game.ts` / `board.ts` free of React and Babylon imports.
 - Hex math uses axial coordinates; a tile is on the board iff
   `max(|q|, |r|, |q + r|) <= GRID_RADIUS`.
