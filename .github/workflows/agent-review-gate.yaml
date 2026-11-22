@@ -1,7 +1,8 @@
 # Keeps the commit status `agent-review` of every pull request up to date; a ruleset on main
 # requires it. Pull requests labeled `agent-pr` need an approval by Agent Review
 # (agent-review.yaml) or an approving review by the repository owner, and every new commit
-# resets them to pending. All other pull requests pass immediately.
+# resets them to pending, except a success that implement.yaml already carried over to a commit
+# rebased onto main without conflicts. All other pull requests pass immediately.
 # pull_request_target runs the workflow from main and never checks out pull request code.
 name: Agent Review Gate
 
@@ -38,6 +39,12 @@ jobs:
           if [ "$EVENT" = "pull_request_review" ]; then
             sha=$REVIEW_SHA state=success desc="Approved by the repository owner"
           elif [ "$AGENT_PR" = "true" ]; then
+            current=$(gh api "repos/$GH_REPO/commits/$HEAD_SHA/status" \
+              --jq '[.statuses[] | select(.context == "agent-review")][0].state // empty')
+            if [ "$current" = "success" ]; then
+              echo "Keeping the approval carried over to $HEAD_SHA"
+              exit 0
+            fi
             sha=$HEAD_SHA state=pending desc="Waiting for the review agent or the repository owner"
           else
             sha=$HEAD_SHA state=success desc="Not an agent pull request"

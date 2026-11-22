@@ -5,6 +5,9 @@
 # MAX_PING_PONG change requests, or on APPROVE, the repository owner is asked to review.
 # Skips pull requests already handed over to a human (`review:approved`, `review:max-rounds`,
 # `agent-blocked`) or under owner review (`review:owner`, set by implement.yaml).
+# `review:rebase` (set by implement.yaml after it resolved conflicts of an approved pull request
+# with main): reviews the conflict resolution again under the last round's number, so it does
+# not count as a new round.
 # Sets the required commit status `agent-review`: success on APPROVE, pending while changes are
 # being made, failure when a human has to take over (see agent-review-gate.yaml).
 name: Agent Review
@@ -85,13 +88,20 @@ jobs:
           fi
 
           done_rounds=$(echo "$labels" | grep -c '^review-round-' || true)
+          round=$((done_rounds + 1))
+          rebase=false
+          if echo "$labels" | grep -qx 'review:rebase'; then
+            rebase=true
+            round=$((done_rounds > 0 ? done_rounds : 1))
+          fi
           issue=$(echo "$info" | jq -r .body | grep -oiE '(closes|fixes|resolves) #[0-9]+' | head -1 | grep -oE '[0-9]+' || true)
           {
             echo "skip=false"
             echo "pr=$pr"
             echo "sha=$sha"
             echo "issue=$issue"
-            echo "round=$((done_rounds + 1))"
+            echo "round=$round"
+            echo "rebase=$rebase"
             echo "build=$CONCLUSION"
             echo "build_url=$RUN_URL"
           } >> "$GITHUB_OUTPUT"
@@ -119,6 +129,7 @@ jobs:
 
             You are the review agent for Solar Punk City. The build (lint + type check + bundle) passed.
             Review the pull request; do not change any code.
+            ${{ steps.ctx.outputs.rebase == 'true' && 'This is a re-review: the pull request was approved before, then main changed and the implementation agent rebased it and resolved conflicts (see its latest comment). Check that the resolution keeps the changes of main, still meets every acceptance criterion and introduces nothing unrelated; focus on the files that main changed too. Do not repeat the earlier review.' || '' }}
 
             1. Read the issue (`gh issue view <n>`) and extract its acceptance criteria. If there is
                no issue, use the goal stated in the pull request description instead.
@@ -152,6 +163,7 @@ jobs:
           PR: ${{ steps.ctx.outputs.pr }}
           SHA: ${{ steps.ctx.outputs.sha }}
           ROUND: ${{ steps.ctx.outputs.round }}
+          REBASE: ${{ steps.ctx.outputs.rebase }}
           BUILD: ${{ steps.ctx.outputs.build }}
           BUILD_URL: ${{ steps.ctx.outputs.build_url }}
         run: |
@@ -169,16 +181,21 @@ jobs:
             fi
           fi
 
+          suffix=""
+          if [ "$REBASE" = "true" ]; then
+            suffix=" (after rebase)"
+            gh pr edit "$PR" --remove-label review:rebase
+          fi
           {
             printf '<!-- agent-review round=%s verdict=%s -->\n' "$ROUND" "$verdict"
-            printf '## 🤖 Agent review – round %s: %s\n\n' "$ROUND" "$verdict"
+            printf '## 🤖 Agent review – round %s%s: %s\n\n' "$ROUND" "$suffix" "$verdict"
             cat "$RUNNER_TEMP/text.md"
           } > "$body"
           gh pr comment "$PR" --body-file "$body"
 
           run_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
           if [ "$verdict" = "APPROVE" ]; then
-            state=success desc="Approved by the review agent in round $ROUND"
+            state=success desc="Approved by the review agent in round $ROUND$suffix"
           elif [ "$verdict" = "CHANGES" ] && [ "$ROUND" -le "$MAX_PING_PONG" ]; then
             state=pending desc="Changes requested in round $ROUND"
           else
@@ -198,7 +215,7 @@ jobs:
 
           if [ "$verdict" = "APPROVE" ]; then
             handover review:approved 0E8A16 "Approved by the review agent" \
-              "The review agent approved this pull request in round $ROUND. Please review and merge."
+              "The review agent approved this pull request in round $ROUND$suffix. Please review and merge."
           elif [ "$verdict" = "CHANGES" ] && [ "$ROUND" -le "$MAX_PING_PONG" ]; then
             gh label create review:changes --color FBCA04 --description "Review agent requests changes" --force
             gh pr edit "$PR" --add-label review:changes

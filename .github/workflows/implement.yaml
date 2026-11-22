@@ -10,6 +10,14 @@
 # - On pull requests whose branch is behind main the agent rebases it onto main (resolving
 #   conflicts) and the workflow force-pushes with lease. A ruleset allows force pushes only on
 #   `agent/**` branches.
+# - Started manually or by agent-sync.yaml with a pull request number (GitHub does not run
+#   pull_request and pull_request_review workflows while a pull request has merge conflicts):
+#   with `review`, addresses that "changes requested" review of the owner unless it is already
+#   outdated; on a pull request labeled `review:changes`, addresses the latest agent review;
+#   otherwise only brings the branch up to date with main (mode `rebase`). A rebase without
+#   conflicts is done by a script and keeps an approval (`agent-review` status); only conflicts
+#   start the agent. Resolved conflicts of an approved pull request are reviewed again
+#   (label `review:rebase`, not a new review round).
 # Runs as the GitHub App from AGENT_APP_ID so that its pushes and pull requests trigger
 # Build and Agent Review.
 name: Agent Implement
@@ -25,15 +33,22 @@ on:
   workflow_dispatch:
     inputs:
       issue:
-        description: Issue number to implement
-        required: true
+        description: Issue number to implement (leave empty when a pull request is given)
+        required: false
+      pr:
+        description: Agent pull request to update (rebase, or address the review given below)
+        required: false
+      review:
+        description: ID of the owner's "changes requested" review to address (needs pr)
+        required: false
 
 permissions:
   contents: read
   id-token: write
+  statuses: write
 
 concurrency:
-  group: agent-implement-${{ github.event.issue.number || github.event.pull_request.number || inputs.issue }}
+  group: agent-implement-${{ github.event.issue.number || github.event.pull_request.number || inputs.pr || inputs.issue }}
   cancel-in-progress: false
 
 jobs:
@@ -62,13 +77,41 @@ jobs:
           GH_TOKEN: ${{ steps.app.outputs.token }}
           GH_REPO: ${{ github.repository }}
           EVENT: ${{ github.event_name }}
+          OWNER: ${{ github.repository_owner }}
           ISSUE_NUMBER: ${{ github.event.issue.number || inputs.issue }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_NUMBER: ${{ github.event.pull_request.number || inputs.pr }}
           PR_BRANCH: ${{ github.event.pull_request.head.ref }}
-          REVIEW_ID: ${{ github.event.review.id }}
+          REVIEW_ID: ${{ github.event.review.id || inputs.review }}
         run: |
-          if [ "$EVENT" = "pull_request" ] || [ "$EVENT" = "pull_request_review" ]; then
-            if [ "$EVENT" = "pull_request" ]; then
+          skip() { echo "$1"; echo "skip=true" >> "$GITHUB_OUTPUT"; exit 0; }
+
+          if [ "$EVENT" = "workflow_dispatch" ] && [ -n "$PR_NUMBER" ]; then
+            # Started for a pull request whose events GitHub may have dropped (merge conflicts).
+            info=$(gh pr view "$PR_NUMBER" --json state,headRefName,headRefOid,labels,isCrossRepository)
+            labels=$(echo "$info" | jq -r '.labels[].name')
+            PR_BRANCH=$(echo "$info" | jq -r .headRefName)
+            head=$(echo "$info" | jq -r .headRefOid)
+            [ "$(echo "$info" | jq -r .state)" = "OPEN" ] || skip "#$PR_NUMBER is not open"
+            [ "$(echo "$info" | jq -r .isCrossRepository)" = "false" ] || skip "#$PR_NUMBER comes from a fork"
+            echo "$labels" | grep -qx agent-pr || skip "#$PR_NUMBER is not an agent pull request"
+            case "$PR_BRANCH" in agent/*) ;; *) skip "Only agent/** branches may be force-pushed" ;; esac
+            echo "$labels" | grep -qx agent-blocked && skip "#$PR_NUMBER is blocked and waits for a human"
+            if [ -n "$REVIEW_ID" ]; then
+              review=$(gh api "repos/$GH_REPO/pulls/$PR_NUMBER/reviews/$REVIEW_ID" --jq '"\(.user.login) \(.state) \(.commit_id)"')
+              # Outdated once the agent pushed after it (e.g. the review event did start a run).
+              [ "$review" = "$OWNER CHANGES_REQUESTED $head" ] || skip "Review $REVIEW_ID is not an open change request of the owner"
+              EVENT=pull_request_review
+            elif echo "$labels" | grep -qx 'review:changes'; then
+              EVENT=pull_request
+            else
+              mode=rebase
+            fi
+          fi
+
+          if [ "$EVENT" = "pull_request" ] || [ "$EVENT" = "pull_request_review" ] || [ "$mode" = "rebase" ]; then
+            if [ "$mode" = "rebase" ]; then
+              :
+            elif [ "$EVENT" = "pull_request" ]; then
               mode=pr
               gh pr edit "$PR_NUMBER" --remove-label "review:changes"
             else
@@ -89,6 +132,7 @@ jobs:
             exit 0
           fi
 
+          [ -n "$ISSUE_NUMBER" ] || skip "Neither an issue nor a pull request was given"
           branch="agent/issue-$ISSUE_NUMBER"
           existing=$(gh pr list --head "$branch" --state open --json number --jq '.[0].number // empty')
           if [ -n "$existing" ]; then
@@ -133,18 +177,38 @@ jobs:
             main=behind
             git merge-tree --write-tree origin/main HEAD > /dev/null || main=conflicts
           fi
-          echo "main=$main" >> "$GITHUB_OUTPUT"
-          echo "before=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          before=$(git rev-parse HEAD)
+          agent=true
+          if [ "$MODE" = "rebase" ]; then
+            if [ "$main" = "current" ]; then
+              echo "The branch is already up to date with main"
+              echo "noop=true" >> "$GITHUB_OUTPUT"
+            elif [ "$main" = "behind" ]; then
+              # No conflicts with main: rebase without the agent. Single commits may still
+              # conflict while they are replayed; then the agent resolves them.
+              if git rebase origin/main; then
+                agent=false
+              else
+                git rebase --abort
+                main=conflicts
+              fi
+            fi
+          fi
+          {
+            echo "main=$main"
+            echo "before=$before"
+            echo "agent=$agent"
+          } >> "$GITHUB_OUTPUT"
 
-      - if: steps.ctx.outputs.skip == 'false'
+      - if: steps.ctx.outputs.skip == 'false' && steps.git.outputs.noop != 'true' && steps.git.outputs.agent == 'true'
         uses: actions/setup-node@v4
         with:
           node-version-file: ".nvmrc"
           cache: "npm"
-      - if: steps.ctx.outputs.skip == 'false'
+      - if: steps.ctx.outputs.skip == 'false' && steps.git.outputs.noop != 'true' && steps.git.outputs.agent == 'true'
         run: npm ci
 
-      - if: steps.ctx.outputs.skip == 'false'
+      - if: steps.ctx.outputs.skip == 'false' && steps.git.outputs.noop != 'true' && steps.git.outputs.agent == 'true'
         id: claude
         uses: anthropics/claude-code-action@v1
         env:
@@ -159,7 +223,7 @@ jobs:
             REPO: ${{ github.repository }}
             You are the implementation agent for Solar Punk City. Follow CLAUDE.md.
 
-            ${{ steps.ctx.outputs.mode == 'issue' && format('TASK: Implement issue #{0}. Read it with `gh issue view {0} --comments`.', steps.ctx.outputs.issue) || '' }}${{ steps.ctx.outputs.mode == 'pr' && format('TASK: Pull request #{0} (issue #{1}) received change requests from the review agent. Read the issue with `gh issue view {1}` and the pull request with `gh pr view {0} --comments`; the latest comment starting with `<!-- agent-review` is the review to address. If it reports a failed build, inspect the run with `gh run view <run-id> --log-failed`. Address every valid point; if you disagree with a point, explain why in the commit body.', steps.ctx.outputs.pr, steps.ctx.outputs.issue) || '' }}${{ steps.ctx.outputs.mode == 'owner-review' && format('TASK: The repository owner requested changes on pull request #{0} (issue #{1}). Read the issue with `gh issue view {1}` and the pull request with `gh pr view {0} --comments`. Read the owner''s review with exactly `gh api repos/{2}/pulls/{0}/reviews/{3}` and its inline comments (see `path`, `line` and `body`) with exactly `gh api --paginate repos/{2}/pulls/{0}/reviews/{3}/comments`. Where the owner''s review conflicts with earlier agent reviews (comments starting with `<!-- agent-review`), the owner''s review wins. Address every point of the owner''s review; if you disagree with a point, explain why in the commit body instead of skipping it silently.', steps.ctx.outputs.pr, steps.ctx.outputs.issue, github.repository, steps.ctx.outputs.review) || '' }}
+            ${{ steps.ctx.outputs.mode == 'issue' && format('TASK: Implement issue #{0}. Read it with `gh issue view {0} --comments`.', steps.ctx.outputs.issue) || '' }}${{ steps.ctx.outputs.mode == 'pr' && format('TASK: Pull request #{0} (issue #{1}) received change requests from the review agent. Read the issue with `gh issue view {1}` and the pull request with `gh pr view {0} --comments`; the latest comment starting with `<!-- agent-review` is the review to address. If it reports a failed build, inspect the run with `gh run view <run-id> --log-failed`. Address every valid point; if you disagree with a point, explain why in the commit body.', steps.ctx.outputs.pr, steps.ctx.outputs.issue) || '' }}${{ steps.ctx.outputs.mode == 'owner-review' && format('TASK: The repository owner requested changes on pull request #{0} (issue #{1}). Read the issue with `gh issue view {1}` and the pull request with `gh pr view {0} --comments`. Read the owner''s review with exactly `gh api repos/{2}/pulls/{0}/reviews/{3}` and its inline comments (see `path`, `line` and `body`) with exactly `gh api --paginate repos/{2}/pulls/{0}/reviews/{3}/comments`. Where the owner''s review conflicts with earlier agent reviews (comments starting with `<!-- agent-review`), the owner''s review wins. Address every point of the owner''s review; if you disagree with a point, explain why in the commit body instead of skipping it silently.', steps.ctx.outputs.pr, steps.ctx.outputs.issue, github.repository, steps.ctx.outputs.review) || '' }}${{ steps.ctx.outputs.mode == 'rebase' && format('TASK: Pull request #{0} (issue #{1}) conflicts with main. Your only task is the rebase described below; read the issue with `gh issue view {1}` and the pull request with `gh pr view {0}` to understand its intent. Do not change anything beyond what resolving the conflicts and keeping lint, build and tests green requires, and make no commit of your own unless that is needed for main''s changes to work with this pull request.', steps.ctx.outputs.pr, steps.ctx.outputs.issue) || '' }}
 
             ${{ steps.ctx.outputs.mode != 'issue' && steps.git.outputs.main != 'current' && format('FIRST: The branch is behind main{0}. Before anything else, rebase it with exactly `git rebase --autostash origin/main`. Resolve each conflict so that the changes of both sides are kept (main''s changes are already reviewed; adapt this pull request to them), stage the resolved files with `git add <path>...` and run exactly `git rebase --continue` until the rebase is done. If a conflict cannot be resolved sensibly, run exactly `git rebase --abort`, do not commit and write the conflicting files and the reason to `agent-blocked.md`. The rebase does not count as your one commit; if the task asks for nothing beyond the rebase, no further commit is needed.', steps.git.outputs.main == 'conflicts' && ' and conflicts with it' || '') || '' }}
 
@@ -194,7 +258,7 @@ jobs:
             --max-turns 400
             --allowedTools "Edit,Write,Read,Glob,Grep,Bash(npm ci),Bash(npm install:*),Bash(npx playwright install:*),Bash(npm test),Bash(npm run test:e2e:*),Bash(npx vitest:*),Bash(npm run lint),Bash(npm run prettier),Bash(npx prettier:*),Bash(npm run build),Bash(npx tsc:*),Bash(git add:*),Bash(git rm:*),Bash(git mv:*),Bash(git commit:*),Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(git rebase --autostash origin/main),Bash(git rebase --continue),Bash(git rebase --abort),Bash(gh issue view:*),Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh run view:*)${{ steps.ctx.outputs.mode == 'owner-review' && format(',Bash(gh api repos/{0}/pulls/{1}/reviews/{2}),Bash(gh api --paginate repos/{0}/pulls/{1}/reviews/{2}/comments)', github.repository, steps.ctx.outputs.pr, steps.ctx.outputs.review) || '' }}"
 
-      - if: steps.ctx.outputs.skip == 'false'
+      - if: steps.ctx.outputs.skip == 'false' && steps.git.outputs.noop != 'true'
         name: Push and open pull request
         env:
           GH_TOKEN: ${{ steps.app.outputs.token }}
@@ -205,6 +269,8 @@ jobs:
           PR: ${{ steps.ctx.outputs.pr }}
           BRANCH: ${{ steps.ctx.outputs.branch }}
           BEFORE: ${{ steps.git.outputs.before }}
+          AGENT: ${{ steps.git.outputs.agent }}
+          STATUS_TOKEN: ${{ github.token }}
           EXECUTION_FILE: ${{ steps.claude.outputs.execution_file }}
         run: |
           run_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
@@ -269,6 +335,39 @@ jobs:
           # The agent's new commits, without main's commits and old ones rebased without conflicts.
           git log --format='- %s' --cherry-pick --right-only "$BEFORE...HEAD" ^origin/main > "$RUNNER_TEMP/commits.md"
           git merge-base --is-ancestor "$BEFORE" HEAD || echo "- Rebased onto main" >> "$RUNNER_TEMP/commits.md"
+
+          if [ "$MODE" = "rebase" ]; then
+            new_head=$(git rev-parse HEAD)
+            if [ "$AGENT" = "false" ]; then
+              # Nothing but main's changes was added, so an approval stays valid. Build still runs.
+              # agent-review-gate.yaml keeps a success it finds on the new commit.
+              approval=$(GH_TOKEN="$STATUS_TOKEN" gh api "repos/$GH_REPO/commits/$BEFORE/status" \
+                --jq '[.statuses[] | select(.context == "agent-review")][0] | select(.state == "success") | .description')
+              if [ -n "$approval" ]; then
+                GH_TOKEN="$STATUS_TOKEN" gh api "repos/$GH_REPO/statuses/$new_head" -f state=success \
+                  -f context=agent-review -f description="Rebased onto main without conflicts; ${approval:0:80}" \
+                  -f target_url="$run_url" > /dev/null
+              fi
+              printf '🤖 Rebased onto main without conflicts ([run](%s)).\n' "$run_url" | gh pr comment "$PR" --body-file -
+              exit 0
+            fi
+            labels=$(gh pr view "$PR" --json labels --jq '.labels[].name')
+            if echo "$labels" | grep -qx 'review:approved'; then
+              # Resolving conflicts changes code: the review agent checks it again after Build,
+              # without starting a new review round.
+              gh label create review:rebase --color C2E0C6 --description "Review agent checks a conflict resolution" --force
+              gh pr edit "$PR" --remove-label review:approved --add-label review:rebase
+              note="The review agent checks the conflict resolution after the build."
+            elif echo "$labels" | grep -qxE 'review:owner|review:max-rounds'; then
+              gh pr edit "$PR" --add-reviewer "$OWNER"
+              note="@$OWNER please review again."
+            else
+              note="The review continues as usual after the build."
+            fi
+            printf '🤖 Resolved the conflicts with main ([run](%s)):\n\n%s\n\n%s\n' \
+              "$run_url" "$(cat "$RUNNER_TEMP/commits.md")" "$note" | gh pr comment "$PR" --body-file -
+            exit 0
+          fi
 
           if [ "$MODE" = "owner-review" ]; then
             # Straight back to the owner, without another agent review (review:owner stays set).
