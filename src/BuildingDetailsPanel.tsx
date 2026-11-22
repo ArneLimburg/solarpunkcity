@@ -52,7 +52,7 @@ const Section: FC<{
   );
 };
 
-export const BuildingDetails: FC<{
+export const BuildingDetailsPanel: FC<{
   type: BuildingType;
   resources: Resources;
   onHide: () => void;

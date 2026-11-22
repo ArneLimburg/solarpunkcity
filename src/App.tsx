@@ -19,7 +19,7 @@ import {
   takeCompletedBuildings,
   type GameState,
 } from "./game";
-import { BuildingDetails } from "./BuildingDetails";
+import { BuildingDetailsPanel } from "./BuildingDetailsPanel";
 import { StatusBar } from "./StatusBar";
 
 // Fixed bottom container: panels stack directly above the status bar,
@@ -109,7 +109,7 @@ export const App: FC = () => {
       </main>
       <BottomPanel state={state}>
         {selectedBuildingType && !detailsHidden && (
-          <BuildingDetails
+          <BuildingDetailsPanel
             type={selectedBuildingType}
             resources={state.resources}
             onHide={hideDetails}
