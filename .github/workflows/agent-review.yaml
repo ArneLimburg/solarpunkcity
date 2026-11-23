@@ -3,11 +3,15 @@
 # - Build passed: Opus reviews against the issue's acceptance criteria.
 # Verdict CHANGES labels `review:changes`, which starts implement.yaml again. After
 # MAX_PING_PONG change requests, or on APPROVE, the repository owner is asked to review.
-# Skips pull requests already handed over to a human (`review:approved`, `review:max-rounds`,
-# `agent-blocked`) or under owner review (`review:owner`, set by implement.yaml).
+# Skips pull requests handed over to a human (`review:max-rounds`, `agent-blocked`) and approved
+# ones (`review:approved`) whose build passes.
+# `review:owner` (set by implement.yaml after it addressed an owner review): no Opus review; a
+# passing build requests the owner's review, a failed one goes back to implement.yaml.
 # `review:rebase` (set by implement.yaml after it resolved conflicts of an approved pull request
-# with main): reviews the conflict resolution again under the last round's number, so it does
-# not count as a new round.
+# with main, or here when an approved pull request's build fails): a failed build goes back to
+# implement.yaml, a passing one gets the Opus review again under the last round's number.
+# These build fixes and re-reviews are not new review rounds; after MAX_PING_PONG failed
+# builds in a row a human takes over (`agent-blocked`).
 # Sets the required commit status `agent-review`: success on APPROVE, pending while changes are
 # being made, failure when a human has to take over (see agent-review-gate.yaml).
 name: Agent Review
@@ -75,7 +79,7 @@ jobs:
           labels=$(echo "$info" | jq -r '.labels[].name')
           sha=$(echo "$info" | jq -r .headRefOid)
           echo "$labels" | grep -qx 'agent-pr' || skip "#$pr is not an agent pull request"
-          if echo "$labels" | grep -qxE 'review:approved|review:max-rounds|review:owner|agent-blocked'; then
+          if echo "$labels" | grep -qxE 'review:max-rounds|agent-blocked'; then
             skip "#$pr is already handed over to a human"
           fi
 
@@ -87,12 +91,28 @@ jobs:
             skip "Build ran for an outdated commit of #$pr"
           fi
 
+          owner=false
+          if echo "$labels" | grep -qx 'review:owner'; then
+            owner=true
+          elif echo "$labels" | grep -qx 'review:approved'; then
+            [ "$CONCLUSION" = "success" ] && skip "#$pr is approved and waits for the owner"
+            # E.g. a rebase without conflicts broke the build: fix it, then review the fix again.
+            gh label create review:rebase --color C2E0C6 --description "Review agent checks a conflict resolution" --force
+            gh pr edit "$pr" --remove-label review:approved --add-label review:rebase
+            labels=$(printf '%s\nreview:rebase\n' "$labels")
+          fi
+
           done_rounds=$(echo "$labels" | grep -c '^review-round-' || true)
           round=$((done_rounds + 1))
           rebase=false
           if echo "$labels" | grep -qx 'review:rebase'; then
             rebase=true
             round=$((done_rounds > 0 ? done_rounds : 1))
+          fi
+          # Failed builds outside the review rounds are fixed without counting a round.
+          fix=false
+          if [ "$CONCLUSION" != "success" ] && { [ "$owner" = "true" ] || [ "$rebase" = "true" ]; }; then
+            fix=true
           fi
           issue=$(echo "$info" | jq -r .body | grep -oiE '(closes|fixes|resolves) #[0-9]+' | head -1 | grep -oE '[0-9]+' || true)
           {
@@ -102,19 +122,22 @@ jobs:
             echo "issue=$issue"
             echo "round=$round"
             echo "rebase=$rebase"
+            echo "owner=$owner"
+            echo "fix=$fix"
             echo "build=$CONCLUSION"
             echo "build_url=$RUN_URL"
           } >> "$GITHUB_OUTPUT"
 
       # Without persisted credentials nothing the reviewer writes can be pushed.
-      - if: steps.ctx.outputs.skip == 'false' && steps.ctx.outputs.build == 'success'
+      - if: steps.ctx.outputs.skip == 'false' && steps.ctx.outputs.build == 'success' && steps.ctx.outputs.owner == 'false'
         uses: actions/checkout@v4
         with:
           ref: ${{ steps.ctx.outputs.sha }}
           persist-credentials: false
 
-      - if: steps.ctx.outputs.skip == 'false' && steps.ctx.outputs.build == 'success'
-        uses: anthropics/claude-code-action@v1
+      - if: steps.ctx.outputs.skip == 'false' && steps.ctx.outputs.build == 'success' && steps.ctx.outputs.owner == 'false'
+        # Pinned: new action versions have changed permission defaults without notice.
+        uses: anthropics/claude-code-action@acfe7992852970efb4fee683d63d628e3e52df67 # v1
         env:
           GH_TOKEN: ${{ steps.app.outputs.token }}
         with:
@@ -164,9 +187,52 @@ jobs:
           SHA: ${{ steps.ctx.outputs.sha }}
           ROUND: ${{ steps.ctx.outputs.round }}
           REBASE: ${{ steps.ctx.outputs.rebase }}
+          OWNER_MODE: ${{ steps.ctx.outputs.owner }}
+          FIX: ${{ steps.ctx.outputs.fix }}
           BUILD: ${{ steps.ctx.outputs.build }}
           BUILD_URL: ${{ steps.ctx.outputs.build_url }}
         run: |
+          run_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          set_status() {
+            GH_TOKEN="$STATUS_TOKEN" gh api "repos/$GH_REPO/statuses/$SHA" -f state="$1" \
+              -f context=agent-review -f description="$2" -f target_url="$run_url" > /dev/null
+          }
+
+          if [ "$FIX" = "true" ]; then
+            # Failed builds in a row since the last real review verdict.
+            fixes=$(gh pr view "$PR" --json comments --jq '[.comments[].body | select(startswith("<!-- agent-review"))]
+              | reverse | (map(startswith("<!-- agent-review build-fix")) | index(false)) // length')
+            attempt=$((fixes + 1))
+            if [ "$attempt" -gt "$MAX_PING_PONG" ]; then
+              set_status failure "The build still fails after $MAX_PING_PONG fixes"
+              gh label create agent-blocked --color B60205 --description "Agent needs a human" --force
+              gh pr edit "$PR" --add-label agent-blocked --add-reviewer "$OWNER"
+              printf '@%s The build still fails after %s fix attempts (%s). Please take it from here.\n' \
+                "$OWNER" "$MAX_PING_PONG" "$BUILD_URL" | gh pr comment "$PR" --body-file -
+              exit 0
+            fi
+            {
+              printf '<!-- agent-review build-fix=%s verdict=CHANGES -->\n' "$attempt"
+              printf '## 🤖 Build failed – fix %s of %s\n\n' "$attempt" "$MAX_PING_PONG"
+              printf 'The build failed: %s\n\nPlease fix the errors (`gh run view <run-id> --log-failed`). ' "$BUILD_URL"
+              printf 'This is not a new review round.\n'
+            } | gh pr comment "$PR" --body-file -
+            set_status pending "Build failed; fix $attempt of $MAX_PING_PONG"
+            gh label create review:changes --color FBCA04 --description "Review agent requests changes" --force
+            gh pr edit "$PR" --add-label review:changes
+            exit 0
+          fi
+
+          if [ "$OWNER_MODE" = "true" ]; then
+            # The owner's review was addressed and the build passes: back to the owner.
+            gh pr edit "$PR" --add-reviewer "$OWNER"
+            # The marker ends the series of build fixes counted above.
+            printf '<!-- agent-review build-passed -->\n@%s The build passes ([build](%s)). Please review again.\n' \
+              "$OWNER" "$BUILD_URL" |
+              gh pr comment "$PR" --body-file -
+            exit 0
+          fi
+
           body="$RUNNER_TEMP/review.md"
           if [ "$BUILD" != "success" ]; then
             verdict=CHANGES
@@ -182,7 +248,7 @@ jobs:
           fi
 
           suffix=""
-          if [ "$REBASE" = "true" ]; then
+          if [ "$REBASE" = "true" ] && [ "$BUILD" = "success" ]; then
             suffix=" (after rebase)"
             gh pr edit "$PR" --remove-label review:rebase
           fi
@@ -193,7 +259,6 @@ jobs:
           } > "$body"
           gh pr comment "$PR" --body-file "$body"
 
-          run_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
           if [ "$verdict" = "APPROVE" ]; then
             state=success desc="Approved by the review agent in round $ROUND$suffix"
           elif [ "$verdict" = "CHANGES" ] && [ "$ROUND" -le "$MAX_PING_PONG" ]; then

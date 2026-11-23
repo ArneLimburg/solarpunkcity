@@ -4,9 +4,10 @@
 # - Agent pull request labeled `review:changes` (set by agent-review.yaml): addresses the
 #   latest agent review and pushes to the same branch.
 # - The repository owner submits a "changes requested" review on an agent pull request:
-#   addresses that review (it takes precedence over agent reviews), pushes, and requests the
-#   owner's review again. The label `review:owner` makes agent-review.yaml skip the pull
-#   request; this mode is not a review round and leaves the `review-round-*` labels alone.
+#   addresses that review (it takes precedence over agent reviews) and pushes. The label
+#   `review:owner` keeps the Opus review out; agent-review.yaml requests the owner's review once
+#   the build passes and sends a failed build back here first. This mode is not a review round
+#   and leaves the `review-round-*` labels alone.
 # - On pull requests whose branch is behind main the agent rebases it onto main (resolving
 #   conflicts) and the workflow force-pushes with lease. A ruleset allows force pushes only on
 #   `agent/**` branches.
@@ -210,7 +211,8 @@ jobs:
 
       - if: steps.ctx.outputs.skip == 'false' && steps.git.outputs.noop != 'true' && steps.git.outputs.agent == 'true'
         id: claude
-        uses: anthropics/claude-code-action@v1
+        # Pinned: new action versions have changed permission defaults without notice.
+        uses: anthropics/claude-code-action@acfe7992852970efb4fee683d63d628e3e52df67 # v1
         env:
           GH_TOKEN: ${{ steps.app.outputs.token }}
           # `git rebase --continue` must not wait for an editor.
@@ -219,6 +221,11 @@ jobs:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           github_token: ${{ steps.app.outputs.token }}
           allowed_bots: "*"
+          # The pull requests are authored by the agent's GitHub App, whose write access the action
+          # cannot confirm, so by default it denies every command that runs code from the checkout
+          # (lint, build, tests). Only branches of this repository get here: the review trigger
+          # checks head.repo, dispatches reject forks, and labels need write access.
+          restrict_untrusted_prs: "false"
           prompt: |
             REPO: ${{ github.repository }}
             You are the implementation agent for Solar Punk City. Follow CLAUDE.md.
@@ -359,8 +366,10 @@ jobs:
               gh pr edit "$PR" --remove-label review:approved --add-label review:rebase
               note="The review agent checks the conflict resolution after the build."
             elif echo "$labels" | grep -qxE 'review:owner|review:max-rounds'; then
-              gh pr edit "$PR" --add-reviewer "$OWNER"
-              note="@$OWNER please review again."
+              # agent-review.yaml asks the owner once the build passes.
+              gh label create review:owner --color 1D76DB --description "Owner reviews; no agent review" --force
+              gh pr edit "$PR" --add-label review:owner
+              note="@$OWNER is asked to review again once the build passes."
             else
               note="The review continues as usual after the build."
             fi
@@ -370,12 +379,12 @@ jobs:
           fi
 
           if [ "$MODE" = "owner-review" ]; then
-            # Straight back to the owner, without another agent review (review:owner stays set).
+            # Back to the owner without another agent review (review:owner stays set);
+            # agent-review.yaml requests the owner's review once the build passes.
             if gh pr view "$PR" --json labels --jq '.labels[].name' | grep -qx agent-blocked; then
               gh pr edit "$PR" --remove-label agent-blocked
             fi
-            gh pr edit "$PR" --add-reviewer "$OWNER"
-            printf '🤖 Addressed the review by @%s ([run](%s)):\n\n%s\n\nPlease review again.\n' \
+            printf '🤖 Addressed the review by @%s ([run](%s)):\n\n%s\n\nYou are asked to review again once the build passes.\n' \
               "$OWNER" "$run_url" "$(cat "$RUNNER_TEMP/commits.md")" | gh pr comment "$PR" --body-file -
             exit 0
           fi

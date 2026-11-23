@@ -88,9 +88,9 @@ Tickets become pull requests without manual steps; the repository owner reviews 
    sends it back to step 2 (at most 3 times), `review:approved` or `review:max-rounds` requests
    a review from the owner. `agent-blocked` means an agent gave up and a human must take over.
 4. A "changes requested" review by the owner on an agent pull request starts `implement.yaml`
-   again: it addresses that review (which wins over agent reviews), pushes and requests the
-   owner's review again. The label `review:owner` keeps the Opus review out from then on; this
-   does not count as a review round.
+   again: it addresses that review (which wins over agent reviews) and pushes. The label
+   `review:owner` keeps the Opus review out from then on; Agent Review requests the owner's
+   review once the build passes. This does not count as a review round.
    In both cases a branch that is behind `main` is first rebased onto it by the agent, which
    also resolves conflicts; the workflow then force-pushes with lease. A ruleset allows force
    pushes only on `agent/**` branches (admins bypass it).
@@ -101,7 +101,10 @@ Tickets become pull requests without manual steps; the repository owner reviews 
    for every agent pull request behind `main`. A rebase without conflicts is done by a script and
    keeps the `agent-review` approval; conflicts are resolved by the agent. After that, an approved
    pull request gets `review:rebase` and is reviewed again by Opus (not a new round), and one
-   under owner review goes back to the owner. To start it by hand:
+   under owner review goes back to the owner once the build passes. A failed build of a pull
+   request labeled `review:owner`, `review:rebase` or `review:approved` is sent back to
+   `implement.yaml` without counting a round; after 3 failed builds in a row it gets
+   `agent-blocked`. To start it by hand:
    `gh workflow run implement.yaml -f pr=<n>` (add `-f review=<id>` for an owner review).
 6. Merging into `main` requires the commit status `agent-review` (ruleset). For `agent-pr` pull
    requests it is set by Agent Review (success on approval) or by an approving review of the owner
@@ -111,4 +114,7 @@ Tickets become pull requests without manual steps; the repository owner reviews 
 Agents run as the GitHub App from `AGENT_APP_ID` / `AGENT_APP_PRIVATE_KEY` so their pushes,
 pull requests and labels trigger the next workflow. They must not change files in `.github/` or
 `.claude/`, and not `CLAUDE.md` while fixing an open pull request (claude-code-action resets these
-files to `main` there); `implement.yaml` rejects such commits.
+files to `main` there); `implement.yaml` rejects such commits. `claude-code-action` is pinned to
+a commit in the agent workflows, and `implement.yaml` sets `restrict_untrusted_prs: "false"`,
+because the action cannot confirm the App's write access and would otherwise deny lint, build
+and tests on pull request events.
