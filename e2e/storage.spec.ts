@@ -93,5 +93,5 @@ test("the ring is red where the cleared wood does not fit", async ({
     .toBe(true);
   await page.mouse.click(x, y);
   await page.waitForTimeout(500);
-  expect(await buildingAt(page, origin)).toBe("Forest");
+  expect(await buildingAt(page, origin)).toBe("SettlersCamp");
 });

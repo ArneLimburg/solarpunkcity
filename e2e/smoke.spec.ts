@@ -1,5 +1,5 @@
 import { test, expect } from "./fixtures";
-import { tilePosition } from "./helpers";
+import { grantWood, tilePosition } from "./helpers";
 import { BuildingCategories, BuildingTypes } from "../src/gameDefinitions";
 
 test("app loads", async ({ page }) => {
@@ -62,7 +62,7 @@ test("food entry is marked as error when the balance is negative", async ({
 }) => {
   await page.goto("./");
   await page.waitForFunction(() => window.__solarpunk !== undefined);
-  await page.evaluate(() => window.__solarpunk?.addResources({ wood: 100 }));
+  await grantWood(page);
   const food = page.getByTestId("status-food");
   // the settlers' camp feeds the 2 residents
   await expect(food).not.toHaveClass(/error/);
