@@ -7,7 +7,9 @@ export default defineConfig({
   // software rendering with V8 coverage is slow on CI runners
   timeout: 60_000,
   globalTeardown: "./e2e/global-teardown.ts",
-  reporter: process.env.CI ? [["github"], ["html", { open: "never" }]] : "list",
+  reporter: process.env.CI
+    ? [["github"], ["list"], ["html", { open: "never" }]]
+    : "list",
   use: {
     baseURL,
     trace: "retain-on-failure",
