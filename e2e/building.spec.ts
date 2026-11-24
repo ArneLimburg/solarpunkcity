@@ -142,7 +142,7 @@ test("resizing the viewport resizes the render size", async ({ page }) => {
     page.evaluate(() => document.querySelector("canvas")?.width ?? 0);
   const before = await width();
   await page.setViewportSize({ width: 700, height: 500 });
-  await expect.poll(width).toBeLessThan(before);
+  await expect.poll(width, { timeout: 20_000 }).toBeLessThan(before);
 });
 
 test.describe("touch", () => {

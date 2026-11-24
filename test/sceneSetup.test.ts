@@ -80,11 +80,29 @@ afterEach(() => {
   state.meshes.length = 0;
 });
 
+const observer = {
+  callback: undefined as undefined | (() => void),
+  observe: vi.fn(),
+  disconnect: vi.fn(),
+};
+
+function stubResizeObserver() {
+  observer.observe = vi.fn();
+  observer.disconnect = vi.fn();
+  vi.stubGlobal(
+    "ResizeObserver",
+    class {
+      constructor(callback: () => void) {
+        observer.callback = callback;
+      }
+      observe = observer.observe;
+      disconnect = observer.disconnect;
+    },
+  );
+}
+
 test("the scene has a skybox, a camera, a background ground and a render loop", () => {
-  vi.stubGlobal("window", {
-    addEventListener: vi.fn(),
-    removeEventListener: vi.fn(),
-  });
+  stubResizeObserver();
   const canvas = {} as HTMLCanvasElement;
   const { camera, engine, scene } = setupScene(canvas);
   expect(camera.attachControl).toHaveBeenCalledWith(canvas, true);
@@ -98,33 +116,23 @@ test("the scene has a skybox, a camera, a background ground and a render loop", 
   vi.unstubAllGlobals();
 });
 
-test("resizing resizes the engine until the scene is disposed", () => {
-  const listeners: Record<string, () => void> = {};
-  vi.stubGlobal("window", {
-    addEventListener: (name: string, listener: () => void) => {
-      listeners[name] = listener;
-    },
-    removeEventListener: vi.fn(),
-  });
-  const { dispose } = setupScene({} as HTMLCanvasElement);
-  listeners.resize();
+test("a canvas size change resizes the engine until the scene is disposed", () => {
+  stubResizeObserver();
+  const canvas = {} as HTMLCanvasElement;
+  const { dispose } = setupScene(canvas);
+  expect(observer.observe).toHaveBeenCalledWith(canvas);
+  observer.callback!();
   expect(state.engine!.resize).toHaveBeenCalled();
 
   dispose();
-  expect(window.removeEventListener).toHaveBeenCalledWith(
-    "resize",
-    listeners.resize,
-  );
+  expect(observer.disconnect).toHaveBeenCalled();
   expect(state.scene!.dispose).toHaveBeenCalled();
   expect(state.engine!.dispose).toHaveBeenCalled();
   vi.unstubAllGlobals();
 });
 
 test("errors while disposing are logged and swallowed", () => {
-  vi.stubGlobal("window", {
-    addEventListener: vi.fn(),
-    removeEventListener: vi.fn(),
-  });
+  stubResizeObserver();
   const error = vi.spyOn(console, "error").mockImplementation(() => {});
   const { dispose } = setupScene({} as HTMLCanvasElement);
   const failure = new Error("boom");

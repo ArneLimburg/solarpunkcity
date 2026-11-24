@@ -70,11 +70,11 @@ export function setupScene(canvas: HTMLCanvasElement) {
     scene.render();
   });
 
-  const resize = () => engine.resize();
-  window.addEventListener("resize", resize);
+  const resizeObserver = new ResizeObserver(() => engine.resize());
+  resizeObserver.observe(canvas);
 
   const dispose = () => {
-    window.removeEventListener("resize", resize);
+    resizeObserver.disconnect();
     try {
       scene.dispose();
       engine.dispose();
