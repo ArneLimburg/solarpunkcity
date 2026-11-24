@@ -1,7 +1,7 @@
 import type { FC } from "react";
 import type { HexCoordinates } from "./board";
 import { formatEcology, nonZeroResources } from "./buildingDetails";
-import { getResidents } from "./buildingInfo";
+import { getResidents } from "./buildingResidents";
 import { BuildingTypes, type Building } from "./gameDefinitions";
 import type { BuildingReport, BuildingStatus } from "./game";
 import type { Resources } from "./resources";

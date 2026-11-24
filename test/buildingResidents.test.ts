@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { getOccupancy, getResidents } from "../src/buildingInfo";
+import { getOccupancy, getResidents } from "../src/buildingResidents";
 
 test("occupancy is the share of occupied housing, at most 1", () => {
   expect(getOccupancy(5, 10)).toBe(0.5);
