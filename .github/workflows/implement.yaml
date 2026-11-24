@@ -123,11 +123,18 @@ jobs:
               echo "review=$REVIEW_ID" >> "$GITHUB_OUTPUT"
             fi
             issue=$(gh pr view "$PR_NUMBER" --json body --jq .body | grep -oiE '(closes|fixes|resolves) #[0-9]+' | head -1 | grep -oE '[0-9]+' || true)
+            # The latest Build of the head commit, so that the agent can read a failure's log
+            # (owner reviews often just point at a red build).
+            head=$(gh pr view "$PR_NUMBER" --json headRefOid --jq .headRefOid)
+            build=$(gh run list --workflow Build --commit "$head" --event pull_request --limit 1 \
+              --json databaseId,status,conclusion --jq '.[0] // empty | "\(.databaseId) \(if (.conclusion // "") == "" then .status else .conclusion end)"')
             {
               echo "mode=$mode"
               echo "pr=$PR_NUMBER"
               echo "issue=$issue"
               echo "branch=$PR_BRANCH"
+              echo "build_run=${build%% *}"
+              echo "build_result=${build#* }"
               echo "skip=false"
             } >> "$GITHUB_OUTPUT"
             exit 0
@@ -231,6 +238,8 @@ jobs:
             You are the implementation agent for Solar Punk City. Follow CLAUDE.md.
 
             ${{ steps.ctx.outputs.mode == 'issue' && format('TASK: Implement issue #{0}. Read it with `gh issue view {0} --comments`.', steps.ctx.outputs.issue) || '' }}${{ steps.ctx.outputs.mode == 'pr' && format('TASK: Pull request #{0} (issue #{1}) received change requests from the review agent. Read the issue with `gh issue view {1}` and the pull request with `gh pr view {0} --comments`; the latest comment starting with `<!-- agent-review` is the review to address. If it reports a failed build, inspect the run with `gh run view <run-id> --log-failed`. Address every valid point; if you disagree with a point, explain why in the commit body.', steps.ctx.outputs.pr, steps.ctx.outputs.issue) || '' }}${{ steps.ctx.outputs.mode == 'owner-review' && format('TASK: The repository owner requested changes on pull request #{0} (issue #{1}). Read the issue with `gh issue view {1}` and the pull request with `gh pr view {0} --comments`. Read the owner''s review with exactly `gh api repos/{2}/pulls/{0}/reviews/{3}` and its inline comments (see `path`, `line` and `body`) with exactly `gh api --paginate repos/{2}/pulls/{0}/reviews/{3}/comments`. Where the owner''s review conflicts with earlier agent reviews (comments starting with `<!-- agent-review`), the owner''s review wins. Address every point of the owner''s review; if you disagree with a point, explain why in the commit body instead of skipping it silently.', steps.ctx.outputs.pr, steps.ctx.outputs.issue, github.repository, steps.ctx.outputs.review) || '' }}${{ steps.ctx.outputs.mode == 'rebase' && format('TASK: Pull request #{0} (issue #{1}) conflicts with main. Your only task is the rebase described below; read the issue with `gh issue view {1}` and the pull request with `gh pr view {0}` to understand its intent. Do not change anything beyond what resolving the conflicts and keeping lint, build and tests green requires, and make no commit of your own unless that is needed for main''s changes to work with this pull request.', steps.ctx.outputs.pr, steps.ctx.outputs.issue) || '' }}
+
+            ${{ steps.ctx.outputs.mode != 'issue' && steps.ctx.outputs.build_run != '' && format('BUILD: The latest Build of the pull request''s head commit is run {0} ({1}).{2}', steps.ctx.outputs.build_run, steps.ctx.outputs.build_result, steps.ctx.outputs.build_result == 'failure' && ' It failed; whatever else the task says, the pull request must end with a passing build. Read the failures with exactly `gh run view <run-id> --log-failed` (the run ID above), reproduce them locally and fix them.' || '') || '' }}
 
             ${{ steps.ctx.outputs.mode != 'issue' && steps.git.outputs.main != 'current' && format('FIRST: The branch is behind main{0}. Before anything else, rebase it with exactly `git rebase --autostash origin/main`. Resolve each conflict so that the changes of both sides are kept (main''s changes are already reviewed; adapt this pull request to them), stage the resolved files with `git add <path>...` and run exactly `git rebase --continue` until the rebase is done. If a conflict cannot be resolved sensibly, run exactly `git rebase --abort`, do not commit and write the conflicting files and the reason to `agent-blocked.md`. The rebase does not count as your one commit; if the task asks for nothing beyond the rebase, no further commit is needed.', steps.git.outputs.main == 'conflicts' && ' and conflicts with it' || '') || '' }}
 
