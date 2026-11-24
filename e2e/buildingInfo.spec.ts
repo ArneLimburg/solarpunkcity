@@ -1,6 +1,6 @@
 import type { Page } from "@playwright/test";
 import { test, expect } from "./fixtures";
-import { finishConstruction, tilePosition } from "./helpers";
+import { finishConstruction, grantWood, tilePosition } from "./helpers";
 
 const origin = { q: 0, r: 0 };
 // the 800x600 viewport has the panels at the bottom left, keep the tiles above
@@ -47,7 +47,8 @@ async function place(
 async function setup(page: Page) {
   await page.goto("./");
   await page.waitForFunction(() => window.__solarpunk !== undefined);
-  await page.evaluate(() => window.__solarpunk?.addResources({ wood: 200 }));
+  await grantWood(page); // the wood storages raise the cap of the wood
+  await page.evaluate(() => window.__solarpunk?.addResources({ wood: 100 }));
   await place(page, "FARM", "OrganicHomestead", origin);
   await place(page, "FARM", "Farm", farm, 7);
   await place(page, "RESIDENTIAL", "AppartmentBuilding", house);
