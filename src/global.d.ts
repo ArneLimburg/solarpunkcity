@@ -27,6 +27,26 @@ declare global {
         coords: HexCoordinates,
         corner: number,
       ): string | undefined;
+      // the figures of the settlers (tile: where each one is standing)
+      getSettlers(): {
+        id: number;
+        x: number;
+        z: number;
+        tile: HexCoordinates;
+        heading: number;
+        phase: number;
+        walking: boolean;
+        pausing: boolean;
+      }[];
+      getSettlerStats(): {
+        count: number;
+        trianglesPerFigure: number;
+        meshes: number;
+        drawCalls: number; // of the last frame, all meshes
+      };
+      // shows generated residents instead of the real ones (benchmark);
+      // undefined goes back to the real ones
+      showSettlers(count: number | undefined): void;
       addResources(resources: Partial<Resources>): void;
       // places a finished wood storage (free) without any checks
       addWoodStorage(coords: HexCoordinates): void;

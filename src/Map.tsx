@@ -24,6 +24,8 @@ import {
   createPreview,
   createRing,
 } from "./SelectionRing";
+import { createSettlerRenderer, type SettlerRenderer } from "./SettlerRenderer";
+import { createRoster, syncRoster, type Resident } from "./settlers";
 import { setupScene } from "./sceneSetup";
 import { createDevHooks } from "./devHooks";
 import { placeBuilding, type PlacedModel } from "./placeBuilding";
@@ -39,8 +41,9 @@ export const Map = forwardRef<
   {
     onSelected: (coordinates: HexCoordinates) => void;
     previewType?: BuildingType;
+    residents: Resident[];
   }
->(({ onSelected, previewType }, ref) => {
+>(({ onSelected, previewType, residents }, ref) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   // the model currently shown on a tile ("q,r")
   const modelsRef = useRef<Record<string, PlacedModel>>({});
@@ -48,6 +51,11 @@ export const Map = forwardRef<
   const farmsRef = useRef<FarmRenderer | null>(null);
   const woodStorageRef = useRef<WoodStorageRenderer | null>(null);
   const cornersRef = useRef<CornerRenderer | null>(null);
+  const settlersRef = useRef<SettlerRenderer | null>(null);
+  // the residents to show; DEV benchmarks replace them with generated ones
+  const residentsRef = useRef(residents);
+  residentsRef.current = residents;
+  const generatedRef = useRef(false);
 
   // the tile renderer and the ground materials
   const tilesRef = useRef<TileRenderer | null>(null);
@@ -60,7 +68,7 @@ export const Map = forwardRef<
     coords: HexCoordinates,
     type: BuildingType,
     underConstruction?: boolean,
-  ) =>
+  ) => {
     placeBuilding(
       coords,
       type,
@@ -75,6 +83,15 @@ export const Map = forwardRef<
       },
       underConstruction,
     );
+    // settlers whose way is blocked now pick another one
+    settlersRef.current!.boardChanged();
+  };
+
+  useEffect(() => {
+    if (!generatedRef.current) {
+      settlersRef.current?.sync(residents);
+    }
+  }, [residents]);
 
   useImperativeHandle(ref, () => ({ addBuilding: place }));
 
@@ -101,8 +118,14 @@ export const Map = forwardRef<
     );
     farmsRef.current = createFarmRenderer(scene, HEX_SIZE);
     woodStorageRef.current = createWoodStorageRenderer(scene, HEX_SIZE);
+    const settlers = createSettlerRenderer(
+      scene,
+      Math.floor(Math.random() * 2 ** 32),
+    );
+    settlersRef.current = settlers;
     // the game starts with the settlers' camp in the middle of the board
     place({ q: 0, r: 0 }, "SettlersCamp");
+    settlers.sync(residentsRef.current);
 
     const ring = createRing(scene);
     const preview = createPreview(() => previewTypeRef.current);
@@ -135,6 +158,16 @@ export const Map = forwardRef<
         getCornerMaterial: (coords, corner) =>
           cornersRef.current!.getMaterialName({ tile: coords, corner }),
         showBuilding: (coords, type) => place(coords, type, false),
+        settlers,
+        // shows generated residents instead of the roster; undefined goes back
+        showSettlers: (count) => {
+          generatedRef.current = count !== undefined;
+          settlers.sync(
+            count === undefined
+              ? residentsRef.current
+              : syncRoster(createRoster(1), count),
+          );
+        },
       });
     });
 

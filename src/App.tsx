@@ -134,6 +134,7 @@ export const App: FC = () => {
           ref={mapRef}
           onSelected={mapSelectionListener}
           previewType={selectedBuildingType}
+          residents={state.residents}
         />
       </main>
       <BottomPanel state={state}>
