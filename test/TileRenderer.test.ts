@@ -20,6 +20,7 @@ type FakeMesh = {
   getIndices: () => number[];
   setIndices: ReturnType<typeof vi.fn>;
   clone: (name: string) => FakeMesh;
+  makeGeometryUnique: ReturnType<typeof vi.fn>;
   setBoundingInfo: ReturnType<typeof vi.fn>;
 };
 
@@ -85,6 +86,7 @@ vi.mock("@babylonjs/core", () => {
       getIndices: () => mesh.indices,
       setIndices: vi.fn((indices: number[]) => (mesh.indices = indices)),
       clone: (cloneName: string) => fakeMesh(cloneName),
+      makeGeometryUnique: vi.fn(),
       setBoundingInfo: vi.fn(),
     };
     created.push(mesh);
@@ -255,6 +257,11 @@ test("exactly one base mesh per ground material holds the tiles as thin instance
     // Babylon must not shrink the chunk bounds to the current instances
     expect(tileMesh.doNotSyncBoundingInfo).toBe(true);
     expect(tileMesh.setBoundingInfo).toHaveBeenCalledTimes(1);
+    // the thin instance buffers live in the geometry, so no two layers may share one
+    expect(tileMesh.makeGeometryUnique).toHaveBeenCalledTimes(1);
+    expect(
+      tileMesh.makeGeometryUnique.mock.invocationCallOrder[0],
+    ).toBeLessThan(tileMesh.thinInstanceSetBuffer.mock.invocationCallOrder[0]);
   }
   // the chunk is far smaller than the board
   const bounds = mesh(materials.forestFloor).map(
