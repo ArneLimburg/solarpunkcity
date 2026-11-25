@@ -21,6 +21,8 @@
 #   (label `review:rebase`, not a new review round).
 # Runs as the GitHub App from AGENT_APP_ID so that its pushes and pull requests trigger
 # Build and Agent Review.
+# The agent's full transcript is kept as the run artifact `agent-transcript`; when the agent
+# stops without a commit, the `agent-blocked` comment quotes its final message.
 name: Agent Implement
 
 on:
@@ -274,6 +276,19 @@ jobs:
             --max-turns 400
             --allowedTools "Edit,Write,Read,Glob,Grep,Bash(npm ci),Bash(npm install:*),Bash(npx playwright install:*),Bash(npm test),Bash(npm run test:e2e:*),Bash(npx vitest:*),Bash(npm run lint),Bash(npm run prettier),Bash(npx prettier:*),Bash(npm run build),Bash(npx tsc:*),Bash(git add:*),Bash(git rm:*),Bash(git mv:*),Bash(git commit:*),Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(git rebase --autostash origin/main),Bash(git rebase --continue),Bash(git rebase --abort),Bash(gh issue view:*),Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh run view:*)${{ steps.ctx.outputs.mode == 'owner-review' && format(',Bash(gh api repos/{0}/pulls/{1}/reviews/{2}),Bash(gh api --paginate repos/{0}/pulls/{1}/reviews/{2}/comments)', github.repository, steps.ctx.outputs.pr, steps.ctx.outputs.review) || '' }}"
 
+      # The log only shows the agent's summary; keep the full transcript (every message and tool
+      # call) so that a run that ends without a commit can be understood afterwards.
+      - if: always() && steps.claude.outputs.execution_file != ''
+        name: Upload agent transcript
+        # A failed upload must not keep the next step from pushing or reporting.
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: agent-transcript
+          path: ${{ steps.claude.outputs.execution_file }}
+          retention-days: 14
+          if-no-files-found: ignore
+
       - if: steps.ctx.outputs.skip == 'false' && steps.git.outputs.noop != 'true'
         name: Push and open pull request
         env:
@@ -324,7 +339,24 @@ jobs:
 
           if [ -f agent-blocked.md ] || [ "$(git rev-parse HEAD)" = "$BEFORE" ]; then
             git reset --hard -q "$BEFORE"
-            reason=$(cat agent-blocked.md 2>/dev/null || echo "The agent made no changes.")
+            if [ -f agent-blocked.md ]; then
+              reason=$(cat agent-blocked.md)
+            else
+              # The agent stopped without a commit and without explaining why in agent-blocked.md:
+              # quote its final message (or, if empty, its last text) so the owner sees where it
+              # gave up.
+              last=$(jq -r '[.[] | select(.type == "result") | .result // empty | select(. != "")][-1]
+                  // [.[] | select(.type == "assistant") | .message.content[]? | select(.type == "text")
+                    | .text | select(. != "")][-1] // empty' "$EXECUTION_FILE" 2>/dev/null || true)
+              reason="The agent made no changes."
+              if [ -n "$last" ]; then
+                [ "${#last}" -le 3000 ] || last="${last:0:3000}…"
+                reason=$(printf '%s Its final message:\n\n%s' "$reason" "$(printf '%s\n' "$last" | sed 's/^/> /')")
+              fi
+            fi
+            if [ -f "$EXECUTION_FILE" ]; then
+              reason=$(printf '%s\n\nThe full transcript is the `agent-transcript` artifact of the run.' "$reason")
+            fi
             # Name the tool calls that were denied, so that missing permissions are easy to spot.
             denied=$(jq -r '[.[] | select(.type == "result") | .permission_denials[]?] | .[]
               | "- `\(.tool_name)`: `\((.tool_input.command // .tool_input.file_path // "") | .[0:200])`"' \
