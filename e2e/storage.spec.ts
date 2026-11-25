@@ -80,6 +80,26 @@ test("a wood storage is placed on forest as a log yard and adds capacity", async
   await expect(wood(page)).not.toHaveClass(/error/);
 });
 
+test("a site without wood waits for it and the status bar shows it", async ({
+  page,
+}) => {
+  await start(page);
+  await button(page, "FARM").click();
+  await button(page, "OrganicHomestead").click();
+  // the camp gives no wood and there is no stock: the homestead is not blocked
+  const { x, y } = await hoverOrigin(page);
+  await expect
+    .poll(() => page.evaluate(() => window.__solarpunk?.isRingBlocked()))
+    .toBe(false);
+  await page.mouse.click(x, y);
+  await expect.poll(() => buildingAt(page, origin)).toBe("OrganicHomestead");
+  // forestry delivers 1 wood per week, a worker-week needs 1 wood: the site
+  // waits every other week
+  const sites = page.getByTestId("status-construction sites");
+  await expect(sites).toHaveText(/construction1 \(1 waiting\)$/);
+  await expect(sites).toHaveClass(/error/);
+});
+
 test("the ring is red where the cleared wood does not fit", async ({
   page,
 }) => {

@@ -13,6 +13,10 @@ export type PlacedBuilding = {
   building: Building;
   center: HexCoordinates;
   remainingWork?: number;
+  // construction sites only: wood in the site's own supply and wood that is
+  // still to be used up (cost.wood minus the wood already used)
+  siteWood?: number;
+  remainingWood?: number;
   sequence: number; // placement order, oldest first
 };
 
@@ -60,6 +64,8 @@ export function completeSites(): PlacedBuilding[] {
   );
   for (const site of completed) {
     delete site.remainingWork;
+    delete site.siteWood;
+    delete site.remainingWood;
   }
   return completed;
 }
@@ -92,17 +98,23 @@ export function setBuilding(location: HexCoordinates, building: Building) {
 }
 
 // places a building on its whole footprint around the center; with
-// remainingWork > 0 it is a construction site
+// remainingWork > 0 it is a construction site, which starts with siteWood in
+// its supply
 export function placeBuilding(
   center: HexCoordinates,
   building: Building,
   remainingWork = 0,
+  siteWood = 0,
 ) {
   const placed: PlacedBuilding = {
     building,
     center,
     sequence: nextSequence++,
-    ...(remainingWork > 0 && { remainingWork }),
+    ...(remainingWork > 0 && {
+      remainingWork,
+      siteWood,
+      remainingWood: building.cost.wood,
+    }),
   };
   for (const tile of getFootprint(center, getFootprintRadius(building.size))) {
     tiles.set(toHexLocation(tile), placed);

@@ -103,8 +103,13 @@ export function fitsStorage(
   coords: HexCoordinates,
 ): boolean {
   const building = BuildingDefinition[buildingType];
+  const recycledWood =
+    getResourcesAfterClearing(building, coords).wood - currentResources.wood;
+  const surplus = recycledWood - building.cost.wood;
+  // a construction site takes the wood it needs first and never gives it back
   return (
-    getResourcesAfterClearing(building, coords).wood - building.cost.wood <=
+    currentResources.wood +
+      (building.cost.labor > 0 ? Math.max(0, surplus) : surplus) <=
     getCapacity().wood + (building.storage?.wood ?? 0)
   );
 }
@@ -119,9 +124,14 @@ export function getCapacity(): Resources {
   );
 }
 
-// the labor of the cost is construction work, it is not paid from the stock
+// the labor of the cost is construction work, it is not paid from the stock;
+// the wood of a construction site is delivered week by week, not paid upfront
 function getMaterialCost(building: Building): Resources {
-  return { ...building.cost, labor: 0 };
+  return {
+    ...building.cost,
+    labor: 0,
+    ...(building.cost.labor > 0 && { wood: 0 }),
+  };
 }
 
 function getFootprintOf(building: Building, center: HexCoordinates) {
@@ -144,11 +154,20 @@ export function build(buildingType: BuildingType, coords: HexCoordinates) {
       newResources = addResources(newResources, oldBuilding.recycling);
     }
   }
+  // the recycled wood goes into the supply of the new site first
+  const siteWood =
+    newBuilding.cost.labor > 0
+      ? Math.min(
+          newResources.wood - currentResources.wood,
+          newBuilding.cost.wood,
+        )
+      : 0;
   currentResources = subtractResources(
     newResources,
     getMaterialCost(newBuilding),
   );
-  placeBuilding(coords, newBuilding, newBuilding.cost.labor);
+  currentResources.wood -= siteWood;
+  placeBuilding(coords, newBuilding, newBuilding.cost.labor, siteWood);
 }
 
 export type GameState = {
@@ -160,7 +179,14 @@ export type GameState = {
   satisfaction: number;
   foodBalance: number;
   constructionSites: number;
+  sitesWaitingForWood: number;
 };
+
+// construction sites that got no workers last week only for lack of wood
+let sitesWaitingForWood = 0;
+
+// tolerance for floating point remainders of wood
+const WOOD_EPSILON = 1e-9;
 
 // the buildings that were finished by the last weekly tick, not yet taken
 let completedBuildings: { coords: HexCoordinates; type: BuildingType }[] = [];
@@ -199,6 +225,7 @@ export function getState(): GameState {
     satisfaction: getSatisfaction(),
     foodBalance: currentFoodBalance,
     constructionSites: getConstructionSites().length,
+    sitesWaitingForWood,
   };
 }
 
@@ -337,16 +364,67 @@ function calculateDevelopment() {
 // labor that was used
 function construct(labor: number): number {
   let used = 0;
+  sitesWaitingForWood = 0;
   for (const site of getConstructionSites()) {
-    const workers = Math.min(
-      site.building.maxBuilders,
-      site.remainingWork!,
-      labor - used,
+    const { cost, maxBuilders } = site.building;
+    const woodPerWorker = cost.labor > 0 ? cost.wood / cost.labor : 0;
+    const possible = Math.min(maxBuilders, site.remainingWork!, labor - used);
+    // the own supply and the stock; the stock is only used for this week's work
+    const availableWood = site.siteWood! + currentResources.wood;
+    const affordable =
+      woodPerWorker > 0
+        ? Math.floor(availableWood / woodPerWorker + WOOD_EPSILON)
+        : Infinity;
+    const workers = Math.min(possible, affordable);
+    if (possible > 0 && affordable === 0) {
+      sitesWaitingForWood++;
+    }
+    // the last work week uses exactly the remaining wood of the site
+    const wood = Math.min(
+      workers === site.remainingWork
+        ? site.remainingWood!
+        : workers * woodPerWorker,
+      availableWood,
     );
+    const fromSupply = Math.min(wood, site.siteWood!);
+    site.siteWood = site.siteWood! - fromSupply;
+    currentResources.wood = Math.max(
+      0,
+      currentResources.wood - (wood - fromSupply),
+    );
+    site.remainingWood = site.remainingWood! - wood;
     workOnSite(site, workers);
     used += workers;
   }
   return used;
+}
+
+// whether any construction site supply or the wood storage has room for wood
+function hasWoodRoom(sites: PlacedBuilding[], woodCapacity: number): boolean {
+  return (
+    currentResources.wood < woodCapacity ||
+    sites.some((site) => getFreeSiteWood(site) > WOOD_EPSILON)
+  );
+}
+
+function getFreeSiteWood(site: PlacedBuilding): number {
+  return site.remainingWood! - site.siteWood!;
+}
+
+// produced wood goes into the supplies of the construction sites first (oldest
+// first, each up to its free space), the rest into the storages
+function deliverWood(
+  sites: PlacedBuilding[],
+  amount: number,
+  woodCapacity: number,
+) {
+  let rest = amount;
+  for (const site of sites) {
+    const delivered = Math.min(rest, Math.max(0, getFreeSiteWood(site)));
+    site.siteWood = site.siteWood! + delivered;
+    rest -= delivered;
+  }
+  currentResources.wood = Math.min(currentResources.wood + rest, woodCapacity);
 }
 
 function nonZeroValues(resources: Resources): boolean {
@@ -356,13 +434,15 @@ function nonZeroValues(resources: Resources): boolean {
 function calculateOtherProductions() {
   // TODO prioritize buildings
   const woodCapacity = getCapacity().wood;
+  const sites = getConstructionSites(); // oldest first
   for (const placed of getPlacedBuildings()) {
     const { building } = placed;
     if (building.produces.food > 0) {
       continue; // food is already produced in calculateDevelopment
     }
-    // forestry stops (and keeps its labor free) when the storages are full
-    if (building.produces.wood > 0 && currentResources.wood >= woodCapacity) {
+    // forestry stops (and keeps its labor free) when neither a construction
+    // site nor the storages have room for the wood
+    if (building.produces.wood > 0 && !hasWoodRoom(sites, woodCapacity)) {
       continue;
     }
     if (!hasEnoughResources(currentResources, building.consumes)) {
@@ -378,9 +458,12 @@ function calculateOtherProductions() {
       continue;
     }
     currentResources = subtractResources(currentResources, building.consumes);
-    currentResources = addResources(currentResources, building.produces);
+    currentResources = addResources(currentResources, {
+      ...building.produces,
+      wood: 0,
+    });
     if (building.produces.wood > 0) {
-      currentResources.wood = Math.min(currentResources.wood, woodCapacity);
+      deliverWood(sites, building.produces.wood, woodCapacity);
     }
     reports.set(placed, {
       workers: building.consumes.labor,

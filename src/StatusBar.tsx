@@ -52,7 +52,12 @@ export const StatusBar: FC<{ state: GameState }> = ({ state }) => (
     <Entry
       name="construction sites"
       icon="construction"
-      value={`${state.constructionSites}`}
+      value={
+        state.sitesWaitingForWood > 0
+          ? `${state.constructionSites} (${state.sitesWaitingForWood} waiting)`
+          : `${state.constructionSites}`
+      }
+      error={state.sitesWaitingForWood > 0}
     />
     <Entry name="ecology" icon="eco" value={`${Math.floor(state.ecology)} %`} />
     <Entry
