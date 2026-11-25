@@ -36,6 +36,26 @@ let currentResources: Resources = { ...INITIAL_RESOURCES };
 export const INITIAL_POPULATION = 2;
 let currentPopulation = INITIAL_POPULATION;
 let currentFoodBalance = 0;
+// free labor share of the last weekly tick in percent; the labor factor
+// derived from it is what residents judge in the next tick (no previous
+// week at game start: 100 %)
+let currentFreeLaborShare = 0;
+let currentLaborFactor = 100;
+
+// labor factor in percent for a free labor share between 0 and 1: overloaded
+// residents (no free time) and unemployed residents are less satisfied
+export function getLaborFactor(freeLaborShare: number): number {
+  if (freeLaborShare < 0.1) {
+    return 50 + (freeLaborShare / 0.1) * 50;
+  }
+  if (freeLaborShare <= 0.25) {
+    return 100;
+  }
+  if (freeLaborShare >= 0.75) {
+    return 0;
+  }
+  return ((0.75 - freeLaborShare) / 0.5) * 100;
+}
 
 // why a building with production did not produce
 export type BuildingStatus = "not-needed" | "no-workers" | "missing-resources";
@@ -177,6 +197,8 @@ export type GameState = {
   housing: number;
   ecology: number;
   satisfaction: number;
+  freeLaborShare: number; // 0-100, of the last tick
+  laborFactor: number; // 0-100, of the last tick
   foodBalance: number;
   constructionSites: number;
   sitesWaitingForWood: number;
@@ -223,6 +245,8 @@ export function getState(): GameState {
     housing: getAvailableHousing(),
     ecology: getEcology(),
     satisfaction: getSatisfaction(),
+    freeLaborShare: currentFreeLaborShare,
+    laborFactor: currentLaborFactor,
     foodBalance: currentFoodBalance,
     constructionSites: getConstructionSites().length,
     sitesWaitingForWood,
@@ -246,10 +270,10 @@ function getEcology(): number {
   return Math.min(Math.max(ecology, 0), 100);
 }
 
-// starting point: satisfaction equals ecology; more factors (food, housing,
-// culture) will follow
+// average of ecology and the labor factor of the last week; more factors
+// (food, housing, culture) will follow
 function getSatisfaction(): number {
-  return getEcology();
+  return (getEcology() + currentLaborFactor) / 2;
 }
 
 function getHarvestFactor(): number {
@@ -356,6 +380,10 @@ function calculateDevelopment() {
   }
   currentResources.labor = labor - construct(labor);
   calculateOtherProductions();
+  // the free labor is between 0 and the start population
+  const freeLaborShare = currentResources.labor / startPopulation;
+  currentFreeLaborShare = freeLaborShare * 100;
+  currentLaborFactor = getLaborFactor(freeLaborShare);
   // sites finished this week take part from the next week on
   collectCompletedBuildings();
 }

@@ -398,7 +398,8 @@ test("growth is limited by satisfaction", () => {
     { q: 0, r: 0 },
     testBuilding({ resident: 100, ecology: 0 }),
   );
-  expect(game.calculateWeek().population).toBe(2);
+  game.calculateWeek(); // the first week still has the labor factor 100
+  expect(game.calculateWeek().population).toBe(3);
 });
 
 function simulate(resident: number, food: number): number {
@@ -487,7 +488,8 @@ test("ecology drops when forest is replaced", () => {
   // 10 tiles with -5 instead of 1
   const expected = ((tiles - 10 + 10 * -5) / tiles) * 100;
   expect(game.getState().ecology).toBeCloseTo(expected);
-  expect(game.getState().satisfaction).toBeCloseTo(expected);
+  // satisfaction is the average of ecology and the labor factor (100 at start)
+  expect(game.getState().satisfaction).toBeCloseTo((expected + 100) / 2);
 });
 
 test("ecology of a homestead is 0.5 per tile", () => {
@@ -560,8 +562,9 @@ test("harvest factor is 0.5 at 50 % ecology and below", () => {
 });
 
 test("population growth is scaled by satisfaction", () => {
-  // growth is ceil(population * 0.1 * satisfaction / 100)
-  expect(grow(1, 10)).toBe(13);
+  // growth is ceil(population * 0.1 * satisfaction / 100); all labor is free
+  // here, so the labor factor is 0 after the first week
+  expect(grow(1, 10)).toBe(12);
 });
 
 test("population growth is halved at satisfaction 50", () => {
@@ -569,7 +572,54 @@ test("population growth is halved at satisfaction 50", () => {
 });
 
 test("population does not grow with satisfaction 0", () => {
-  expect(grow(0, 10)).toBe(2);
+  // only the first week has the labor factor 100
+  expect(grow(0, 10)).toBe(3);
+});
+
+test("the labor factor follows the free labor share", () => {
+  expect(game.getLaborFactor(0)).toBe(50);
+  expect(game.getLaborFactor(0.05)).toBeCloseTo(75);
+  expect(game.getLaborFactor(0.1)).toBe(100);
+  expect(game.getLaborFactor(0.25)).toBe(100);
+  expect(game.getLaborFactor(0.5)).toBeCloseTo(50);
+  expect(game.getLaborFactor(0.75)).toBe(0);
+  expect(game.getLaborFactor(1)).toBe(0);
+});
+
+test("a game starts with labor factor 100 and no free labor share", () => {
+  const state = game.getState();
+  expect(state.laborFactor).toBe(100);
+  expect(state.freeLaborShare).toBe(0);
+  expect(state.satisfaction).toBe(state.ecology / 2 + 50);
+});
+
+test("satisfaction uses the labor factor of the last week", () => {
+  // the 2 residents work in forests: no free labor, factor 50
+  const state = game.calculateWeek();
+  expect(state.freeLaborShare).toBe(0);
+  expect(state.laborFactor).toBe(50);
+  expect(state.satisfaction).toBeCloseTo((state.ecology + 50) / 2);
+});
+
+test("half of the labor free gives the labor factor 50", () => {
+  replaceTiles(board.getBuildings().length, testBuilding({ ecology: 1 }));
+  board.setBuilding(
+    { q: 0, r: 0 },
+    testBuilding({
+      ecology: 1,
+      consumes: { ...definitions.BuildingDefinition.Forest.consumes, labor: 1 },
+    }),
+  );
+  const state = game.calculateWeek();
+  expect(state.freeLaborShare).toBe(50);
+  expect(state.laborFactor).toBeCloseTo(50);
+});
+
+test("the labor factor of a week is used by the next growth", () => {
+  // a free share of 100 % gives the labor factor 0: satisfaction = ecology / 2
+  fillBoard(1, 1000);
+  expect(game.calculateWeek().laborFactor).toBe(0);
+  expect(game.getState().satisfaction).toBeCloseTo(50);
 });
 
 test("getState reflects a build", () => {
