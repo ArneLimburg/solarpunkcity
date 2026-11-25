@@ -1,6 +1,10 @@
 # Lint, build and run the unit and e2e tests for every pull request against main and for every
 # branch without an open pull request against main. A push to a branch with such a pull request is
 # built by the pull_request event only; its skipped push build counts as passed.
+#
+# The e2e tests run in four parallel shards. The job "build" collects the shards, merges their
+# coverage and Playwright reports and checks the coverage thresholds. Its name is the required
+# status check of the ruleset, so it must stay "build".
 name: Build
 
 on:
@@ -36,7 +40,8 @@ jobs:
           pr=$(gh pr list --head "$BRANCH" --base main --state open --json number --jq '.[0].number // empty')
           echo "open=$([ -n "$pr" ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
 
-  build:
+  checks:
+    name: Lint, build and unit tests
     needs: pull-request
     # Also runs when the lookup was skipped (pull_request, workflow_dispatch) or failed.
     if: |
@@ -54,14 +59,89 @@ jobs:
       - run: npm run lint
       - run: npm run build
       - run: npm run test --if-present
+
+  e2e:
+    name: e2e (${{ matrix.shard }}/4)
+    needs: pull-request
+    # Also runs when the lookup was skipped (pull_request, workflow_dispatch) or failed.
+    if: |
+      !cancelled() &&
+      (github.event_name != 'push' || needs.pull-request.outputs.open != 'true')
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    env:
+      # a shard only writes raw coverage data; the thresholds are checked by the job "build"
+      E2E_COVERAGE_SHARD: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: ".nvmrc"
+          cache: "npm"
+      - run: npm ci
       - run: npx playwright install --with-deps chromium
-      - run: npm run test:e2e
-      - if: failure()
+      - run: npm run test:e2e -- --shard=${{ matrix.shard }}/4
+      - if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-coverage-${{ matrix.shard }}
+          path: coverage/e2e-shard/raw/
+          if-no-files-found: ignore
+          retention-days: 1
+      - if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-blob-${{ matrix.shard }}
+          path: blob-report/
+          if-no-files-found: ignore
+          retention-days: 1
+
+  build:
+    name: build
+    needs: [pull-request, checks, e2e]
+    # Also runs when a shard failed, to merge what is there. Skipped like the jobs it needs.
+    if: |
+      !cancelled() &&
+      (github.event_name != 'push' || needs.pull-request.outputs.open != 'true')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: ".nvmrc"
+          cache: "npm"
+      - run: npm ci
+      - name: Download the e2e coverage of the shards
+        uses: actions/download-artifact@v4
+        with:
+          pattern: e2e-coverage-*
+          path: coverage/e2e-raw
+      - name: Download the Playwright reports of the shards
+        uses: actions/download-artifact@v4
+        with:
+          pattern: e2e-blob-*
+          path: all-blob-reports
+          merge-multiple: true
+      - name: Merge the e2e coverage and check the thresholds
+        if: needs.checks.result == 'success' && needs.e2e.result == 'success'
+        run: npm run test:e2e:merge
+      - name: Merge the Playwright reports
+        if: needs.e2e.result != 'success'
+        run: npx playwright merge-reports --reporter html ./all-blob-reports
+      - if: needs.e2e.result != 'success'
         uses: actions/upload-artifact@v4
         with:
           name: playwright-report
-          path: |
-            playwright-report/
-            test-results/
+          path: playwright-report/
           if-no-files-found: ignore
           retention-days: 7
+      - name: Fail unless all checks and e2e shards succeeded
+        if: needs.checks.result != 'success' || needs.e2e.result != 'success'
+        run: |
+          echo "checks: ${{ needs.checks.result }}, e2e: ${{ needs.e2e.result }}"
+          exit 1

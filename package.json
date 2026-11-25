@@ -11,7 +11,8 @@
     "preview": "vite preview",
     "test": "vitest run --coverage",
     "test:watch": "vitest",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test:e2e:merge": "node --experimental-strip-types --disable-warning=ExperimentalWarning e2e/merge-coverage.ts"
   },
   "dependencies": {
     "@babylonjs/core": "^8.56.2",
