@@ -151,6 +151,9 @@ export function createTileRenderer(
     }
     for (const material of Object.values(materials)) {
       const mesh = template.clone(`tile_${material.name}_${chunk}`);
+      // Babylon keeps the thin instance buffers in the geometry, so clones sharing one geometry
+      // would overwrite each other's matrices; each layer gets its own copy of the small template
+      mesh.makeGeometryUnique();
       mesh.material = material;
       mesh.isPickable = false;
       const keys =
