@@ -114,6 +114,16 @@ test("status bar shows ecology and satisfaction", async ({ page }) => {
   await expect(labor).not.toHaveClass(/error/);
 });
 
+test("status bar shows a stock resource once it is available", async ({
+  page,
+}) => {
+  await page.goto("./");
+  await page.waitForFunction(() => window.__solarpunk !== undefined);
+  await expect(page.getByTestId("status-ore")).toHaveCount(0);
+  await page.evaluate(() => window.__solarpunk?.addResources({ ore: 5 }));
+  await expect(page.getByTestId("status-ore")).toContainText("5");
+});
+
 test("labor entry is marked as error when labor is not used well", async ({
   page,
 }) => {
