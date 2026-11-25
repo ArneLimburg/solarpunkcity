@@ -17,7 +17,7 @@ const Chip: FC<{
   error?: boolean;
 }> = ({ name, icon, value, error }) => (
   <span
-    className={error ? "chip no-margin error" : "chip no-margin"}
+    className={`chip no-margin${error ? " error" : ""}`}
     title={name}
     aria-label={name}
     data-testid={`detail-${name}`}
@@ -27,13 +27,15 @@ const Chip: FC<{
   </span>
 );
 
+const noErrors: Set<keyof Resources> = new Set();
+
 const Section: FC<{
   title: string;
   resources: Resources;
   testId: string;
   errors?: Set<keyof Resources>;
   woodSuffix?: string;
-}> = ({ title, resources, testId, errors, woodSuffix }) => {
+}> = ({ title, resources, testId, errors = noErrors, woodSuffix }) => {
   const entries = nonZeroResources(resources);
   if (entries.length === 0) return null;
   return (
@@ -50,7 +52,7 @@ const Section: FC<{
                 ? `${value} ${woodSuffix}`
                 : String(value)
             }
-            error={errors?.has(name)}
+            error={errors.has(name)}
           />
         ))}
       </div>
