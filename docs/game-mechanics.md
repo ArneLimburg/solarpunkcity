@@ -7,8 +7,13 @@ week passes every second. Everything below happens once per week unless stated o
 
 - The board is a field of hexagonal tiles: a centre tile and 30 rings around it, 2,791 tiles in
   total.
-- At the start every tile is covered by forest, except the centre tile: it holds the
-  **settlers' camp**.
+- At the start every tile is covered by forest, except the centre tile, which holds the
+  **settlers' camp**, and the **river**.
+- The river flows across the whole board from the mountain edge (top) to the sea edge (bottom)
+  in a gentle S-curve. It is one tile wide, always the same in every game, and passes the camp a
+  few tiles to the east. River tiles cannot be built on or over, so you have to plan around the
+  river. Like forest it has an ecology value of +1, so it does not change the ecology at the
+  start. It produces and needs nothing.
 - The settlement starts with **2 residents**, **0 wood** and **10 food**. It has no wood storage
   yet, so the wood capacity is 0 (see section 2).
 - The camp houses the 2 first settlers and feeds them on its own: it produces 2 food per week
@@ -58,7 +63,7 @@ Building is **not possible** if
 
 - part of the building would lie outside the board,
 - part of the building would lie on a tile that already holds a building, or a construction site
-  (only forest can be cleared), or
+  (only forest can be cleared; the river cannot be built over), or
 - other resources than wood and work that the building costs are missing, or
 - the wood in your stock plus the cleared wood that the site does not take (the cleared wood
   minus the wood cost, never less than 0) would be more than the wood capacity (including the
@@ -179,12 +184,14 @@ storage it is still built: forestry delivers the missing wood to the site, it ju
 | Wood storage         | 1     | –    | – (finished at once) | –                     | –                 | –                 | –                 | 0         | 0                |
 | Forest               | 1     | –    | –                    | –                     | –                 | 0.5 wood          | 1 worker          | 0         | +1               |
 | Settlers' camp       | 1     | –    | –                    | –                     | –                 | 2 food            | –                 | 2         | 0                |
+| River                | 1     | –    | –                    | –                     | –                 | –                 | –                 | 0         | +1               |
 
 The wood of a building is not paid when placing, but used up during construction.
 
 The wood storage is free, is finished immediately when placed (no construction site, gravel
 ground and a log yard on the map), stores 100 wood and cannot be built over. The forest and the
-settlers' camp cannot be built. A cleared forest tile gives 3 wood, the camp gives nothing.
+settlers' camp cannot be built. A cleared forest tile gives 3 wood, the camp gives nothing. The
+river cannot be built and cannot be built over.
 
 ## 8. Example: the first weeks
 

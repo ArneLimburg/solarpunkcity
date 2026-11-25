@@ -7,7 +7,7 @@ import {
   isUnderConstruction,
   tilePosition,
 } from "./helpers";
-import { GRID_RADIUS, isOnBoard } from "../src/board";
+import { GRID_RADIUS, getRiverCourse, isOnBoard } from "../src/board";
 
 const origin = { q: 0, r: 0 };
 const east = { q: 3, r: 0 };
@@ -295,15 +295,20 @@ test("a finished building replaces its construction site after its weeks of work
     .toBe(1);
 });
 
-test("every board tile except the camp starts as forest floor", async ({
+test("every board tile except the camp and the river starts as forest floor", async ({
   page,
 }) => {
   await page.goto("./");
   await page.waitForFunction(() => window.__solarpunk !== undefined);
+  const river = getRiverCourse(GRID_RADIUS);
+  const isRiver = (q: number, r: number) =>
+    river.some((tile) => tile.q === q && tile.r === r);
   const tiles = [];
   for (let q = -GRID_RADIUS; q <= GRID_RADIUS; q++) {
     for (let r = -GRID_RADIUS; r <= GRID_RADIUS; r++) {
-      if (isOnBoard({ q, r }) && (q !== 0 || r !== 0)) tiles.push({ q, r });
+      if (isOnBoard({ q, r }) && (q !== 0 || r !== 0) && !isRiver(q, r)) {
+        tiles.push({ q, r });
+      }
     }
   }
   const materials = await page.evaluate(
@@ -315,6 +320,38 @@ test("every board tile except the camp starts as forest floor", async ({
   expect(
     await page.evaluate((c) => window.__solarpunk?.getTileMaterial(c), origin),
   ).toBe("meadow");
+});
+
+test("the river is water without trees and cannot be built on", async ({
+  page,
+}) => {
+  await page.goto("./");
+  await page.waitForFunction(() => window.__solarpunk !== undefined);
+  const river = getRiverCourse(GRID_RADIUS);
+  const materials = await page.evaluate(
+    (list) => list.map((c) => window.__solarpunk?.getTileMaterial(c)),
+    river,
+  );
+  expect(materials).toHaveLength(2 * GRID_RADIUS + 1);
+  expect(materials.every((m) => m === "water")).toBe(true);
+  const trees = await page.evaluate(
+    (list) => list.map((c) => window.__solarpunk?.getTreeCount(c)),
+    river,
+  );
+  expect(trees.every((count) => count === 0)).toBe(true);
+
+  // the ring is red on the river
+  await page.getByRole("button", { name: "FARM", exact: true }).click();
+  await page.getByRole("button", { name: "Farm", exact: true }).click();
+  const tile = river.find(({ r }) => r === 0)!;
+  const { x, y } = await tilePosition(page, tile);
+  await page.mouse.move(x, y, { steps: 5 });
+  await expect
+    .poll(() => page.evaluate(() => window.__solarpunk?.getRingTile()))
+    .toEqual(tile);
+  expect(await page.evaluate(() => window.__solarpunk?.isRingBlocked())).toBe(
+    true,
+  );
 });
 
 test("the camp is shown as one model and disappears when built over", async ({
@@ -607,7 +644,7 @@ test("the corner fills around a new farm follow the grounds of the tiles", async
 
   // the outermost corner of the board has a single tile and no fill
   expect(await fill({ q: GRID_RADIUS, r: 0 }, 0)).toBeUndefined();
-  expect(await fill({ q: 5, r: 0 }, 0)).toBe("forestFloor");
+  expect(await fill({ q: -5, r: 0 }, 0)).toBe("forestFloor");
 
   await selectFarm(page);
   const farm = await tilePosition(page, origin);

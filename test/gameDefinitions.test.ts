@@ -30,6 +30,26 @@ test("the wood storage is a free storage building without recycling", () => {
   expect(storage.recycling).toBeUndefined();
 });
 
+test("the river is a not buildable water tile that cannot be built over", () => {
+  const river = BuildingDefinition.River;
+  expect(BuildingCategories.WATER.buildable).toBe(false);
+  expect(BuildingTypes.River).toEqual({
+    category: "WATER",
+    icon: "water/river.svg",
+  });
+  expect(river.name).toBe("River");
+  expect(river.description).toBe(
+    "Fresh water flowing from the mountains to the sea",
+  );
+  expect(river.size).toBe(1);
+  expect(river.resident).toBe(0);
+  expect(river.ecology).toBe(1);
+  expect(river.recycling).toBeUndefined();
+  for (const resources of [river.cost, river.produces, river.consumes]) {
+    expect(Object.values(resources).every((value) => value === 0)).toBe(true);
+  }
+});
+
 const exists = (icon: string) => existsSync(join("public", icon));
 
 test("every buildable category icon refers to an existing file", () => {

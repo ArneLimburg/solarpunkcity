@@ -52,6 +52,20 @@ test("cannot build outside the board", () => {
   expect(game.canBuild("Forest", { q: 31, r: -1 })).toBe(false);
 });
 
+test("cannot build on or over the river", () => {
+  const tile = board
+    .getRiverCourse(board.GRID_RADIUS)
+    .find(({ r }) => r === -10)!;
+  expect(game.canBuild("OrganicHomestead", tile)).toBe(false);
+  // a farm next to the river touches it
+  expect(game.canBuild("Farm", { q: tile.q - 1, r: tile.r })).toBe(false);
+  expect(game.canBuild("Farm", { q: tile.q - 4, r: tile.r })).toBe(true);
+});
+
+test("the river does not change the ecology at game start", () => {
+  expect(game.getState().ecology).toBe(100);
+});
+
 test("fresh game", () => {
   const { resources, population } = game.calculateWeek();
   expect(population).toBe(2);
