@@ -14,7 +14,8 @@ Deployed to GitHub Pages at https://arnelimburg.github.io/solarpunkcity/ on ever
 - Playwright (`@playwright/test`, Chromium only) for e2e smoke tests in `e2e/`; specs import
   `test`/`expect` from `e2e/fixtures.ts`, which collects V8 coverage; `npm run test:e2e` enforces
   per file 100 % functions and 95 % statements, branches and lines of `src/**/*.tsx`
-  (monocart-coverage-reports, report in `coverage/e2e/`)
+  (monocart-coverage-reports, report in `coverage/e2e/`); CI runs four shards in parallel
+  (`E2E_COVERAGE_SHARD=1`: raw coverage only, blob reporter) and the `build` job merges them
 
 ## Commands
 
@@ -29,6 +30,8 @@ Deployed to GitHub Pages at https://arnelimburg.github.io/solarpunkcity/ on ever
 - `npm run test:watch` – unit tests in watch mode
 - `npm run test:e2e` – Playwright smoke tests (starts the dev server itself, CI runs this);
   fails if the e2e coverage of `src/**/*.tsx` is below the thresholds
+- `npm run test:e2e:merge [dir]` – merges the raw e2e coverage of the shards (one subdirectory each
+  in `coverage/e2e-raw` by default) into `coverage/e2e` and checks the same thresholds
 
 Always run `npm run lint`, `npm run build` and `npm test` before considering a change done.
 

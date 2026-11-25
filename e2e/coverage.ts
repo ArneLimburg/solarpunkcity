@@ -18,11 +18,15 @@ const requiredFiles = [
   "src/main.tsx",
 ];
 
+// applied while adding, so raw shard data only holds the relevant entries
+const entryFilter: CoverageReportOptions["entryFilter"] = (entry) =>
+  /\/src\/.*\.tsx/.test(entry.url);
+
 export const coverageOptions: CoverageReportOptions = {
   name: "Solar Punk City e2e coverage",
   outputDir: "coverage/e2e",
   reports: ["console-summary", "v8", "lcovonly"],
-  entryFilter: (entry) => /\/src\/.*\.tsx/.test(entry.url),
+  entryFilter,
   sourceFilter: (sourcePath) => sourcePath.endsWith(".tsx"),
   sourcePath: (filePath) => `src/${filePath.split("/").pop()}`,
   onEnd: (coverageResults) => {
@@ -52,4 +56,16 @@ export const coverageOptions: CoverageReportOptions = {
   },
 };
 
-export const createCoverageReport = () => new CoverageReport(coverageOptions);
+// In a CI shard (E2E_COVERAGE_SHARD=1) a single shard cannot meet the thresholds. It only writes
+// its raw data to coverage/e2e-shard/raw; `npm run test:e2e:merge` merges all shards and checks.
+export const shardOptions: CoverageReportOptions = {
+  name: coverageOptions.name,
+  outputDir: "coverage/e2e-shard",
+  reports: ["raw"],
+  entryFilter,
+};
+
+export const createCoverageReport = () =>
+  new CoverageReport(
+    process.env.E2E_COVERAGE_SHARD ? shardOptions : coverageOptions,
+  );
