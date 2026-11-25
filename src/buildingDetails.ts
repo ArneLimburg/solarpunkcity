@@ -12,7 +12,9 @@ function maxRecycling(resource: keyof Resources): number {
 
 /**
  * Cost resources that cannot be paid even if every tile recycles the most.
- * Labor is construction work done over several weeks, so it is never missing.
+ * Labor is construction work done over several weeks, so it is never missing;
+ * the wood of a construction site is delivered week by week, so it is not
+ * missing either.
  */
 export function unaffordableCosts(
   type: BuildingType,
@@ -24,10 +26,17 @@ export function unaffordableCosts(
       .filter(
         ([name, value]) =>
           name !== "labor" &&
+          !(name === "wood" && cost.labor > 0) && // delivered during construction
           available[name] + size * maxRecycling(name) < value,
       )
       .map(([name]) => name),
   );
+}
+
+// wood a builder uses per week of work; 0 for buildings without construction work
+export function woodPerBuilderWeek(type: BuildingType): number {
+  const { cost } = BuildingDefinition[type];
+  return cost.labor > 0 ? cost.wood / cost.labor : 0;
 }
 
 export function nonZeroResources(

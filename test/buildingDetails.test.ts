@@ -4,7 +4,9 @@ import {
   formatTiles,
   nonZeroResources,
   unaffordableCosts,
+  woodPerBuilderWeek,
 } from "../src/buildingDetails";
+import { BuildingDefinition } from "../src/gameDefinitions";
 import { emptyResources } from "../src/resources";
 
 test("nonZeroResources lists only non-zero values", () => {
@@ -28,14 +30,24 @@ test("formatTiles uses singular and plural", () => {
 
 test("unaffordableCosts accounts for the best-case recycling", () => {
   const wood = (amount: number) => ({ ...emptyResources, wood: amount });
-  expect([...unaffordableCosts("OrganicHomestead", wood(0))]).toEqual(["wood"]);
-  expect(unaffordableCosts("OrganicHomestead", wood(1)).size).toBe(0);
-  expect([...unaffordableCosts("AgroIndustrial", wood(7))]).toEqual(["wood"]);
-  expect(unaffordableCosts("AgroIndustrial", wood(8)).size).toBe(0);
-  expect([...unaffordableCosts("AppartmentBuilding", wood(6))]).toEqual([
-    "wood",
-  ]);
-  expect(unaffordableCosts("AppartmentBuilding", wood(7)).size).toBe(0);
+  // a building without construction work is paid in full when placed
+  const storage = BuildingDefinition.WoodStorage;
+  storage.cost = { ...emptyResources, wood: 4 };
+  expect([...unaffordableCosts("WoodStorage", wood(0))]).toEqual(["wood"]);
+  expect(unaffordableCosts("WoodStorage", wood(1)).size).toBe(0);
+  storage.cost = { ...emptyResources, wood: 65 };
+  expect([...unaffordableCosts("WoodStorage", wood(61))]).toEqual(["wood"]);
+  expect(unaffordableCosts("WoodStorage", wood(62)).size).toBe(0);
+});
+
+test("unaffordableCosts never reports the wood of a construction site", () => {
+  expect(unaffordableCosts("Farm", emptyResources).size).toBe(0);
+  expect(unaffordableCosts("AgroIndustrial", emptyResources).size).toBe(0);
+});
+
+test("woodPerBuilderWeek is the wood cost per work", () => {
+  expect(woodPerBuilderWeek("Farm")).toBeCloseTo(25 / 24);
+  expect(woodPerBuilderWeek("WoodStorage")).toBe(0);
 });
 
 test("unaffordableCosts never reports the construction work", () => {

@@ -106,26 +106,28 @@ test("a building that cannot produce is skipped, the loop continues", () => {
   expectNoNegative(resources);
 });
 
-test("canBuild is true on a recyclable tile when recycling pays for it", () => {
-  game.grantResources({ wood: -10 }); // no start wood, only recycling
-  // OrganicHomestead costs 4 wood, the forest recycles only 3 wood
+test("canBuild does not check the wood stock", () => {
+  game.grantResources({ wood: -10 }); // no wood at all
+  expect(game.canBuild("OrganicHomestead", { q: 0, r: 0 })).toBe(true);
+  expect(game.canBuild("Farm", { q: 0, r: 0 })).toBe(true);
+  expect(game.canBuild("AgroIndustrial", { q: 0, r: 0 })).toBe(true);
+});
+
+test("canBuild is false when other resources are missing", () => {
+  const homestead = definitions.BuildingDefinition.OrganicHomestead;
+  homestead.cost = { ...homestead.cost, ore: 5 };
   expect(game.canBuild("OrganicHomestead", { q: 0, r: 0 })).toBe(false);
-  game.grantResources({ wood: 1 });
+  game.grantResources({ ore: 5 });
   expect(game.canBuild("OrganicHomestead", { q: 0, r: 0 })).toBe(true);
 });
 
-test("canBuild is false when there are not enough resources", () => {
-  // AgroIndustrial costs 65 wood, only 7 + 19 * 3 (recycling) are available
-  game.grantResources({ wood: -3 });
-  expect(game.canBuild("AgroIndustrial", { q: 0, r: 0 })).toBe(false);
-});
-
-test("canBuild depends on cost minus recycling of the whole footprint", () => {
-  // Farm costs 25 wood, 7 forests recycle 21 wood
-  game.grantResources({ wood: -6 }); // 4 + 21 = 25
+test("a shortfall of recycled wood does not make room in the storage", () => {
+  game.grantResources({ wood: 990 }); // the storage of 1000 is full
+  // Farm costs 25 wood, 7 forests recycle 21 wood: everything goes to the site
   expect(game.canBuild("Farm", { q: 0, r: 0 })).toBe(true);
-  game.grantResources({ wood: -1 });
-  expect(game.canBuild("Farm", { q: 0, r: 0 })).toBe(false);
+  const homestead = definitions.BuildingDefinition.OrganicHomestead;
+  homestead.cost = { ...homestead.cost, wood: 1 }; // 2 of the 3 wood are left
+  expect(game.canBuild("OrganicHomestead", { q: 0, r: 0 })).toBe(false);
 });
 
 test("canBuild is false if the footprint reaches over the board edge", () => {
@@ -160,13 +162,6 @@ test("canPlace is false off the board and on non-recyclable buildings", () => {
   expect(game.canPlace("Farm", { q: 0, r: 0 })).toBe(true);
 });
 
-test("grantResources makes a building affordable", () => {
-  game.grantResources({ wood: -4 });
-  expect(game.canBuild("AgroIndustrial", { q: 0, r: 0 })).toBe(false);
-  game.grantResources({ wood: 2 }); // 8 + 57 = 65
-  expect(game.canBuild("AgroIndustrial", { q: 0, r: 0 })).toBe(true);
-});
-
 test("Farm costs 25 wood and AgroIndustrial 65 wood", () => {
   expect(definitions.BuildingDefinition.Farm.cost.wood).toBe(25);
   expect(definitions.BuildingDefinition.AgroIndustrial.cost.wood).toBe(65);
@@ -180,7 +175,9 @@ test("build recycles all footprint tiles of the old buildings", () => {
   for (const tile of footprint) {
     expect(board.getBuilding(tile)).toBe(definitions.BuildingDefinition.Farm);
   }
-  expect(game.getState().resources.wood).toBe(before + 7 * 3 - 25);
+  // the recycled wood goes into the supply of the site, nothing is paid
+  expect(game.getState().resources.wood).toBe(before);
+  expect(board.getConstructionSites()[0].siteWood).toBe(7 * 3);
 });
 
 test("a farm produces and houses once, not once per tile", () => {
@@ -224,15 +221,16 @@ test("build without recycling only pays the cost", () => {
   expect(board.getBuilding({ q: 1, r: 0 })).toBe(
     definitions.BuildingDefinition.OrganicHomestead,
   );
-  // 10 + 10 (granted) - 4 (cost) + 0.5 (forest)
-  expect(game.calculateWeek().resources.wood).toBeCloseTo(16);
+  // 10 + 10 (granted) - 2 (wood used by the 2 builders this week)
+  expect(game.calculateWeek().resources.wood).toBeCloseTo(18);
 });
 
 test("build recycles the old building", () => {
   game.grantResources({ wood: 10 });
   game.build("OrganicHomestead", { q: 1, r: 0 });
-  // 10 + 10 (granted) + 3 (recycling) - 4 (cost); the homestead takes the labor
-  expect(game.calculateWeek().resources.wood).toBeCloseTo(19);
+  // the recycled 3 wood are in the site; the 2 builders use 2 of them
+  expect(game.calculateWeek().resources.wood).toBeCloseTo(20);
+  expect(board.getConstructionSites()[0].siteWood).toBeCloseTo(1);
 });
 
 test("population does not grow when no food remains after eating", () => {
@@ -452,8 +450,9 @@ test("clearing a forest yields 3 wood, a forest produces 0.5 wood", () => {
   expect(forest.produces.wood).toBe(0.5);
   expect(forest.consumes.labor).toBe(1);
   game.build("OrganicHomestead", { q: 0, r: 0 });
-  // 10 + 3 (recycling) - 4 (cost)
-  expect(game.getState().resources.wood).toBe(9);
+  // the 3 wood of the cleared forest go into the site, not into the stock
+  expect(game.getState().resources.wood).toBe(10);
+  expect(board.getConstructionSites()[0].siteWood).toBe(3);
 });
 
 function replaceTiles(count: number, building: Building) {
@@ -564,14 +563,14 @@ test("getState reflects a build", () => {
   const before = game.getState();
   game.build("AppartmentBuilding", { q: 0, r: 0 });
   const after = game.getState();
-  expect(after.resources.wood).toBeLessThan(before.resources.wood);
+  expect(after.resources.wood).toBe(before.resources.wood);
   expect(after.constructionSites).toBe(before.constructionSites + 1);
 });
 
 test("the labor of the cost is not paid from the stock", () => {
   game.build("Farm", { q: 0, r: 0 });
   expect(game.getState().resources.labor).toBe(0);
-  expect(game.getState().resources.wood).toBe(10 + 7 * 3 - 25);
+  expect(game.getState().resources.wood).toBe(10);
 });
 
 test("canBuild does not check labor", () => {

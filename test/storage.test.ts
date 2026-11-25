@@ -22,8 +22,8 @@ test("a new game has 0 wood and no capacity", () => {
   expect(state.capacity.wood).toBe(0);
 });
 
-test("a homestead cannot clear forest at game start, a wood storage can", () => {
-  expect(game.canBuild("OrganicHomestead", { q: 1, r: 0 })).toBe(false);
+test("a wood storage can clear forest at game start, a homestead too", () => {
+  expect(game.canBuild("OrganicHomestead", { q: 1, r: 0 })).toBe(true);
   expect(game.canBuild("WoodStorage", { q: 1, r: 0 })).toBe(true);
   placeStorage({ q: 1, r: 0 });
   const state = game.getState();

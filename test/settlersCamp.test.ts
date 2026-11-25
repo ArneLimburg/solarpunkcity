@@ -86,7 +86,7 @@ test("building over the camp removes housing and food without a refund", () => {
   game.build("OrganicHomestead", { q: 0, r: 0 });
   const state = game.getState();
   expect(state.housing).toBe(0);
-  expect(state.resources.wood).toBe(before.wood - 4);
+  expect(state.resources.wood).toBe(before.wood); // the camp gives no wood, the site gets it later
   expect(state.resources.food).toBe(before.food);
   expect(state.population).toBe(2);
   // the settlers live from the food stock now

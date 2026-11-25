@@ -4,6 +4,7 @@ import {
   formatTiles,
   nonZeroResources,
   unaffordableCosts,
+  woodPerBuilderWeek,
 } from "./buildingDetails";
 import { BuildingDefinition, type BuildingType } from "./gameDefinitions";
 import { emptyResources, type Resources } from "./resources";
@@ -31,7 +32,8 @@ const Section: FC<{
   resources: Resources;
   testId: string;
   errors?: Set<keyof Resources>;
-}> = ({ title, resources, testId, errors }) => {
+  woodSuffix?: string;
+}> = ({ title, resources, testId, errors, woodSuffix }) => {
   const entries = nonZeroResources(resources);
   if (entries.length === 0) return null;
   return (
@@ -43,7 +45,11 @@ const Section: FC<{
             key={name}
             name={name}
             icon={resourceIcons[name]}
-            value={String(value)}
+            value={
+              name === "wood" && woodSuffix
+                ? `${value} ${woodSuffix}`
+                : String(value)
+            }
             error={errors?.has(name)}
           />
         ))}
@@ -100,10 +106,16 @@ export const BuildingDetailsPanel: FC<{
         resources={building.cost}
         testId="details-cost"
         errors={unaffordableCosts(type, resources)}
+        woodSuffix={building.cost.labor > 0 ? "during construction" : undefined}
       />
       {building.maxBuilders > 0 && (
         <div className="small-text" data-testid="details-builders">
           Builders per week: max {building.maxBuilders}
+        </div>
+      )}
+      {building.cost.wood > 0 && building.cost.labor > 0 && (
+        <div className="small-text" data-testid="details-wood-per-builder">
+          Wood per builder-week: {woodPerBuilderWeek(type).toFixed(1)}
         </div>
       )}
       <Section
