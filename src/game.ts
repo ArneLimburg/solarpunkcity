@@ -26,6 +26,7 @@ import {
   subtractResources,
   type Resources,
 } from "./resources";
+import { createRoster, syncRoster, type Resident } from "./settlers";
 
 export const INITIAL_RESOURCES: Resources = {
   ...emptyResources,
@@ -35,6 +36,9 @@ export const INITIAL_RESOURCES: Resources = {
 let currentResources: Resources = { ...INITIAL_RESOURCES };
 export const INITIAL_POPULATION = 2;
 let currentPopulation = INITIAL_POPULATION;
+// one record per person, in sync with the population
+const roster = createRoster(Math.floor(Math.random() * 2 ** 32));
+syncRoster(roster, INITIAL_POPULATION);
 let currentFoodBalance = 0;
 // free labor share of the last weekly tick in percent; the labor factor
 // derived from it is what residents judge in the next tick (no previous
@@ -194,6 +198,7 @@ export type GameState = {
   resources: Resources;
   capacity: Resources;
   population: number;
+  residents: Resident[]; // one per person, oldest first
   housing: number;
   ecology: number;
   satisfaction: number;
@@ -242,6 +247,7 @@ export function getState(): GameState {
     resources: { ...currentResources },
     capacity: getCapacity(),
     population: currentPopulation,
+    residents: [...roster.residents],
     housing: getAvailableHousing(),
     ecology: getEcology(),
     satisfaction: getSatisfaction(),
@@ -378,6 +384,7 @@ function calculateDevelopment() {
     currentResources.food = availableFood - startPopulation;
     currentPopulation += getGrowth(); // new residents work from next week on
   }
+  syncRoster(roster, currentPopulation); // newcomers are added, the newest leave first
   currentResources.labor = labor - construct(labor);
   calculateOtherProductions();
   // the free labor is between 0 and the start population

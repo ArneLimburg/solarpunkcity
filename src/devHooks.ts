@@ -12,6 +12,7 @@ import type { BuildingType } from "./gameDefinitions";
 import { build, finishConstruction, grantResources } from "./game";
 import { TILE_TOP, hexToPixel, tileKey } from "./hexGeometry";
 import type { Ring } from "./SelectionRing";
+import type { SettlerRenderer } from "./SettlerRenderer";
 
 type DevHooks = NonNullable<Window["__solarpunk"]>;
 
@@ -29,6 +30,9 @@ type DevHookSources = {
   getCornerMaterial: DevHooks["getCornerMaterial"];
   // shows the model of a finished building
   showBuilding: (coords: HexCoordinates, type: BuildingType) => void;
+  settlers: SettlerRenderer;
+  // shows the given number of generated residents; undefined: the real ones
+  showSettlers: (count: number | undefined) => void;
 };
 
 // the window.__solarpunk API used by the e2e tests
@@ -44,8 +48,23 @@ export function createDevHooks({
   getTreeCount,
   getCornerMaterial,
   showBuilding,
+  settlers,
+  showSettlers,
 }: DevHookSources): DevHooks {
+  // the draw calls of the last frame (the engine resets its counter after it)
+  let drawCalls = 0;
+  scene.onAfterRenderObservable.add(() => {
+    drawCalls = engine._drawCalls.current;
+  });
   return {
+    getSettlers: settlers.getSettlers,
+    getSettlerStats: () => ({
+      count: settlers.getSettlers().length,
+      trianglesPerFigure: settlers.getTriangleCount(),
+      meshes: settlers.getMeshCount(),
+      drawCalls,
+    }),
+    showSettlers,
     tileToScreen: (coords) => {
       const world = hexToPixel(coords.q, coords.r);
       world.y = TILE_TOP;

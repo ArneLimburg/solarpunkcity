@@ -23,10 +23,35 @@ import { createDevHooks } from "../src/devHooks";
 
 function setup() {
   const showBuilding = vi.fn();
+  const showSettlers = vi.fn();
   const toGlobal = vi.fn(() => "viewport");
+  const frame = { drawCalls: 0, afterRender: () => {} };
   const hooks = createDevHooks({
-    engine: { getRenderWidth: () => 200, getRenderHeight: () => 100 } as Engine,
-    scene: { getTransformMatrix: () => "matrix" } as unknown as Scene,
+    engine: {
+      getRenderWidth: () => 200,
+      getRenderHeight: () => 100,
+      _drawCalls: {
+        get current() {
+          return frame.drawCalls;
+        },
+      },
+    } as unknown as Engine,
+    scene: {
+      getTransformMatrix: () => "matrix",
+      onAfterRenderObservable: {
+        add: (callback: () => void) => {
+          frame.afterRender = callback;
+        },
+      },
+    } as unknown as Scene,
+    settlers: {
+      sync: vi.fn(),
+      boardChanged: vi.fn(),
+      getSettlers: () => [{ id: 1 }, { id: 2 }] as never,
+      getTriangleCount: () => 164,
+      getMeshCount: () => 2,
+    },
+    showSettlers,
     camera: { viewport: { toGlobal } } as unknown as ArcRotateCamera,
     canvas: { clientWidth: 100, clientHeight: 50 } as HTMLCanvasElement,
     ring: {
@@ -44,8 +69,24 @@ function setup() {
       corner === 2 ? "meadow" : undefined,
     showBuilding,
   });
-  return { hooks, toGlobal, showBuilding };
+  return { hooks, toGlobal, showBuilding, showSettlers, frame };
 }
+
+test("the settler hooks report figures, triangles and the last frame's draw calls", () => {
+  const { hooks, frame, showSettlers } = setup();
+  frame.drawCalls = 11;
+  frame.afterRender();
+  frame.drawCalls = 0; // the engine resets its counter after the frame
+  expect(hooks.getSettlers()).toHaveLength(2);
+  expect(hooks.getSettlerStats()).toEqual({
+    count: 2,
+    trianglesPerFigure: 164,
+    meshes: 2,
+    drawCalls: 11,
+  });
+  hooks.showSettlers(5);
+  expect(showSettlers).toHaveBeenCalledWith(5);
+});
 
 test("finishConstruction shows the models of the finished sites", () => {
   const { hooks, showBuilding } = setup();
