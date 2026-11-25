@@ -3,7 +3,12 @@ import { test, expect } from "./fixtures";
 
 // Crowd benchmark of the settler renderer.
 //
-// Reproduce: `npm run test:e2e -- e2e/settlerBenchmark.spec.ts`. It measures the same
+// Opt-in: every frame of the normal map takes 0.6-1.4 s under software rendering, so the
+// ~1,500 animation frames of this benchmark exceed the timeout of a normal CI run. The
+// test is skipped unless SETTLER_BENCHMARK=1 is set.
+//
+// Reproduce: `SETTLER_BENCHMARK=1 npm run test:e2e -- e2e/settlerBenchmark.spec.ts`
+// (add SETTLER_BENCHMARK_STRICT=1 for the frame-time assertion). It measures the same
 // map, camera and 800x600 viewport (Chromium with software rendering, see
 // playwright.config.ts) with 0 and with 1,000 moving settlers, drops the population
 // to 10 and 0 and lets it regrow to 1,000 in the same session. After 10 warm-up
@@ -57,6 +62,10 @@ async function measure(page: Page, count: number): Promise<Measurement> {
 test("1,000 moving settlers cost at most two draw calls and no stale figures remain", async ({
   page,
 }, testInfo) => {
+  test.skip(
+    !process.env.SETTLER_BENCHMARK,
+    "opt-in: run with SETTLER_BENCHMARK=1",
+  );
   test.setTimeout(300_000);
   await page.goto("./");
   await page.waitForFunction(() => window.__solarpunk !== undefined);

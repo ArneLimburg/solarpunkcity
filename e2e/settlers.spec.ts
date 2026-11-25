@@ -64,6 +64,44 @@ test("a figure is cheap: few triangles and two draw calls at most", async ({
   expect(stats.meshes).toBe(2);
 });
 
+test("generated settlers cost at most two draw calls and the roster comes back", async ({
+  page,
+}) => {
+  await start(page);
+  const frames = (count: number) =>
+    page.evaluate(
+      (n) =>
+        new Promise<void>((resolve) => {
+          let left = n;
+          const tick = () =>
+            --left <= 0 ? resolve() : requestAnimationFrame(tick);
+          requestAnimationFrame(tick);
+        }),
+      count,
+    );
+  const stats = () =>
+    page.evaluate(() => window.__solarpunk!.getSettlerStats());
+
+  await frames(2);
+  const roster = await stats();
+  expect(roster.count).toBe(2);
+
+  await page.evaluate(() => window.__solarpunk!.showSettlers(0));
+  await frames(2);
+  const baseline = await stats();
+  expect(baseline.count).toBe(0);
+
+  await page.evaluate(() => window.__solarpunk!.showSettlers(10));
+  await frames(2);
+  const crowd = await stats();
+  expect(crowd.count).toBe(10);
+  expect(crowd.drawCalls - baseline.drawCalls).toBeLessThanOrEqual(2);
+
+  await page.evaluate(() => window.__solarpunk!.showSettlers(undefined));
+  await frames(2);
+  expect((await stats()).count).toBe(2);
+});
+
 test("figures do not take part in picking: hovering and building work beneath them", async ({
   page,
 }) => {
