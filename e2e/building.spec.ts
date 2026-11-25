@@ -340,9 +340,12 @@ test("the river is water without trees and cannot be built on", async ({
   );
   expect(trees.every((count) => count === 0)).toBe(true);
 
-  // the ring is red on the river
+  // the ring is red on the river even with enough wood; the details panel is
+  // dismissed (the selection stays) because it covers the river tile
+  await grantWood(page);
   await page.getByRole("button", { name: "FARM", exact: true }).click();
   await page.getByRole("button", { name: "Farm", exact: true }).click();
+  await page.getByRole("button", { name: "Hide building details" }).click();
   const tile = river.find(({ r }) => r === 0)!;
   const { x, y } = await tilePosition(page, tile);
   await page.mouse.move(x, y, { steps: 5 });
