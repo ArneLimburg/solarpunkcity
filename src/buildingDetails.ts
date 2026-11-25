@@ -52,6 +52,10 @@ export function formatEcology(ecology: number): string {
   return (ecology > 0 ? "+" : "−") + Math.abs(ecology);
 }
 
+export function chipClassName(error: boolean | undefined): string {
+  return error ? "chip no-margin error" : "chip no-margin";
+}
+
 export function formatTiles(size: number): string {
   return size + (size === 1 ? " tile" : " tiles");
 }

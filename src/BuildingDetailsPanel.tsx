@@ -1,5 +1,6 @@
 import type { FC } from "react";
 import {
+  chipClassName,
   formatEcology,
   formatTiles,
   nonZeroResources,
@@ -17,7 +18,7 @@ const Chip: FC<{
   error?: boolean;
 }> = ({ name, icon, value, error }) => (
   <span
-    className={`chip no-margin${error ? " error" : ""}`}
+    className={chipClassName(error)}
     title={name}
     aria-label={name}
     data-testid={`detail-${name}`}
