@@ -16,6 +16,11 @@ type FakeMesh = {
   thinInstanceSetBuffer: ReturnType<typeof vi.fn>;
   thinInstanceRefreshBoundingInfo: ReturnType<typeof vi.fn>;
   thinInstanceBufferUpdated: ReturnType<typeof vi.fn>;
+  indices: number[];
+  getIndices: () => number[];
+  setIndices: ReturnType<typeof vi.fn>;
+  clone: (name: string) => FakeMesh;
+  setBoundingInfo: ReturnType<typeof vi.fn>;
 };
 
 const created = vi.hoisted(() => [] as unknown[]);
@@ -31,6 +36,14 @@ vi.mock("@babylonjs/core", () => {
       this.x = x;
       this.y = y;
       this.z = z;
+    }
+  }
+  class BoundingInfo {
+    minimum: Vector3;
+    maximum: Vector3;
+    constructor(minimum: Vector3, maximum: Vector3) {
+      this.minimum = minimum;
+      this.maximum = maximum;
     }
   }
   class Color3 {
@@ -67,12 +80,19 @@ vi.mock("@babylonjs/core", () => {
       ),
       thinInstanceRefreshBoundingInfo: vi.fn(),
       thinInstanceBufferUpdated: vi.fn(),
+      // 28 triangles for the top cap, 28 for the bottom cap and 60 for the sides
+      indices: Array.from({ length: 116 * 3 }, (_, i) => i),
+      getIndices: () => mesh.indices,
+      setIndices: vi.fn((indices: number[]) => (mesh.indices = indices)),
+      clone: (cloneName: string) => fakeMesh(cloneName),
+      setBoundingInfo: vi.fn(),
     };
     created.push(mesh);
     return mesh;
   };
   return {
     Vector3,
+    BoundingInfo,
     Color3,
     StandardMaterial,
     Quaternion: {
@@ -133,6 +153,11 @@ import {
   makeMaterial,
 } from "../src/TileRenderer";
 
+type BoundsInfo = {
+  minimum: { x: number; y: number; z: number };
+  maximum: { x: number; y: number; z: number };
+};
+
 const scene = {} as Scene;
 const TILE_COUNT = 3 * GRID_RADIUS * (GRID_RADIUS + 1) + 1;
 
@@ -141,19 +166,32 @@ function setup() {
   const materials = createGroundMaterials(scene);
   const renderer = createTileRenderer(scene, materials);
   const meshes = created as FakeMesh[];
+  // all chunk meshes of a ground material
   const mesh = (material: StandardMaterial) =>
-    meshes.find((m) => m.name === `tile_${material.name}`)!;
+    meshes.filter((m) => m.name.startsWith(`tile_${material.name}_`));
   const setGround = (coords: HexCoordinates, material: StandardMaterial) =>
     renderer.setGrounds([coords], material);
   return { materials, renderer, meshes, mesh, setGround };
 }
 
-// the [angle, x, z] of the matrices in the buffer of a mesh
-function placed(mesh: FakeMesh) {
+const count = (group: FakeMesh[]) =>
+  group.reduce((sum, m) => sum + m.thinInstanceCount, 0);
+const uploads = (group: FakeMesh[]) =>
+  group.reduce(
+    (sum, m) => sum + m.thinInstanceBufferUpdated.mock.calls.length,
+    0,
+  );
+const clearUploads = (group: FakeMesh[]) =>
+  group.forEach((m) => m.thinInstanceBufferUpdated.mockClear());
+
+// the [angle, x, z] of the matrices in the buffers of a group of meshes
+function placed(group: FakeMesh[]) {
   const result = new Set<string>();
-  for (let i = 0; i < mesh.thinInstanceCount; i++) {
-    const [angle, x, z] = mesh.buffer!.slice(i * 16, i * 16 + 3);
-    result.add([angle, x, z].map((value) => value.toFixed(4)).join(","));
+  for (const mesh of group) {
+    for (let i = 0; i < mesh.thinInstanceCount; i++) {
+      const [angle, x, z] = mesh.buffer!.slice(i * 16, i * 16 + 3);
+      result.add([angle, x, z].map((value) => value.toFixed(4)).join(","));
+    }
   }
   return result;
 }
@@ -191,41 +229,72 @@ test("exactly one base mesh per ground material holds the tiles as thin instance
   expect(renderer.tiles).toHaveLength(TILE_COUNT);
   expect(renderer.tiles.every(isOnBoard)).toBe(true);
 
+  const template = meshes.find((m) => m.name === "tileTemplate")!;
+  expect(template.isPickable).toBe(false);
+  expect(template.isVisible).toBe(false);
+  // 6 rounded corners with 4 segments, i.e. 5 points each
+  expect(template.shape).toHaveLength(30);
+  // the bottom cap (the second 28 triangles) is dropped
+  expect(template.indices).toHaveLength((116 - 28) * 3);
+  expect(template.indices.slice(0, 84)).toEqual(
+    Array.from({ length: 84 }, (_, i) => i),
+  );
+  expect(template.indices.slice(84, 87)).toEqual([168, 169, 170]);
+
   const tileMeshes = meshes.filter((m) => m.name.startsWith("tile_"));
-  expect(tileMeshes.map((m) => m.name)).toEqual([
-    "tile_forestFloor",
-    "tile_meadow",
-    "tile_farmland",
-    "tile_soil",
-    "tile_gravel",
-  ]);
+  for (const material of Object.values(materials)) {
+    // one mesh per spatial chunk, all sharing the material
+    expect(mesh(material).length).toBeGreaterThan(10);
+    expect(mesh(material).map((m) => m.material)).toEqual(
+      mesh(material).map(() => material),
+    );
+  }
+  expect(tileMeshes).toHaveLength(5 * mesh(materials.meadow).length);
   for (const tileMesh of tileMeshes) {
     expect(tileMesh.isPickable).toBe(false);
-    // 6 rounded corners with 4 segments, i.e. 5 points each
-    expect(tileMesh.shape).toHaveLength(30);
-    expect(tileMesh.thinInstanceRefreshBoundingInfo).toHaveBeenCalledWith(true);
-    // Babylon must not shrink the full-board bounds to the current instances
+    // Babylon must not shrink the chunk bounds to the current instances
     expect(tileMesh.doNotSyncBoundingInfo).toBe(true);
+    expect(tileMesh.setBoundingInfo).toHaveBeenCalledTimes(1);
   }
+  // the chunk is far smaller than the board
+  const bounds = mesh(materials.forestFloor).map(
+    (m) => m.setBoundingInfo.mock.calls[0][0] as BoundsInfo,
+  );
+  for (const { minimum, maximum } of bounds) {
+    expect(maximum.x - minimum.x).toBeLessThan(25);
+    expect(maximum.z - minimum.z).toBeLessThan(25);
+    expect(maximum.y).toBe(TILE_TOP);
+  }
+  // every tile lies inside the bounds of a chunk
+  const center = hexToPixel(2, -1);
+  expect(
+    bounds.some(
+      ({ minimum, maximum }) =>
+        minimum.x <= center.x - 1 &&
+        maximum.x >= center.x + 1 &&
+        minimum.z <= center.z - 1 &&
+        maximum.z >= center.z + 1,
+    ),
+  ).toBe(true);
   // empty layers are hidden, otherwise they are drawn once at the origin
-  expect(mesh(materials.forestFloor).isVisible).toBe(true);
-  expect(mesh(materials.meadow).isVisible).toBe(false);
-  expect(mesh(materials.farmland).isVisible).toBe(false);
-  expect(mesh(materials.soil).isVisible).toBe(false);
-  expect(mesh(materials.meadow).material).toBe(materials.meadow);
+  expect(mesh(materials.forestFloor).every((m) => m.isVisible)).toBe(true);
+  expect(mesh(materials.meadow).some((m) => m.isVisible)).toBe(false);
+  expect(mesh(materials.farmland).some((m) => m.isVisible)).toBe(false);
+  expect(mesh(materials.soil).some((m) => m.isVisible)).toBe(false);
 
-  expect(mesh(materials.forestFloor).thinInstanceCount).toBe(TILE_COUNT);
-  expect(mesh(materials.meadow).thinInstanceCount).toBe(0);
-  expect(mesh(materials.farmland).thinInstanceCount).toBe(0);
-  expect(mesh(materials.soil).thinInstanceCount).toBe(0);
-  expect(mesh(materials.gravel).thinInstanceCount).toBe(0);
+  expect(count(mesh(materials.forestFloor))).toBe(TILE_COUNT);
+  expect(count(mesh(materials.meadow))).toBe(0);
+  expect(count(mesh(materials.farmland))).toBe(0);
+  expect(count(mesh(materials.soil))).toBe(0);
+  expect(count(mesh(materials.gravel))).toBe(0);
   const forest = placed(mesh(materials.forestFloor));
   expect(forest.size).toBe(TILE_COUNT);
   expect(forest.has(matrixOf(2, -1))).toBe(true);
   // one finite matrix of 16 numbers per tile
-  const buffer = mesh(materials.forestFloor).buffer!;
-  expect(buffer).toHaveLength(TILE_COUNT * 16);
-  expect(buffer.every(Number.isFinite)).toBe(true);
+  for (const { buffer, thinInstanceCount } of mesh(materials.forestFloor)) {
+    expect(buffer).toHaveLength(thinInstanceCount * 16);
+    expect(buffer!.every(Number.isFinite)).toBe(true);
+  }
   expect(renderer.getInstanceStats()).toEqual({
     instances: TILE_COUNT,
     finiteMatrices: TILE_COUNT,
@@ -246,7 +315,9 @@ test("one invisible pickable plane at the tile top is the only pickable mesh", (
 
 test("the instance stats do not count non-finite matrices", () => {
   const { materials, renderer, mesh } = setup();
-  mesh(materials.forestFloor).buffer![16] = NaN;
+  mesh(materials.forestFloor).find(
+    (m) => m.thinInstanceCount > 1,
+  )!.buffer![16] = NaN;
   expect(renderer.getInstanceStats()).toEqual({
     instances: TILE_COUNT,
     finiteMatrices: TILE_COUNT - 1,
@@ -262,18 +333,18 @@ test("setGrounds moves a tile to the buffer of another material", () => {
   setGround({ q: 2, r: -1 }, materials.meadow);
   expect(renderer.getGround({ q: 2, r: -1 })).toBe("meadow");
   expect(renderer.getGround({ q: 0, r: 0 })).toBe("forestFloor");
-  expect(forest.thinInstanceCount).toBe(TILE_COUNT - 1);
-  expect(meadow.thinInstanceCount).toBe(1);
-  expect(forest.thinInstanceBufferUpdated).toHaveBeenCalledWith("matrix");
-  expect(meadow.thinInstanceBufferUpdated).toHaveBeenCalledWith("matrix");
+  expect(count(forest)).toBe(TILE_COUNT - 1);
+  expect(count(meadow)).toBe(1);
+  expect(uploads(forest)).toBe(1);
+  expect(uploads(meadow)).toBe(1);
   expect(placed(meadow)).toEqual(new Set([matrixOf(2, -1)]));
   expect(placed(forest).has(matrixOf(2, -1))).toBe(false);
   expect(placed(forest).size).toBe(TILE_COUNT - 1);
 
   // the same material again changes nothing
-  meadow.thinInstanceBufferUpdated.mockClear();
+  clearUploads(meadow);
   setGround({ q: 2, r: -1 }, materials.meadow);
-  expect(meadow.thinInstanceBufferUpdated).not.toHaveBeenCalled();
+  expect(uploads(meadow)).toBe(0);
 
   // moving the tile on, and moving the last tile of a buffer
   setGround({ q: 0, r: 0 }, materials.meadow);
@@ -282,7 +353,7 @@ test("setGrounds moves a tile to the buffer of another material", () => {
   expect(placed(farmland)).toEqual(new Set([matrixOf(2, -1)]));
   expect(renderer.getGround({ q: 2, r: -1 })).toBe("farmland");
   expect(renderer.getGround({ q: 0, r: 0 })).toBe("meadow");
-  expect(forest.thinInstanceCount).toBe(TILE_COUNT - 2);
+  expect(count(forest)).toBe(TILE_COUNT - 2);
   expect(placed(forest).size).toBe(TILE_COUNT - 2);
 
   // an earlier tile of a buffer is replaced by the last one
@@ -296,10 +367,10 @@ test("layers are hidden when empty and visible again when they hold tiles", () =
   const { materials, mesh, setGround } = setup();
   const meadow = mesh(materials.meadow);
   setGround({ q: 1, r: 0 }, materials.meadow);
-  expect(meadow.isVisible).toBe(true);
+  expect(meadow.filter((m) => m.isVisible)).toHaveLength(1);
   setGround({ q: 1, r: 0 }, materials.forestFloor);
-  expect(meadow.isVisible).toBe(false);
-  expect(meadow.thinInstanceCount).toBe(0);
+  expect(meadow.some((m) => m.isVisible)).toBe(false);
+  expect(count(meadow)).toBe(0);
 });
 
 test("setGrounds uploads each touched layer once", () => {
@@ -313,28 +384,28 @@ test("setGrounds uploads each touched layer once", () => {
     { q: 0, r: 1 },
   ];
   renderer.setGrounds(footprint, materials.meadow);
-  expect(forest.thinInstanceBufferUpdated).toHaveBeenCalledTimes(1);
-  expect(meadow.thinInstanceBufferUpdated).toHaveBeenCalledTimes(1);
-  expect(farmland.thinInstanceBufferUpdated).not.toHaveBeenCalled();
-  expect(meadow.thinInstanceCount).toBe(3);
-  expect(forest.thinInstanceCount).toBe(TILE_COUNT - 3);
+  expect(uploads(forest)).toBe(1);
+  expect(uploads(meadow)).toBe(1);
+  expect(uploads(farmland)).toBe(0);
+  expect(count(meadow)).toBe(3);
+  expect(count(forest)).toBe(TILE_COUNT - 3);
   expect(placed(meadow)).toEqual(
     new Set(footprint.map(({ q, r }) => matrixOf(q, r))),
   );
 
   // moving them on to another layer touches the old and the new layer once
-  meadow.thinInstanceBufferUpdated.mockClear();
+  clearUploads(meadow);
   renderer.setGrounds(footprint, materials.farmland);
-  expect(meadow.thinInstanceBufferUpdated).toHaveBeenCalledTimes(1);
-  expect(farmland.thinInstanceBufferUpdated).toHaveBeenCalledTimes(1);
-  expect(forest.thinInstanceBufferUpdated).toHaveBeenCalledTimes(1);
-  expect(meadow.isVisible).toBe(false);
-  expect(farmland.thinInstanceCount).toBe(3);
+  expect(uploads(meadow)).toBe(1);
+  expect(uploads(farmland)).toBe(1);
+  expect(uploads(forest)).toBe(1);
+  expect(meadow.some((m) => m.isVisible)).toBe(false);
+  expect(count(farmland)).toBe(3);
 
   // tiles that already have the ground are not uploaded again
-  farmland.thinInstanceBufferUpdated.mockClear();
+  clearUploads(farmland);
   renderer.setGrounds(footprint, materials.farmland);
-  expect(farmland.thinInstanceBufferUpdated).not.toHaveBeenCalled();
+  expect(uploads(farmland)).toBe(0);
 });
 
 test("only tiles that hold a forest are returned as forest tiles", () => {
