@@ -97,8 +97,29 @@ test("food entry is marked as error when the balance is negative", async ({
 });
 
 test("status bar shows ecology and satisfaction", async ({ page }) => {
+  // freeze timers so that no week changes the labor factor
+  await installClockWithNativeFrames(page);
   await page.goto("./");
   // the camp tile has no ecology, so it is just below 100 %
   await expect(page.getByTestId("status-ecology")).toContainText("99 %");
-  await expect(page.getByTestId("status-satisfaction")).toContainText("99 %");
+  const satisfaction = page.getByTestId("status-satisfaction");
+  await expect(satisfaction).toContainText("99 %");
+  await expect(satisfaction).toHaveAttribute(
+    "title",
+    "Satisfaction: 99 % (ecology 99 %, work 100 %)",
+  );
+  await expect(satisfaction).toHaveAttribute("aria-label", "satisfaction");
+  const labor = page.getByTestId("status-labor");
+  await expect(labor).toHaveText(/0 \(0 %\)$/);
+  await expect(labor).not.toHaveClass(/error/);
+});
+
+test("labor entry is marked as error when labor is not used well", async ({
+  page,
+}) => {
+  await page.goto("./");
+  // without storage no forest works, so all labor stays free after a week
+  const labor = page.getByTestId("status-labor");
+  await expect(labor).toHaveText(/2 \(100 %\)$/);
+  await expect(labor).toHaveClass(/error/);
 });

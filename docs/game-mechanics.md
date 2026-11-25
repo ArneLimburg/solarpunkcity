@@ -166,9 +166,29 @@ storage it is still built: forestry delivers the missing wood to the site, it ju
 - The **ecology** of the whole city is the average ecology value of all tiles compared to a board
   that is completely forest. 100 % means every tile is forest; it cannot go below 0 % or above
   100 %.
-- **Satisfaction** currently equals the ecology.
-- Ecology affects the city in two ways: it reduces the harvest (section 5, step 1) and it slows
-  down population growth (section 5, step 5).
+- The **free labor share** of a week is the labor that is left after all work of that week,
+  divided by the population at the start of that week (between 0 % and 100 %). The status bar
+  shows it next to the free labor, for example `3 (15 %)`; the entry is shown in the error
+  style while the labor factor is below 100 %. Before the first week it is shown as 0 %.
+- The **labor factor** (0–100 %) tells how well the labor is used:
+
+  | Free labor share | Labor factor                               |
+  | ---------------- | ------------------------------------------ |
+  | 0 %              | 50 % (overloaded)                          |
+  | 0 % – 10 %       | rises in a straight line to 100 %          |
+  | 10 % – 25 %      | 100 % (ideal)                              |
+  | 25 % – 75 %      | falls in a straight line from 100 % to 0 % |
+  | 75 % and more    | 0 % (mass unemployment)                    |
+
+  Examples: 5 % free labor gives 75 %, 50 % gives 50 %, 75 % gives 0 %.
+
+- **Satisfaction** is the average of the ecology and the labor factor. The residents judge the
+  **previous week**: the labor factor is calculated at the end of each week and used for the
+  population growth of the next week. At the start of the game there is no previous week, so the
+  labor factor is 100 %. The status bar tooltip of the satisfaction shows the breakdown (ecology
+  and work).
+- Ecology reduces the harvest (section 5, step 1). Satisfaction, and with it ecology and work,
+  slows down population growth (section 5, step 5).
 - Clearing forest therefore always lowers the ecology, and the more tiles a building covers the
   more it matters. The agro-industrial farm has a strongly negative value on each of its 19
   tiles.

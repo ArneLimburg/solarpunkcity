@@ -7,10 +7,11 @@ const Entry: FC<{
   icon: string;
   value: string;
   error?: boolean;
-}> = ({ name, icon, value, error }) => (
+  title?: string;
+}> = ({ name, icon, value, error, title }) => (
   <span
     className={error ? "chip no-margin error" : "chip no-margin"}
-    title={name}
+    title={title ?? name}
     aria-label={name}
     data-testid={`status-${name}`}
   >
@@ -39,7 +40,10 @@ export const StatusBar: FC<{ state: GameState }> = ({ state }) => (
     <Entry
       name="labor"
       icon={resourceIcons.labor}
-      value={`${Math.floor(state.resources.labor)}`}
+      value={`${Math.floor(state.resources.labor)} (${Math.floor(
+        state.freeLaborShare,
+      )} %)`}
+      error={state.laborFactor < 100}
     />
     <Entry
       name="food"
@@ -64,6 +68,9 @@ export const StatusBar: FC<{ state: GameState }> = ({ state }) => (
       name="satisfaction"
       icon="sentiment_satisfied"
       value={`${Math.floor(state.satisfaction)} %`}
+      title={`Satisfaction: ${Math.floor(state.satisfaction)} % (ecology ${Math.floor(
+        state.ecology,
+      )} %, work ${Math.floor(state.laborFactor)} %)`}
     />
     {stockResources.map((name) =>
       name === "wood" ? (
