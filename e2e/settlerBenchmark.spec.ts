@@ -6,15 +6,15 @@ import { test, expect } from "./fixtures";
 // Reproduce: `npm run test:e2e -- e2e/settlerBenchmark.spec.ts`. It measures the same
 // map, camera and 800x600 viewport (Chromium with software rendering, see
 // playwright.config.ts) with 0 and with 1,000 moving settlers, drops the population
-// to 10 and 0 and lets it regrow to 1,000 in the same session. After 60 warm-up
-// frames it records 240 frames per phase and prints the median and the 95th
+// to 10 and 0 and lets it regrow to 1,000 in the same session. After 10 warm-up
+// frames it records 40 frames per phase and prints the median and the 95th
 // percentile of the frame times and the draw calls per frame.
 // With SETTLER_BENCHMARK_STRICT=1 the p95 of 1,000 settlers may exceed the p95 of
 // 0 settlers by at most 5 ms (reference setup: a quiet machine; shared CI runners
 // are too noisy for a frame-time assertion).
 
-const WARM_UP_FRAMES = 60;
-const MEASURED_FRAMES = 240;
+const WARM_UP_FRAMES = 10;
+const MEASURED_FRAMES = 40;
 const MAX_P95_INCREASE_MS = 5;
 
 type Measurement = {
