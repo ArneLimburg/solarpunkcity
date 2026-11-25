@@ -156,14 +156,38 @@ function toHexLocation(coords: HexCoordinates): HexLocation {
   return `${coords.q},${coords.r}`;
 }
 
+// the river from the mountain edge (r = -radius) to the sea edge (r = radius): exactly one tile
+// per row, each adjacent to the previous one, following a gentle S-curve
+export function getRiverCourse(radius: number): HexCoordinates[] {
+  const target = (r: number) =>
+    4 + 4 * Math.sin((Math.PI * (r + radius)) / radius);
+  const u = (tile: HexCoordinates) => tile.q + tile.r / 2;
+  let tile: HexCoordinates = {
+    q: Math.round(target(-radius) + radius / 2),
+    r: -radius,
+  };
+  const course = [tile];
+  for (let r = -radius + 1; r <= radius; r++) {
+    const straight = { q: tile.q, r };
+    const west = { q: tile.q - 1, r };
+    const distance = (candidate: HexCoordinates) =>
+      Math.abs(u(candidate) - target(r));
+    tile = distance(west) < distance(straight) ? west : straight;
+    course.push(tile);
+  }
+  return course;
+}
+
 function initBoard() {
   const board = new Map<HexLocation, PlacedBuilding>();
+  const river = new Set(getRiverCourse(GRID_RADIUS).map(toHexLocation));
   for (let q = -GRID_RADIUS; q <= GRID_RADIUS; q++) {
     for (let r = -GRID_RADIUS; r <= GRID_RADIUS; r++) {
       if (isOnBoard({ q, r })) {
         board.set(toHexLocation({ q, r }), {
-          building:
-            q === 0 && r === 0
+          building: river.has(toHexLocation({ q, r }))
+            ? BuildingDefinition.River
+            : q === 0 && r === 0
               ? BuildingDefinition.SettlersCamp
               : BuildingDefinition.Forest,
           center: { q, r },

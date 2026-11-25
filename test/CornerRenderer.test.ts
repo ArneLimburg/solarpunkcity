@@ -6,6 +6,7 @@ type FakeMesh = {
   shape: unknown[];
   material?: { name: string };
   isPickable: boolean;
+  position: { y: number };
   buffer?: Float32Array;
   thinInstanceSetBuffer: ReturnType<typeof vi.fn>;
   thinInstanceRefreshBoundingInfo: ReturnType<typeof vi.fn>;
@@ -54,6 +55,7 @@ vi.mock("@babylonjs/core", () => {
           name,
           shape: options.shape,
           isPickable: true,
+          position: { y: 0 },
           thinInstanceSetBuffer: vi.fn(
             (_kind: string, buffer: Float32Array | null) =>
               (mesh.buffer = buffer ?? undefined),
@@ -78,6 +80,7 @@ const materials = {
   forestFloor: { name: "forestFloor" },
   meadow: { name: "meadow" },
   farmland: { name: "farmland" },
+  water: { name: "water" },
 } as never;
 
 // 6 corners per tile; the 6 * GRID_RADIUS + 6 outward corners on the rim of the board belong to
@@ -113,8 +116,11 @@ test("one non-pickable corner mesh per material shares the corner piece shape", 
     "forestFloor",
     "meadow",
     "farmland",
+    "water",
     "cornerMixed",
   ]);
+  // only the water corners lie below the land
+  expect(meshes.map((m) => m.position.y)).toEqual([0, 0, 0, -0.05, 0]);
   expect(meshes.every((m) => !m.isPickable)).toBe(true);
   expect(meshes.every((m) => m.shape.length === 6)).toBe(true);
 });

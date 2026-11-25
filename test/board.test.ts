@@ -6,12 +6,15 @@ import {
   getConstructionSites,
   getFootprint,
   getFootprintRadius,
+  getRiverCourse,
   getTileBuildings,
+  GRID_RADIUS,
   isOnBoard,
   isUnderConstruction,
   placeBuilding,
   setBuilding,
   workOnSite,
+  type HexCoordinates,
 } from "../src/board";
 import { BuildingDefinition } from "../src/gameDefinitions";
 
@@ -81,6 +84,49 @@ test("a placed building is counted once but occupies all its tiles", () => {
   expect(getBuildings().length).toBe(2791 - 6);
   expect(getTileBuildings().length).toBe(2791);
   expect(getBuilding({ q: 1, r: -1 })).toBe(BuildingDefinition.Farm);
+});
+
+describe("river", () => {
+  const course = getRiverCourse(GRID_RADIUS);
+  const distance = (a: HexCoordinates, b: HexCoordinates) =>
+    Math.max(
+      Math.abs(a.q - b.q),
+      Math.abs(a.r - b.r),
+      Math.abs(a.q + a.r - b.q - b.r),
+    );
+
+  test("has one tile per row from the mountain to the sea edge", () => {
+    expect(course).toHaveLength(2 * GRID_RADIUS + 1);
+    expect(course.map((tile) => tile.r)).toEqual(
+      Array.from({ length: 2 * GRID_RADIUS + 1 }, (_, i) => i - GRID_RADIUS),
+    );
+    expect(course[0]).toEqual({ q: 19, r: -30 });
+    expect(course.every(isOnBoard)).toBe(true);
+  });
+
+  test("every tile is adjacent to the previous one", () => {
+    for (let i = 1; i < course.length; i++) {
+      expect(distance(course[i - 1], course[i])).toBe(1);
+    }
+  });
+
+  test("passes the camp a few tiles to the east", () => {
+    expect(course.find((tile) => tile.r === 0)).toEqual({ q: 4, r: 0 });
+    for (const tile of getFootprint({ q: 0, r: 0 }, 1)) {
+      expect(course).not.toContainEqual(tile);
+    }
+  });
+
+  test("the board holds the river and nothing else changed", () => {
+    for (const tile of course) {
+      expect(getBuilding(tile)).toBe(BuildingDefinition.River);
+    }
+    expect(getBuilding({ q: 10, r: 10 })).toBe(BuildingDefinition.Forest);
+    // ecology is the same as of forest
+    expect(BuildingDefinition.River.ecology).toBe(
+      BuildingDefinition.Forest.ecology,
+    );
+  });
 });
 
 test("construction sites are tracked in placement order until completed", () => {

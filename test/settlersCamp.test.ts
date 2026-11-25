@@ -38,8 +38,10 @@ test("a new board has the camp on 0,0 and forest everywhere else", () => {
   expect(board.isUnderConstruction({ q: 0, r: 0 })).toBe(false);
   const buildings = board.getBuildings();
   expect(buildings.filter((b) => b === camp)).toHaveLength(1);
+  const river = board.getRiverCourse(board.GRID_RADIUS).length;
+  expect(buildings.filter((b) => b.type === "River")).toHaveLength(river);
   expect(buildings.filter((b) => b.type === "Forest")).toHaveLength(
-    buildings.length - 1,
+    buildings.length - 1 - river,
   );
 });
 

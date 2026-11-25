@@ -33,6 +33,10 @@ export const BuildingCategories = {
     name: "CAMP",
     buildable: false,
   },
+  WATER: {
+    name: "WATER",
+    buildable: false,
+  },
 } as const satisfies Record<string, BuildableCategory | NotBuildableCategory>;
 export type BuildingCategory = keyof typeof BuildingCategories;
 export const BuildingTypes = {
@@ -63,6 +67,10 @@ export const BuildingTypes = {
   SettlersCamp: {
     category: "CAMP",
     icon: "camp/settlers-camp.svg",
+  },
+  River: {
+    category: "WATER",
+    icon: "water/river.svg",
   },
 } as const satisfies Record<
   string,
@@ -158,6 +166,18 @@ export const BuildingDefinition: Record<BuildingType, Building> = {
     produces: { ...emptyResources, food: 2 },
     consumes: { ...emptyResources },
     recycling: { ...emptyResources },
+  },
+  River: {
+    name: "River",
+    type: "River",
+    description: "Fresh water flowing from the mountains to the sea",
+    size: 1,
+    resident: 0,
+    ecology: 1,
+    cost: { ...emptyResources },
+    maxBuilders: 0,
+    produces: { ...emptyResources },
+    consumes: { ...emptyResources },
   },
   AppartmentBuilding: {
     name: "Appartment Building",

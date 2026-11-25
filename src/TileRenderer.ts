@@ -20,13 +20,20 @@ import {
 import { getTileRotation } from "./forest";
 import { FOREST_FLOOR_SIZE, createForestFloorPixels } from "./forestFloor";
 import { createRoundedHexOutline } from "./hexCorners";
-import { HEX_SIZE, TILE_TOP, hexToPixel, tileKey } from "./hexGeometry";
+import {
+  HEX_SIZE,
+  TILE_TOP,
+  WATER_DEPTH,
+  hexToPixel,
+  tileKey,
+} from "./hexGeometry";
 
 const FOREST_FLOOR_COLOR = new Color3(0.2, 0.42, 0.18);
 const MEADOW_COLOR = new Color3(0.55, 0.78, 0.4);
 const FARMLAND_COLOR = new Color3(0.55, 0.45, 0.3);
 const SOIL_COLOR = new Color3(0.4, 0.26, 0.15);
 const GRAVEL_COLOR = new Color3(0.78, 0.7, 0.55);
+const WATER_COLOR = new Color3(0.1, 0.65, 0.75);
 const TILE_DEPTH = 0.2; // height of a tile below its top
 const CHUNK_SIZE = 8 * HEX_SIZE * Math.sqrt(3); // edge of a spatial chunk of tiles
 
@@ -36,6 +43,7 @@ export type GroundMaterials = {
   farmland: StandardMaterial;
   soil: StandardMaterial;
   gravel: StandardMaterial;
+  water: StandardMaterial;
 };
 
 export function makeMaterial(name: string, color: Color3, scene: Scene) {
@@ -56,12 +64,15 @@ export function createGroundMaterials(scene: Scene): GroundMaterials {
     false,
     Texture.BILINEAR_SAMPLINGMODE,
   );
+  const water = makeMaterial("water", WATER_COLOR, scene);
+  water.specularColor = new Color3(0.25, 0.25, 0.25); // slight highlight
   return {
     forestFloor,
     meadow: makeMaterial("meadow", MEADOW_COLOR, scene),
     farmland: makeMaterial("farmland", FARMLAND_COLOR, scene),
     soil: makeMaterial("soil", SOIL_COLOR, scene),
     gravel: makeMaterial("gravel", GRAVEL_COLOR, scene),
+    water,
   };
 }
 
@@ -155,6 +166,7 @@ export function createTileRenderer(
       // would overwrite each other's matrices; each layer gets its own copy of the small template
       mesh.makeGeometryUnique();
       mesh.material = material;
+      mesh.position.y = material === materials.water ? -WATER_DEPTH : 0;
       mesh.isPickable = false;
       const keys =
         material === materials.forestFloor
@@ -251,6 +263,11 @@ export function createTileRenderer(
       return { instances, finiteMatrices };
     },
   };
+}
+
+// the tiles that hold the river
+export function getRiverTiles(coordinates: HexCoordinates[]) {
+  return coordinates.filter((tile) => getBuilding(tile)?.type === "River");
 }
 
 // the tiles that currently hold a forest

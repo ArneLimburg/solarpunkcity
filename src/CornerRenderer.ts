@@ -16,7 +16,13 @@ import {
   getVertexFill,
   type TileCorner,
 } from "./hexCorners";
-import { HEX_SIZE, TILE_TOP, hexToPixel, tileKey } from "./hexGeometry";
+import {
+  HEX_SIZE,
+  TILE_TOP,
+  WATER_DEPTH,
+  hexToPixel,
+  tileKey,
+} from "./hexGeometry";
 import { makeMaterial, type GroundMaterials } from "./TileRenderer";
 
 const MIXED_COLOR = new Color3(0.25, 0.2, 0.15);
@@ -53,6 +59,7 @@ export function createCornerRenderer(
       scene,
     );
     mesh.material = material;
+    mesh.position.y = material === materials.water ? -WATER_DEPTH : 0;
     mesh.isPickable = false;
     meshes[material.name] = mesh;
   }

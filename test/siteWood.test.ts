@@ -36,8 +36,8 @@ function addStorage() {
 
 test("a farm is placed without any wood: the cleared wood goes into the site", () => {
   expect(game.getState().capacity.wood).toBe(0);
-  expect(game.canBuild("Farm", { q: 5, r: 0 })).toBe(true);
-  game.build("Farm", { q: 5, r: 0 });
+  expect(game.canBuild("Farm", { q: -5, r: 0 })).toBe(true);
+  game.build("Farm", { q: -5, r: 0 });
   const [site] = board.getConstructionSites();
   expect(site.siteWood).toBe(21);
   expect(site.remainingWood).toBe(25);
@@ -45,7 +45,7 @@ test("a farm is placed without any wood: the cleared wood goes into the site", (
 });
 
 test("a farm without storage is finished after forestry delivered the missing wood", () => {
-  game.build("Farm", { q: 5, r: 0 });
+  game.build("Farm", { q: -5, r: 0 });
   let weeks = 0;
   let waited = false;
   while (board.getConstructionSites().length > 0 && weeks < 100) {
@@ -60,7 +60,7 @@ test("a farm without storage is finished after forestry delivered the missing wo
   }
   expect(board.getConstructionSites()).toEqual([]);
   expect(game.takeCompletedBuildings()).toEqual([
-    { coords: { q: 5, r: 0 }, type: "Farm" },
+    { coords: { q: -5, r: 0 }, type: "Farm" },
   ]);
   expect(waited).toBe(true);
   expect(weeks).toBeGreaterThan(12); // 24 worker-weeks with 2 builders

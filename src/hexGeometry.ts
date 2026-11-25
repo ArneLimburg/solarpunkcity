@@ -4,6 +4,7 @@ import type { HexCoordinates } from "./board";
 export const HEX_SIZE = 1; // side length of hex (in scene units)
 
 export const TILE_TOP = 0.1; // y of the top surface of a hex tile
+export const WATER_DEPTH = 0.05; // how far the water surface lies below the land tiles
 
 export const tileKey = (coords: HexCoordinates) => `${coords.q},${coords.r}`;
 

@@ -14,6 +14,7 @@ import {
   createGroundMaterials,
   createTileRenderer,
   getForestTiles,
+  getRiverTiles,
   type GroundMaterials,
   type TileRenderer,
 } from "./TileRenderer";
@@ -85,6 +86,7 @@ export const Map = forwardRef<
     materialsRef.current = materials;
     const tiles = createTileRenderer(scene, materials);
     tilesRef.current = tiles;
+    tiles.setGrounds(getRiverTiles(tiles.tiles), materials.water);
     cornersRef.current = createCornerRenderer(
       scene,
       materials,

@@ -141,6 +141,7 @@ vi.mock("@babylonjs/core", () => {
 
 import {
   GRID_RADIUS,
+  getRiverCourse,
   isOnBoard,
   setBuilding,
   type HexCoordinates,
@@ -152,6 +153,7 @@ import {
   createGroundMaterials,
   createTileRenderer,
   getForestTiles,
+  getRiverTiles,
   makeMaterial,
 } from "../src/TileRenderer";
 
@@ -224,6 +226,14 @@ test("the ground materials keep their names and the forest floor is textured", (
   expect(materials.soil.diffuseTexture).toBeUndefined();
   expect(materials.gravel.name).toBe("gravel");
   expect(materials.gravel.diffuseTexture).toBeUndefined();
+  expect(materials.water.name).toBe("water");
+  expect(materials.water.diffuseTexture).toBeUndefined();
+  expect(materials.water.specularColor).not.toEqual({ r: 0, g: 0, b: 0 });
+});
+
+test("getRiverTiles returns the tiles that hold the river", () => {
+  const tiles = [{ q: 0, r: 0 }, getRiverCourse(GRID_RADIUS)[0]];
+  expect(getRiverTiles(tiles)).toEqual([tiles[1]]);
 });
 
 test("exactly one base mesh per ground material holds the tiles as thin instances", () => {
@@ -251,7 +261,11 @@ test("exactly one base mesh per ground material holds the tiles as thin instance
       mesh(material).map(() => material),
     );
   }
-  expect(tileMeshes).toHaveLength(5 * mesh(materials.meadow).length);
+  expect(tileMeshes).toHaveLength(6 * mesh(materials.meadow).length);
+  // the water surface lies 0.05 below the land, the land layers are not moved
+  expect(mesh(materials.water).every((m) => m.position.y === -0.05)).toBe(true);
+  expect(mesh(materials.meadow).every((m) => m.position.y === 0)).toBe(true);
+  expect(count(mesh(materials.water))).toBe(0);
   for (const tileMesh of tileMeshes) {
     expect(tileMesh.isPickable).toBe(false);
     // Babylon must not shrink the chunk bounds to the current instances
