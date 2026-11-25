@@ -1,5 +1,6 @@
 import { expect, test } from "vitest";
 import {
+  chipClassName,
   formatEcology,
   formatTiles,
   nonZeroResources,
@@ -21,6 +22,12 @@ test("formatEcology adds a sign", () => {
   expect(formatEcology(0.5)).toBe("+0.5");
   expect(formatEcology(-5)).toBe("−5");
   expect(formatEcology(0)).toBe("0");
+});
+
+test("chipClassName marks errors", () => {
+  expect(chipClassName(true)).toBe("chip no-margin error");
+  expect(chipClassName(false)).toBe("chip no-margin");
+  expect(chipClassName(undefined)).toBe("chip no-margin");
 });
 
 test("formatTiles uses singular and plural", () => {
