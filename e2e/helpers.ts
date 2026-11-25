@@ -34,3 +34,28 @@ export const isUnderConstruction = (page: Page, coords: HexCoordinates) =>
 
 export const buildingAt = (page: Page, coords: HexCoordinates) =>
   page.evaluate((c) => window.__solarpunk?.getBuildingType(c), coords);
+
+type NativeFrames = {
+  __nativeRequestAnimationFrame: typeof requestAnimationFrame;
+  __nativeCancelAnimationFrame: typeof cancelAnimationFrame;
+};
+
+// Freezes the timers (no week is calculated) but keeps the browser's own animation frames.
+// The fake requestAnimationFrame of page.clock fires every 16 ms whether or not the GPU has
+// finished the last frame; with software rendering the frames pile up until the page no longer
+// responds and closing it times out.
+export async function installClockWithNativeFrames(page: Page) {
+  await page.addInitScript(() => {
+    const native = window as unknown as NativeFrames;
+    native.__nativeRequestAnimationFrame =
+      window.requestAnimationFrame.bind(window);
+    native.__nativeCancelAnimationFrame =
+      window.cancelAnimationFrame.bind(window);
+  });
+  await page.clock.install();
+  await page.addInitScript(() => {
+    const native = window as unknown as NativeFrames;
+    window.requestAnimationFrame = native.__nativeRequestAnimationFrame;
+    window.cancelAnimationFrame = native.__nativeCancelAnimationFrame;
+  });
+}
