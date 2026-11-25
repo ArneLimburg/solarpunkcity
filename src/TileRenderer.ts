@@ -1,4 +1,5 @@
 import {
+  BoundingInfo,
   Color3,
   Matrix,
   MeshBuilder,
@@ -26,6 +27,8 @@ const MEADOW_COLOR = new Color3(0.55, 0.78, 0.4);
 const FARMLAND_COLOR = new Color3(0.55, 0.45, 0.3);
 const SOIL_COLOR = new Color3(0.4, 0.26, 0.15);
 const GRAVEL_COLOR = new Color3(0.78, 0.7, 0.55);
+const TILE_DEPTH = 0.2; // height of a tile below its top
+const CHUNK_SIZE = 8 * HEX_SIZE * Math.sqrt(3); // edge of a spatial chunk of tiles
 
 export type GroundMaterials = {
   forestFloor: StandardMaterial;
@@ -104,37 +107,74 @@ export function createTileRenderer(
   const shape = createRoundedHexOutline(HEX_SIZE).map(
     (point) => new Vector3(point.x, 0, point.z),
   );
-  // per ground material: its base mesh, its matrix buffer and the tiles in buffer order
+  // the geometry is created once; the bottom cap is never visible, so its triangles are dropped
+  const template = MeshBuilder.ExtrudePolygon(
+    "tileTemplate",
+    { shape, depth: TILE_DEPTH },
+    scene,
+  );
+  const capTriangles = (shape.length - 2) * 3;
+  const indices = Array.from(template.getIndices()!);
+  template.setIndices([
+    ...indices.slice(0, capTriangles),
+    ...indices.slice(2 * capTriangles),
+  ]);
+  template.isPickable = false;
+  template.isVisible = false;
+
+  // spatial chunks: Babylon culls a thin instance mesh as a whole, so one mesh per chunk and
+  // ground material lets it skip the chunks outside the view
+  const chunkOf: Record<string, string> = {};
+  const chunkTiles: Record<string, HexCoordinates[]> = {};
+  for (const tile of tiles) {
+    const { x, z } = hexToPixel(tile.q, tile.r);
+    const chunk = `${Math.floor(x / CHUNK_SIZE)}_${Math.floor(z / CHUNK_SIZE)}`;
+    chunkOf[tileKey(tile)] = chunk;
+    (chunkTiles[chunk] ??= []).push(tile);
+  }
+
+  // per chunk and ground material: its mesh, its matrix buffer and the tiles in buffer order
   type Layer = { mesh: Mesh; data: Float32Array; keys: string[] };
-  const layers: Record<string, Layer> = {};
+  const layers: Record<string, Layer> = {}; // by layerKey
+  const layerKey = (material: string, chunk: string) => `${material}|${chunk}`;
   const grounds: Record<string, string> = {}; // material name per tile
   const slots: Record<string, number> = {}; // buffer slot per tile
-  for (const material of Object.values(materials)) {
-    const mesh = MeshBuilder.ExtrudePolygon(
-      `tile_${material.name}`,
-      { shape, depth: 0.2 },
-      scene,
-    );
-    mesh.material = material;
-    mesh.isPickable = false;
-    const keys =
-      material === materials.forestFloor
-        ? tiles.map((tile) => tileKey(tile))
-        : [];
-    const data = matrices.slice();
-    mesh.thinInstanceSetBuffer("matrix", data, 16, false);
-    // the bounds cover the whole board, so no layer is culled by mistake
-    mesh.thinInstanceRefreshBoundingInfo(true);
-    // keep the full-board bounds, Babylon must not shrink them to the current instances
-    mesh.doNotSyncBoundingInfo = true;
-    mesh.thinInstanceCount = keys.length;
-    // an empty layer would be drawn once as a plain mesh at the origin
-    mesh.isVisible = keys.length > 0;
-    keys.forEach((key, slot) => {
-      grounds[key] = material.name;
-      slots[key] = slot;
-    });
-    layers[material.name] = { mesh, data, keys };
+  for (const [chunk, chunkMembers] of Object.entries(chunkTiles)) {
+    const min = new Vector3(Infinity, TILE_TOP - TILE_DEPTH, Infinity);
+    const max = new Vector3(-Infinity, TILE_TOP, -Infinity);
+    for (const tile of chunkMembers) {
+      const { x, z } = hexToPixel(tile.q, tile.r);
+      min.x = Math.min(min.x, x - HEX_SIZE);
+      min.z = Math.min(min.z, z - HEX_SIZE);
+      max.x = Math.max(max.x, x + HEX_SIZE);
+      max.z = Math.max(max.z, z + HEX_SIZE);
+    }
+    for (const material of Object.values(materials)) {
+      const mesh = template.clone(`tile_${material.name}_${chunk}`);
+      mesh.material = material;
+      mesh.isPickable = false;
+      const keys =
+        material === materials.forestFloor
+          ? chunkMembers.map((tile) => tileKey(tile))
+          : [];
+      const data = new Float32Array(chunkMembers.length * 16);
+      keys.forEach((key, slot) => {
+        data.set(
+          matrices.subarray(matrixOffsets[key], matrixOffsets[key] + 16),
+          slot * 16,
+        );
+        grounds[key] = material.name;
+        slots[key] = slot;
+      });
+      mesh.thinInstanceSetBuffer("matrix", data, 16, false);
+      // the bounds cover all tiles of the chunk, whatever the layer currently holds
+      mesh.setBoundingInfo(new BoundingInfo(min, max));
+      mesh.doNotSyncBoundingInfo = true;
+      mesh.thinInstanceCount = keys.length;
+      // an empty layer would be drawn once as a plain mesh at the origin
+      mesh.isVisible = keys.length > 0;
+      layers[layerKey(material.name, chunk)] = { mesh, data, keys };
+    }
   }
 
   const pickPlane = MeshBuilder.CreateGround(
@@ -162,8 +202,8 @@ export function createTileRenderer(
 
   const move = (coords: HexCoordinates, material: StandardMaterial) => {
     const key = tileKey(coords);
-    const from = layers[grounds[key]];
-    const to = layers[material.name];
+    const from = layers[layerKey(grounds[key], chunkOf[key])];
+    const to = layers[layerKey(material.name, chunkOf[key])];
     if (from === to) return;
     // the last tile of the old buffer fills the gap (a no-op if it is the tile itself)
     const slot = slots[key];
