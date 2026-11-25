@@ -51,10 +51,14 @@ export function createDevHooks({
   settlers,
   showSettlers,
 }: DevHookSources): DevHooks {
-  // the draw calls of the last frame (the engine resets its counter after it)
+  // the draw calls of the last frame (the engine's counter may keep running across frames)
   let drawCalls = 0;
+  let before = 0;
+  scene.onBeforeRenderObservable.add(() => {
+    before = engine._drawCalls.current;
+  });
   scene.onAfterRenderObservable.add(() => {
-    drawCalls = engine._drawCalls.current;
+    drawCalls = engine._drawCalls.current - before;
   });
   return {
     getSettlers: settlers.getSettlers,

@@ -25,7 +25,11 @@ function setup() {
   const showBuilding = vi.fn();
   const showSettlers = vi.fn();
   const toGlobal = vi.fn(() => "viewport");
-  const frame = { drawCalls: 0, afterRender: () => {} };
+  const frame = {
+    drawCalls: 0,
+    beforeRender: () => {},
+    afterRender: () => {},
+  };
   const hooks = createDevHooks({
     engine: {
       getRenderWidth: () => 200,
@@ -38,6 +42,11 @@ function setup() {
     } as unknown as Engine,
     scene: {
       getTransformMatrix: () => "matrix",
+      onBeforeRenderObservable: {
+        add: (callback: () => void) => {
+          frame.beforeRender = callback;
+        },
+      },
       onAfterRenderObservable: {
         add: (callback: () => void) => {
           frame.afterRender = callback;
@@ -74,9 +83,11 @@ function setup() {
 
 test("the settler hooks report figures, triangles and the last frame's draw calls", () => {
   const { hooks, frame, showSettlers } = setup();
-  frame.drawCalls = 11;
+  frame.drawCalls = 100; // the counter keeps running across frames
+  frame.beforeRender();
+  frame.drawCalls = 111;
   frame.afterRender();
-  frame.drawCalls = 0; // the engine resets its counter after the frame
+  frame.drawCalls = 0;
   expect(hooks.getSettlers()).toHaveLength(2);
   expect(hooks.getSettlerStats()).toEqual({
     count: 2,

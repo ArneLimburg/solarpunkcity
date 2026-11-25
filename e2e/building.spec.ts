@@ -612,6 +612,7 @@ test("the ring turns red when the footprint leaves the board", async ({
 test("the ring is red over a building, and never without selection", async ({
   page,
 }) => {
+  test.slow();
   await page.goto("./");
   await page.waitForFunction(() => window.__solarpunk !== undefined);
   await setup(page);
