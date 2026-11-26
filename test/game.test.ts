@@ -723,3 +723,49 @@ test("a site that is finished with less labor than maxBuilders only uses its rem
   expect(resources.wood).toBeCloseTo(10.5);
   expect(resources.labor).toBe(0);
 });
+
+type Workforce = NonNullable<ReturnType<typeof game.getState>["workforce"]>;
+
+function workforceSum(workforce: Workforce) {
+  return (
+    workforce.food +
+    workforce.construction +
+    workforce.forestry +
+    workforce.free
+  );
+}
+
+test("the workforce is undefined before the first tick", () => {
+  expect(game.getState().workforce).toBeUndefined();
+});
+
+test("the workforce splits the workers into food, construction, forestry and free", () => {
+  board.setBuilding({ q: 20, r: 0 }, farm(1, 1)); // 1 worker for 1 food
+  board.placeBuilding({ q: 5, r: 0 }, testBuilding({ maxBuilders: 1 }), 10);
+  const { workforce, resources } = game.calculateWeek(); // 2 workers
+  expect(workforce).toEqual({ food: 1, construction: 1, forestry: 0, free: 0 });
+  expect(workforce!.free).toBe(resources.labor);
+});
+
+test("the workforce counts the workers in forests", () => {
+  const { workforce, resources } = game.calculateWeek(); // 2 workers
+  expect(workforce).toEqual({ food: 0, construction: 0, forestry: 2, free: 0 });
+  expect(workforce!.free).toBe(resources.labor);
+});
+
+test("the workforce reports workers without a job as free", () => {
+  game.grantResources({ food: 100 });
+  board.setBuilding({ q: 0, r: 0 }, testBuilding({ resident: 100 }));
+  // the board is full of forests: remove their labor demand by making wood full
+  game.grantResources({ wood: 2000 }); // storage 1000: forestry has no room
+  const { workforce, resources } = game.calculateWeek();
+  expect(workforce!.free).toBe(2);
+  expect(workforce!.free).toBe(resources.labor);
+});
+
+test("the workforce adds up to the remaining workers after hunger", () => {
+  game.grantResources({ food: -8.3 });
+  const { workforce, population } = game.calculateWeek();
+  expect(population).toBe(1);
+  expect(workforceSum(workforce!)).toBe(1);
+});

@@ -4,6 +4,7 @@ export type BuildableCategory = {
   name: string;
   buildable: true;
   icon: string;
+  label: string;
 };
 export type NotBuildableCategory = {
   name: string;
@@ -14,16 +15,19 @@ export const BuildingCategories = {
     name: "FARM",
     buildable: true,
     icon: "farm/farm.svg",
+    label: "Farms",
   },
   RESIDENTIAL: {
     name: "RESIDENTIAL",
     buildable: true,
     icon: "residential/residential.svg",
+    label: "Residential",
   },
   STORAGE: {
     name: "STORAGE",
     buildable: true,
     icon: "storage/storage.svg",
+    label: "Storage",
   },
   FOREST: {
     name: "FOREST",
@@ -43,22 +47,27 @@ export const BuildingTypes = {
   OrganicHomestead: {
     category: "FARM",
     icon: "farm/organic-homestead.svg",
+    label: "Organic homestead",
   },
   Farm: {
     category: "FARM",
     icon: "farm/farm-medium.svg",
+    label: "Farm",
   },
   AgroIndustrial: {
     category: "FARM",
     icon: "farm/agro-industrial.svg",
+    label: "Agro-industrial Farm",
   },
   AppartmentBuilding: {
     category: "RESIDENTIAL",
     icon: "residential/appartment-building.svg",
+    label: "Apartment building",
   },
   WoodStorage: {
     category: "STORAGE",
     icon: "storage/wood-storage.svg",
+    label: "Wood storage",
   },
   Forest: {
     category: "FOREST",
@@ -74,9 +83,14 @@ export const BuildingTypes = {
   },
 } as const satisfies Record<
   string,
-  { category: BuildingCategory; icon: string }
+  { category: BuildingCategory; icon: string; label?: string }
 >;
 export type BuildingType = keyof typeof BuildingTypes;
+
+// the label of a buildable type or category; other types have none
+export function getLabel(type: BuildingType): string | undefined {
+  return (BuildingTypes[type] as { label?: string }).label;
+}
 export type Building = {
   name: string;
   type: BuildingType;

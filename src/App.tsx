@@ -1,16 +1,13 @@
 import "beercss/dist/cdn/beer.min.css";
-import {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-  type FC,
-  type ReactNode,
-} from "react";
+import { useCallback, useEffect, useRef, useState, type FC } from "react";
 import { Map } from "./Map";
-import { Menu } from "./Menu";
+import { BuildButton, BuildList } from "./Menu";
 import { getPlacedBuilding, type HexCoordinates } from "./board";
-import { BuildingDefinition, type BuildingType } from "./gameDefinitions";
+import {
+  BuildingDefinition,
+  type BuildingCategory,
+  type BuildingType,
+} from "./gameDefinitions";
 import {
   build,
   calculateWeek,
@@ -18,34 +15,10 @@ import {
   getBuildingReport,
   getState,
   takeCompletedBuildings,
-  type GameState,
 } from "./game";
 import { BuildingDetailsPanel } from "./BuildingDetailsPanel";
 import { BuildingInfo } from "./BuildingInfo";
 import { StatusBar } from "./StatusBar";
-
-// Fixed bottom container: panels stack directly above the status bar,
-// whatever the height of the (wrapping) status bar is.
-const BottomPanel: FC<{ state: GameState; children?: ReactNode }> = ({
-  state,
-  children,
-}) => (
-  <div
-    style={{
-      position: "fixed",
-      left: 0,
-      right: 0,
-      bottom: 0,
-      zIndex: 10,
-      display: "flex",
-      flexDirection: "column",
-      pointerEvents: "none",
-    }}
-  >
-    {children}
-    <StatusBar state={state} />
-  </div>
-);
 
 export const App: FC = () => {
   const [state, setState] = useState(getState);
@@ -125,10 +98,22 @@ export const App: FC = () => {
     },
     [selectBuildingType, showInfo],
   );
+  const [buildOpen, setBuildOpen] = useState(false);
+  const [category, setCategory] = useState<BuildingCategory>("FARM");
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setBuildOpen(false);
+        selectBuildingType(undefined);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [selectBuildingType]);
+  const closeInfo = useCallback(() => showInfo(undefined), [showInfo]);
   const infoPlaced = infoCenter && getPlacedBuilding(infoCenter);
   return (
     <>
-      <Menu selected={selectedBuildingType} onSelect={selectBuildingType} />
       <main className="no-padding py-1">
         <Map
           ref={mapRef}
@@ -137,24 +122,48 @@ export const App: FC = () => {
           residents={state.residents}
         />
       </main>
-      <BottomPanel state={state}>
-        {selectedBuildingType && !detailsHidden && (
-          <BuildingDetailsPanel
-            type={selectedBuildingType}
-            resources={state.resources}
-            onHide={hideDetails}
+      <div className="hud-root">
+        <div className="hud-top">
+          <BuildButton
+            open={buildOpen}
+            selected={selectedBuildingType}
+            onToggle={() => setBuildOpen(!buildOpen)}
           />
-        )}
-        {infoPlaced && (
-          <BuildingInfo
-            building={infoPlaced.building}
-            center={infoPlaced.center}
-            report={getBuildingReport(infoPlaced.center)}
-            population={state.population}
-            housing={state.housing}
-          />
-        )}
-      </BottomPanel>
+          <StatusBar state={state} />
+        </div>
+        <div className="hud-areas">
+          <div className="hud-left">
+            {buildOpen && (
+              <BuildList
+                category={category}
+                selected={selectedBuildingType}
+                resources={state.resources}
+                onCategory={setCategory}
+                onSelect={selectBuildingType}
+              />
+            )}
+            {selectedBuildingType && !detailsHidden && (
+              <BuildingDetailsPanel
+                type={selectedBuildingType}
+                resources={state.resources}
+                onHide={hideDetails}
+              />
+            )}
+          </div>
+          <div className="hud-right">
+            {infoPlaced && (
+              <BuildingInfo
+                building={infoPlaced.building}
+                center={infoPlaced.center}
+                report={getBuildingReport(infoPlaced.center)}
+                population={state.population}
+                housing={state.housing}
+                onClose={closeInfo}
+              />
+            )}
+          </div>
+        </div>
+      </div>
     </>
   );
 };

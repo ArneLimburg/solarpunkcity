@@ -1,6 +1,12 @@
 import type { Page } from "@playwright/test";
 import { test, expect } from "./fixtures";
-import { buildingAt, isUnderConstruction, tilePosition } from "./helpers";
+import {
+  buildingAt,
+  isUnderConstruction,
+  openDropdown,
+  selectBuilding,
+  tilePosition,
+} from "./helpers";
 
 const origin = { q: 0, r: 0 };
 
@@ -9,8 +15,6 @@ async function start(page: Page) {
   await page.waitForFunction(() => window.__solarpunk !== undefined);
 }
 
-const button = (page: Page, name: string) =>
-  page.getByRole("button", { name, exact: true });
 const wood = (page: Page) => page.getByTestId("status-wood");
 
 async function hoverOrigin(page: Page) {
@@ -19,7 +23,7 @@ async function hoverOrigin(page: Page) {
   return { x, y };
 }
 
-test("the status bar shows 0 / 0 wood in the error style at the start", async ({
+test("the HUD shows 0 / 0 wood in the error style at the start", async ({
   page,
 }) => {
   await start(page);
@@ -31,8 +35,7 @@ test("the details panel of the wood storage shows its storage and no cost", asyn
   page,
 }) => {
   await start(page);
-  await button(page, "STORAGE").click();
-  await button(page, "WoodStorage").click();
+  await selectBuilding(page, "Storage", "Wood storage");
   const panel = page.getByTestId("building-details");
   await expect(panel).toContainText("Wood storage");
   await expect(panel).toContainText(
@@ -48,8 +51,7 @@ test("a wood storage is placed on forest as a log yard and adds capacity", async
   page,
 }) => {
   await start(page);
-  await button(page, "STORAGE").click();
-  await button(page, "WoodStorage").click();
+  await selectBuilding(page, "Storage", "Wood storage");
   const { x, y } = await hoverOrigin(page);
   await expect
     .poll(() => page.evaluate(() => window.__solarpunk?.isRingBlocked()))
@@ -80,12 +82,11 @@ test("a wood storage is placed on forest as a log yard and adds capacity", async
   await expect(wood(page)).not.toHaveClass(/error/);
 });
 
-test("a site without wood waits for it and the status bar shows it", async ({
+test("a site without wood waits for it and the More dropdown shows it", async ({
   page,
 }) => {
   await start(page);
-  await button(page, "FARM").click();
-  await button(page, "OrganicHomestead").click();
+  await selectBuilding(page, "Farms", "Organic homestead");
   // the camp gives no wood and there is no stock: the homestead is not blocked
   const { x, y } = await hoverOrigin(page);
   await expect
@@ -95,9 +96,14 @@ test("a site without wood waits for it and the status bar shows it", async ({
   await expect.poll(() => buildingAt(page, origin)).toBe("OrganicHomestead");
   // forestry delivers 1 wood per week, a worker-week needs 1 wood: the site
   // waits every other week
-  const sites = page.getByTestId("status-construction sites");
-  await expect(sites).toHaveText(/construction1 \(1 waiting\)$/);
-  await expect(sites).toHaveClass(/error/);
+  const panel = await openDropdown(page, "more");
+  await expect(panel.getByTestId("row-Construction sites")).toHaveText(
+    /sites1 \(1 waiting for wood\)$/,
+  );
+  await expect(panel.getByTestId("row-Construction sites")).toHaveClass(
+    /error/,
+  );
+  await expect(page.getByTestId("hud-more-button")).toHaveClass(/error/);
 });
 
 test("the ring is red where the cleared wood does not fit", async ({
@@ -105,8 +111,7 @@ test("the ring is red where the cleared wood does not fit", async ({
 }) => {
   await start(page);
   await page.evaluate(() => window.__solarpunk?.addResources({ wood: 5 }));
-  await button(page, "FARM").click();
-  await button(page, "OrganicHomestead").click();
+  await selectBuilding(page, "Farms", "Organic homestead");
   const { x, y } = await hoverOrigin(page);
   await expect
     .poll(() => page.evaluate(() => window.__solarpunk?.isRingBlocked()))

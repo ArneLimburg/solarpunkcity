@@ -1,96 +1,187 @@
-import type { FC } from "react";
+import { useEffect, useState, type FC, type ReactNode } from "react";
 import type { GameState } from "./game";
-import { resourceIcons, stockResources } from "./resourceIcons";
+import { chipClassName } from "./buildingDetails";
+import {
+  formatConstructionSites,
+  formatFood,
+  formatFreeRow,
+  formatPercent,
+  formatPopulation,
+  formatSatisfactionDetail,
+  formatWood,
+  formatWorkersButton,
+  getFurtherStocks,
+} from "./hudFormat";
+import { resourceIcons } from "./resourceIcons";
 
 const Entry: FC<{
   name: string;
   icon: string;
   value: string;
   error?: boolean;
-  title?: string;
-}> = ({ name, icon, value, error, title }) => (
+}> = ({ name, icon, value, error }) => (
   <span
-    className={error ? "chip no-margin error" : "chip no-margin"}
-    title={title ?? name}
+    className={chipClassName(error)}
+    title={name}
     aria-label={name}
     data-testid={`status-${name}`}
   >
-    <i>{icon}</i>
+    <i aria-hidden="true">{icon}</i>
     <span>{value}</span>
   </span>
 );
 
-export const StatusBar: FC<{ state: GameState }> = ({ state }) => (
-  <nav
-    className="bottom small-opacity"
-    data-testid="status-bar"
-    style={{
-      position: "static",
-      flexWrap: "wrap",
-      height: "auto",
-      minHeight: "3rem",
-      pointerEvents: "auto",
-    }}
-  >
-    <Entry
-      name="population"
-      icon="groups"
-      value={`${Math.floor(state.population)} / ${Math.floor(state.housing)}`}
-    />
-    <Entry
-      name="labor"
-      icon={resourceIcons.labor}
-      value={`${Math.floor(state.resources.labor)} (${Math.floor(
-        state.freeLaborShare,
-      )} %)`}
-      error={state.laborFactor < 100}
-    />
-    <Entry
-      name="food"
-      icon={resourceIcons.food}
-      value={`${Math.floor(state.resources.food)} (${
-        state.foodBalance < 0 ? "−" : "+"
-      }${Math.floor(Math.abs(state.foodBalance))})`}
-      error={state.foodBalance < 0}
-    />
-    <Entry
-      name="construction sites"
-      icon="construction"
-      value={
-        state.sitesWaitingForWood > 0
-          ? `${state.constructionSites} (${state.sitesWaitingForWood} waiting)`
-          : `${state.constructionSites}`
+const Row: FC<{
+  name: string;
+  value: string;
+  detail?: string;
+  icon?: string;
+  error?: boolean;
+}> = ({ name, value, detail, icon, error }) => (
+  <div data-testid={`row-${name}`} className={error ? "error-text" : undefined}>
+    <div className="row no-wrap">
+      {icon && <i aria-hidden="true">{icon}</i>}
+      <span className="max">{name}</span>
+      <span>{value}</span>
+    </div>
+    {detail && <div className="small-text">{detail}</div>}
+  </div>
+);
+
+type Dropdown = "workers" | "more";
+
+const DropdownButton: FC<{
+  id: Dropdown;
+  open: boolean;
+  error: boolean;
+  label: string;
+  onToggle: (id: Dropdown) => void;
+  children: ReactNode;
+}> = ({ id, open, error, label, onToggle, children }) => (
+  <div className="hud-dropdown" data-hud>
+    <button
+      className={`border small ${error ? "error" : ""}`}
+      aria-expanded={open}
+      aria-controls={`hud-${id}`}
+      data-testid={`hud-${id}-button`}
+      onClick={() => onToggle(id)}
+    >
+      {label}
+    </button>
+    {open && (
+      <div
+        id={`hud-${id}`}
+        className="hud-glass hud-panel hud-dropdown-panel"
+        data-testid={`hud-${id}`}
+      >
+        {children}
+      </div>
+    )}
+  </div>
+);
+
+export const StatusBar: FC<{ state: GameState }> = ({ state }) => {
+  const [open, setOpen] = useState<Dropdown | undefined>();
+  useEffect(() => {
+    if (!open) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(undefined);
+    };
+    // does not stop the event, so the map still handles it
+    const onPointerDown = (event: PointerEvent) => {
+      if (
+        !(event.target instanceof Element) ||
+        !event.target.closest(".hud-dropdown")
+      ) {
+        setOpen(undefined);
       }
-      error={state.sitesWaitingForWood > 0}
-    />
-    <Entry name="ecology" icon="eco" value={`${Math.floor(state.ecology)} %`} />
-    <Entry
-      name="satisfaction"
-      icon="sentiment_satisfied"
-      value={`${Math.floor(state.satisfaction)} %`}
-      title={`Satisfaction: ${Math.floor(state.satisfaction)} % (ecology ${Math.floor(
-        state.ecology,
-      )} %, work ${Math.floor(state.laborFactor)} %)`}
-    />
-    {stockResources.map((name) =>
-      name === "wood" ? (
+    };
+    window.addEventListener("keydown", onKeyDown);
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      document.removeEventListener("pointerdown", onPointerDown);
+    };
+  }, [open]);
+  const toggle = (id: Dropdown) => setOpen(open === id ? undefined : id);
+  const { workforce } = state;
+  const stocks = getFurtherStocks(state.resources);
+  return (
+    <div
+      className="hud-glass hud"
+      data-testid="hud"
+      data-hud
+      style={{ pointerEvents: "auto" }}
+    >
+      <div className="row no-wrap center-align">
         <Entry
-          key={name}
-          name={name}
-          icon={resourceIcons[name]}
-          value={`${Math.floor(state.resources.wood)} / ${Math.floor(
-            state.capacity.wood,
-          )}`}
+          name="population"
+          icon="groups"
+          value={formatPopulation(state)}
+        />
+        <Entry
+          name="food"
+          icon={resourceIcons.food}
+          value={formatFood(state)}
+          error={state.foodBalance < 0}
+        />
+        <Entry
+          name="wood"
+          icon={resourceIcons.wood}
+          value={formatWood(state)}
           error={state.capacity.wood === 0}
         />
-      ) : state.resources[name] > 0 ? (
-        <Entry
-          key={name}
-          name={name}
-          icon={resourceIcons[name]}
-          value={`${Math.floor(state.resources[name])}`}
-        />
-      ) : null,
-    )}
-  </nav>
-);
+      </div>
+      <div className="row no-wrap center-align">
+        <DropdownButton
+          id="workers"
+          open={open === "workers"}
+          error={state.laborFactor < 100}
+          label={formatWorkersButton(state)}
+          onToggle={toggle}
+        >
+          <h6 className="no-margin small">Last week</h6>
+          {workforce ? (
+            <>
+              <Row name="Food production" value={String(workforce.food)} />
+              <Row name="Construction" value={String(workforce.construction)} />
+              <Row name="Forestry" value={String(workforce.forestry)} />
+              <Row name="Free" value={formatFreeRow(state, workforce)} />
+            </>
+          ) : (
+            <div>No weekly report yet</div>
+          )}
+        </DropdownButton>
+        <DropdownButton
+          id="more"
+          open={open === "more"}
+          error={state.sitesWaitingForWood > 0}
+          label="More"
+          onToggle={toggle}
+        >
+          <Row name="Ecology" icon="eco" value={formatPercent(state.ecology)} />
+          <Row
+            name="Satisfaction"
+            icon="sentiment_satisfied"
+            value={formatPercent(state.satisfaction)}
+            detail={formatSatisfactionDetail(state)}
+          />
+          <Row
+            name="Construction sites"
+            icon="construction"
+            value={formatConstructionSites(state)}
+            error={state.sitesWaitingForWood > 0}
+          />
+          {stocks.map((name) => (
+            <Row
+              key={name}
+              name={name}
+              icon={resourceIcons[name]}
+              value={String(Math.floor(state.resources[name]))}
+            />
+          ))}
+        </DropdownButton>
+      </div>
+    </div>
+  );
+};

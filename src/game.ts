@@ -207,7 +207,18 @@ export type GameState = {
   foodBalance: number;
   constructionSites: number;
   sitesWaitingForWood: number;
+  workforce: Workforce | undefined; // of the last tick
 };
+
+// how the workers were used in the last weekly tick
+export type Workforce = {
+  food: number;
+  construction: number;
+  forestry: number;
+  free: number;
+};
+
+let currentWorkforce: Workforce | undefined;
 
 // construction sites that got no workers last week only for lack of wood
 let sitesWaitingForWood = 0;
@@ -256,6 +267,7 @@ export function getState(): GameState {
     foodBalance: currentFoodBalance,
     constructionSites: getConstructionSites().length,
     sitesWaitingForWood,
+    workforce: currentWorkforce && { ...currentWorkforce },
   };
 }
 
@@ -372,6 +384,7 @@ function calculateDevelopment() {
     });
   }
   // TODO food should spoil later; storage buildings (storage capacity) may be needed
+  const foodWorkers = startPopulation - labor;
   const availableFood = currentResources.food + producedFood;
   currentFoodBalance = producedFood - startPopulation;
 
@@ -385,8 +398,15 @@ function calculateDevelopment() {
     currentPopulation += getGrowth(); // new residents work from next week on
   }
   syncRoster(roster, currentPopulation); // newcomers are added, the newest leave first
-  currentResources.labor = labor - construct(labor);
-  calculateOtherProductions();
+  const constructionWorkers = construct(labor);
+  currentResources.labor = labor - constructionWorkers;
+  const forestryWorkers = calculateOtherProductions();
+  currentWorkforce = {
+    food: foodWorkers,
+    construction: constructionWorkers,
+    forestry: forestryWorkers,
+    free: currentResources.labor,
+  };
   // the free labor is between 0 and the start population
   const freeLaborShare = currentResources.labor / startPopulation;
   currentFreeLaborShare = freeLaborShare * 100;
@@ -466,8 +486,10 @@ function nonZeroValues(resources: Resources): boolean {
   return Object.values(resources).some((value) => value !== 0);
 }
 
-function calculateOtherProductions() {
+// returns the workers that were assigned
+function calculateOtherProductions(): number {
   // TODO prioritize buildings
+  let workers = 0;
   const woodCapacity = getCapacity().wood;
   const sites = getConstructionSites(); // oldest first
   for (const placed of getPlacedBuildings()) {
@@ -500,10 +522,12 @@ function calculateOtherProductions() {
     if (building.produces.wood > 0) {
       deliverWood(sites, building.produces.wood, woodCapacity);
     }
+    workers += building.consumes.labor;
     reports.set(placed, {
       workers: building.consumes.labor,
       produced: { ...building.produces },
       consumed: { ...building.consumes },
     });
   }
+  return workers;
 }

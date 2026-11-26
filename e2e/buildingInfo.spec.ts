@@ -1,6 +1,11 @@
 import type { Page } from "@playwright/test";
 import { test, expect } from "./fixtures";
-import { finishConstruction, grantWood, tilePosition } from "./helpers";
+import {
+  finishConstruction,
+  grantWood,
+  selectBuilding,
+  tilePosition,
+} from "./helpers";
 
 const origin = { q: 0, r: 0 };
 // the 800x600 viewport has the panels at the bottom left, keep the tiles above
@@ -9,8 +14,6 @@ const farmEdge = { q: 1, r: -3 };
 const house = { q: 3, r: -3 };
 const forest = { q: -2, r: -2 };
 
-const button = (page: Page, name: string) =>
-  page.getByRole("button", { name, exact: true });
 const info = (page: Page) => page.getByTestId("building-info");
 
 async function click(page: Page, coords: { q: number; r: number }) {
@@ -23,11 +26,11 @@ async function place(
   page: Page,
   category: string,
   type: string,
+  label: string,
   coords: { q: number; r: number },
   size = 1,
 ) {
-  await button(page, category).click();
-  await button(page, type).click();
+  await selectBuilding(page, category, label);
   const { x, y } = await tilePosition(page, coords);
   await page.mouse.move(x, y, { steps: 5 });
   // the click builds on the hovered footprint, so wait until the ring covers it
@@ -49,9 +52,15 @@ async function setup(page: Page) {
   await page.waitForFunction(() => window.__solarpunk !== undefined);
   await grantWood(page); // the wood storages raise the cap of the wood
   await page.evaluate(() => window.__solarpunk?.addResources({ wood: 100 }));
-  await place(page, "FARM", "OrganicHomestead", origin);
-  await place(page, "FARM", "Farm", farm, 7);
-  await place(page, "RESIDENTIAL", "AppartmentBuilding", house);
+  await place(page, "Farms", "OrganicHomestead", "Organic homestead", origin);
+  await place(page, "Farms", "Farm", "Farm", farm, 7);
+  await place(
+    page,
+    "Residential",
+    "AppartmentBuilding",
+    "Apartment building",
+    house,
+  );
 }
 
 test("opens, updates, switches and closes the building info", async ({
@@ -121,9 +130,21 @@ test("opens, updates, switches and closes the building info", async ({
   // selecting a building type closes it and builds instead of selecting
   await click(page, origin);
   await expect(info(page)).toBeVisible();
-  await button(page, "FARM").click();
-  await button(page, "OrganicHomestead").click();
+  await selectBuilding(page, "Farms", "Organic homestead");
   await expect(info(page)).toHaveCount(0);
   await click(page, forest);
+  await expect(info(page)).toHaveCount(0);
+});
+
+test("the close button closes the building info on the right", async ({
+  page,
+}) => {
+  await page.goto("./");
+  await page.waitForFunction(() => window.__solarpunk !== undefined);
+  await click(page, origin);
+  await expect(info(page)).toContainText("Settlers' camp");
+  const box = (await info(page).boundingBox())!;
+  expect(box.x + box.width / 2).toBeGreaterThan(400);
+  await page.getByRole("button", { name: "Close building info" }).click();
   await expect(info(page)).toHaveCount(0);
 });

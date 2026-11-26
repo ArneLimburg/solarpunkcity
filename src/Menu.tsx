@@ -1,87 +1,97 @@
-import { useEffect, useState, type FC } from "react";
+import type { FC } from "react";
+import { chipClassName, unaffordableCosts } from "./buildingDetails";
 import {
   BuildingCategories,
+  BuildingDefinition,
   BuildingTypes,
+  getLabel,
   type BuildingCategory,
   type BuildingType,
 } from "./gameDefinitions";
+import { resourceIcons } from "./resourceIcons";
+import type { Resources } from "./resources";
 
-export const Menu: FC<{
+// the Build button at the top left; it shows the selection while collapsed
+export const BuildButton: FC<{
+  open: boolean;
   selected: BuildingType | undefined;
+  onToggle: () => void;
+}> = ({ open, selected, onToggle }) => (
+  <button
+    className="border hud-glass hud-build"
+    aria-expanded={open}
+    aria-controls="build-panel"
+    data-hud
+    onClick={onToggle}
+  >
+    <i aria-hidden="true">construction</i>
+    <span>{!open && selected ? `Build: ${getLabel(selected)}` : "Build"}</span>
+  </button>
+);
+
+const buildableCategories = Object.values(BuildingCategories).filter(
+  (category) => category.buildable,
+);
+
+// the list of buildings, one tab per buildable category
+export const BuildList: FC<{
+  category: BuildingCategory;
+  selected: BuildingType | undefined;
+  resources: Resources;
+  onCategory: (category: BuildingCategory) => void;
   onSelect: (buildingType: BuildingType | undefined) => void;
-}> = ({ selected, onSelect }) => {
-  const [open, setOpen] = useState<BuildingCategory | undefined>();
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setOpen(undefined);
-        onSelect(undefined);
-      }
-    };
-    // does not stop the event, so the map still handles it
-    const onPointerDown = (event: PointerEvent) => {
-      if (
-        !(event.target instanceof Element) ||
-        !event.target.closest("header")
-      ) {
-        setOpen(undefined);
-      }
-    };
-    window.addEventListener("keydown", onKeyDown);
-    document.addEventListener("pointerdown", onPointerDown);
-    return () => {
-      window.removeEventListener("keydown", onKeyDown);
-      document.removeEventListener("pointerdown", onPointerDown);
-    };
-  }, [onSelect]);
-  return (
-    <header className="transparent">
-      <nav className="top transparent">
-        <div className="max"></div>
-        {Object.values(BuildingCategories).map(
-          (category) =>
-            category.buildable && (
-              <div key={category.name} className="details">
-                <button
-                  className={`border button extra circle ${selected && BuildingTypes[selected].category === category.name ? "large-elevate" : "small-elevate"}`}
-                  aria-label={category.name}
-                  aria-expanded={open === category.name}
-                  onClick={() =>
-                    setOpen(open === category.name ? undefined : category.name)
-                  }
-                >
-                  <img className="responsive" src={category.icon} />
-                </button>
-                {open === category.name && (
-                  <nav className="list">
-                    {Object.entries(BuildingTypes)
-                      .filter(
-                        ([, details]) => details.category === category.name,
-                      )
-                      .map(([type, details]) => (
-                        <button
-                          key={type}
-                          className={`border button extra circle ${selected === type ? "large-elevate" : "small-elevate"}`}
-                          aria-label={type}
-                          aria-pressed={selected === type}
-                          onClick={() => {
-                            setOpen(undefined);
-                            onSelect(
-                              selected === type
-                                ? undefined
-                                : (type as BuildingType),
-                            );
-                          }}
-                        >
-                          <img className="responsive" src={details.icon} />
-                        </button>
-                      ))}
-                  </nav>
+}> = ({ category, selected, resources, onCategory, onSelect }) => (
+  <section
+    id="build-panel"
+    className="hud-glass hud-panel"
+    data-testid="build-panel"
+    data-hud
+  >
+    <div className="row no-wrap" role="tablist">
+      {buildableCategories.map(({ name, label }) => (
+        <button
+          key={name}
+          role="tab"
+          className={`border small ${category === name ? "fill" : ""}`}
+          aria-selected={category === name}
+          onClick={() => onCategory(name)}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+    <div className="hud-list" role="tabpanel">
+      {(Object.keys(BuildingTypes) as BuildingType[])
+        .filter((type) => BuildingTypes[type].category === category)
+        .map((type) => {
+          const { wood } = BuildingDefinition[type].cost;
+          return (
+            <button
+              key={type}
+              className={`border hud-row ${selected === type ? "fill" : ""}`}
+              aria-label={getLabel(type)}
+              aria-pressed={selected === type}
+              onClick={() => onSelect(selected === type ? undefined : type)}
+            >
+              <img
+                className="small"
+                src={BuildingTypes[type].icon}
+                alt=""
+                aria-hidden="true"
+              />
+              <span className="max">{getLabel(type)}</span>
+              <span
+                className={chipClassName(
+                  unaffordableCosts(type, resources).has("wood"),
                 )}
-              </div>
-            ),
-        )}
-      </nav>
-    </header>
-  );
-};
+                data-testid={`build-cost-${type}`}
+              >
+                <i aria-hidden="true">{resourceIcons.wood}</i>
+                <span>{wood}</span>
+              </span>
+            </button>
+          );
+        })}
+    </div>
+  </section>
+);

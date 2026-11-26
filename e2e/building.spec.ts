@@ -5,9 +5,16 @@ import {
   finishConstruction,
   grantWood,
   isUnderConstruction,
+  openDropdown,
+  selectBuilding,
   tilePosition,
 } from "./helpers";
 import { GRID_RADIUS, getRiverCourse, isOnBoard } from "../src/board";
+import {
+  BuildingCategories,
+  getLabel,
+  type BuildingType,
+} from "../src/gameDefinitions";
 
 const origin = { q: 0, r: 0 };
 const east = { q: 3, r: 0 };
@@ -17,8 +24,7 @@ async function setup(page: Page) {
   await page.goto("./");
   await page.waitForFunction(() => window.__solarpunk !== undefined);
   await grantWood(page);
-  await page.getByRole("button", { name: "FARM", exact: true }).click();
-  await page.getByRole("button", { name: "OrganicHomestead" }).click();
+  await selectBuilding(page, "Farms", "Organic homestead");
 }
 
 const ringTile = (page: Page) =>
@@ -263,17 +269,19 @@ test("a click builds exactly once", async ({ page }) => {
   expect(await buildingAt(page, next)).toBe("Forest");
 });
 
-test("the status bar counts the construction sites", async ({ page }) => {
+test("the More dropdown counts the construction sites", async ({ page }) => {
   await setup(page);
-  const sites = page.getByTestId("status-construction sites");
-  await expect(sites).toHaveText(/construction0$/);
+  // a click on the map closes the dropdown, so it is opened again each time
+  const sites = async () =>
+    (await openDropdown(page, "more")).getByTestId("row-Construction sites");
+  await expect(await sites()).toHaveText(/sites0$/);
   const { x, y } = await tilePosition(page, origin);
   await page.mouse.move(x, y, { steps: 5 });
   await page.mouse.click(x, y);
-  await expect(sites).toHaveText(/construction1$/);
+  await expect(await sites()).toHaveText(/sites1$/);
   await finishConstruction(page);
-  // the next weekly tick updates the status bar
-  await expect(sites).toHaveText(/construction0$/);
+  // the next weekly tick updates the dropdown
+  await expect(await sites()).toHaveText(/sites0$/);
 });
 
 test("a finished building replaces its construction site after its weeks of work", async ({
@@ -343,8 +351,7 @@ test("the river is water without trees and cannot be built on", async ({
   // the ring is red on the river even with enough wood; the details panel is
   // dismissed (the selection stays) because it covers the river tile
   await grantWood(page);
-  await page.getByRole("button", { name: "FARM", exact: true }).click();
-  await page.getByRole("button", { name: "Farm", exact: true }).click();
+  await selectBuilding(page, "Farms", "Farm");
   await page.getByRole("button", { name: "Hide building details" }).click();
   const tile = river.find(({ r }) => r === 0)!;
   const { x, y } = await tilePosition(page, tile);
@@ -389,8 +396,7 @@ test("a residential building turns the tile into meadow", async ({ page }) => {
   expect(
     await page.evaluate((c) => window.__solarpunk?.getTileMaterial(c), origin),
   ).toBe("meadow"); // the camp
-  await page.getByRole("button", { name: "RESIDENTIAL", exact: true }).click();
-  await page.getByRole("button", { name: "AppartmentBuilding" }).click();
+  await selectBuilding(page, "Residential", "Apartment building");
   const { x, y } = await tilePosition(page, origin);
   await page.mouse.move(x, y, { steps: 5 });
   await page.mouse.click(x, y);
@@ -410,8 +416,7 @@ test("a farm occupies 7 tiles with one model and farmland", async ({
   await page.goto("./");
   await page.waitForFunction(() => window.__solarpunk !== undefined);
   await grantWood(page);
-  await page.getByRole("button", { name: "FARM", exact: true }).click();
-  await page.getByRole("button", { name: "Farm", exact: true }).click();
+  await selectBuilding(page, "Farms", "Farm");
 
   const { x, y } = await tilePosition(page, origin);
   await page.mouse.move(x, y, { steps: 5 });
@@ -483,8 +488,7 @@ for (const { type, budget } of FARM_BUDGETS) {
     await page.goto("./");
     await page.waitForFunction(() => window.__solarpunk !== undefined);
     await grantWood(page);
-    await page.getByRole("button", { name: "FARM", exact: true }).click();
-    await page.getByRole("button", { name: type, exact: true }).click();
+    await selectBuilding(page, "Farms", getLabel(type as BuildingType)!);
     const { x, y } = await tilePosition(page, origin);
     await page.mouse.move(x, y, { steps: 5 });
     await page.mouse.click(x, y);
@@ -502,12 +506,16 @@ for (const { type, budget } of FARM_BUDGETS) {
   });
 }
 
-async function buildAtOrigin(page: Page, category: string, type: string) {
+async function buildAtOrigin(
+  page: Page,
+  category: "FARM" | "RESIDENTIAL",
+  type: BuildingType,
+) {
   await page.goto("./");
   await page.waitForFunction(() => window.__solarpunk !== undefined);
   await grantWood(page);
-  await page.getByRole("button", { name: category, exact: true }).click();
-  await page.getByRole("button", { name: type, exact: true }).click();
+  const { label } = BuildingCategories[category];
+  await selectBuilding(page, label, getLabel(type)!);
   const { x, y } = await tilePosition(page, origin);
   await page.mouse.move(x, y, { steps: 5 });
   await page.mouse.click(x, y);
@@ -530,7 +538,11 @@ test("an apartment building is one low-poly model within budget", async ({
   expect(triangles).toBeLessThanOrEqual(1000);
 });
 
-const BUILDABLE = [
+const BUILDABLE: {
+  category: "FARM" | "RESIDENTIAL";
+  type: BuildingType;
+  size: number;
+}[] = [
   { category: "FARM", type: "OrganicHomestead", size: 1 },
   { category: "FARM", type: "Farm", size: 7 },
   { category: "FARM", type: "AgroIndustrial", size: 19 },
@@ -560,8 +572,7 @@ const ringBlocked = (page: Page) =>
   page.evaluate(() => window.__solarpunk?.isRingBlocked());
 
 async function selectFarm(page: Page) {
-  await page.getByRole("button", { name: "FARM", exact: true }).click();
-  await page.getByRole("button", { name: "Farm", exact: true }).click();
+  await selectBuilding(page, "Farms", "Farm");
 }
 
 test("the farm ring is not blocked on free forest", async ({ page }) => {
@@ -661,8 +672,7 @@ test("the corner fills around a new farm follow the grounds of the tiles", async
   expect(await fill(farmEdge, 1)).toBe("farmland");
 
   // farmland, meadow, forest: three different grounds
-  await page.getByRole("button", { name: "RESIDENTIAL", exact: true }).click();
-  await page.getByRole("button", { name: "AppartmentBuilding" }).click();
+  await selectBuilding(page, "Residential", "Apartment building");
   const house = await tilePosition(page, houseTile);
   await page.mouse.move(house.x, house.y, { steps: 5 });
   await page.mouse.click(house.x, house.y);
