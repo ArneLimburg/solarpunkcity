@@ -93,6 +93,8 @@ test("generated settlers cost at most two draw calls and the roster comes back",
 
   await page.evaluate(() => window.__solarpunk!.showSettlers(10));
   await frames(2);
+  // at least one game tick passes: it must not replace the generated settlers
+  await page.waitForTimeout(1500);
   const crowd = await stats();
   expect(crowd.count).toBe(10);
   expect(crowd.drawCalls - baseline.drawCalls).toBeLessThanOrEqual(2);
