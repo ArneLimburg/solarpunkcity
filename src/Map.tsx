@@ -31,6 +31,8 @@ import { setupScene } from "./sceneSetup";
 import { createDevHooks } from "./devHooks";
 import { placeBuilding, type PlacedModel } from "./placeBuilding";
 
+const ignore = () => {};
+
 export const Map = forwardRef<
   {
     addBuilding: (
@@ -56,7 +58,9 @@ export const Map = forwardRef<
   // the residents to show; DEV benchmarks replace them with generated ones
   const residentsRef = useRef(residents);
   residentsRef.current = residents;
-  const generatedRef = useRef(false);
+  // what a change of the residents does: nothing before the scene exists and
+  // while generated settlers are shown, otherwise it syncs the settlers
+  const applyResidentsRef = useRef<(residents: Resident[]) => void>(ignore);
 
   // the tile renderer and the ground materials
   const tilesRef = useRef<TileRenderer | null>(null);
@@ -89,9 +93,7 @@ export const Map = forwardRef<
   };
 
   useEffect(() => {
-    if (!generatedRef.current) {
-      settlersRef.current?.sync(residents);
-    }
+    applyResidentsRef.current(residents);
   }, [residents]);
 
   useImperativeHandle(ref, () => ({ addBuilding: place }));
@@ -125,9 +127,11 @@ export const Map = forwardRef<
       Math.floor(Math.random() * 2 ** 32),
     );
     settlersRef.current = settlers;
+    const follow = (current: Resident[]) => settlers.sync(current);
+    applyResidentsRef.current = follow;
     // the game starts with the settlers' camp in the middle of the board
     place({ q: 0, r: 0 }, "SettlersCamp");
-    settlers.sync(residentsRef.current);
+    follow(residentsRef.current);
 
     const ring = createRing(scene);
     const preview = createPreview(() => previewTypeRef.current);
@@ -164,7 +168,7 @@ export const Map = forwardRef<
         backdrop,
         // shows generated residents instead of the roster; undefined goes back
         showSettlers: (count) => {
-          generatedRef.current = count !== undefined;
+          applyResidentsRef.current = count === undefined ? follow : ignore;
           settlers.sync(
             count === undefined
               ? residentsRef.current
