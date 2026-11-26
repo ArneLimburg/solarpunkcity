@@ -1,6 +1,6 @@
 import type { Page } from "@playwright/test";
 import { test, expect } from "./fixtures";
-import { buildingAt, grantWood, tilePosition } from "./helpers";
+import { buildingAt, grantWood, selectBuilding, tilePosition } from "./helpers";
 
 const origin = { q: 0, r: 0 };
 
@@ -12,11 +12,10 @@ async function setup(page: Page) {
 
 const button = (page: Page, name: string) =>
   page.getByRole("button", { name, exact: true });
-
-async function selectHomestead(page: Page) {
-  await button(page, "FARM").click();
-  await button(page, "OrganicHomestead").click();
-}
+const tab = (page: Page, name: string) =>
+  page.getByRole("tab", { name, exact: true });
+const buildButton = (page: Page) =>
+  page.getByRole("button", { name: /^Build/ });
 
 async function clickOrigin(page: Page) {
   const { x, y } = await tilePosition(page, origin);
@@ -26,81 +25,93 @@ async function clickOrigin(page: Page) {
   await page.waitForTimeout(500);
 }
 
-test("highlights only the selected type and its category", async ({ page }) => {
+test("marks only the selected building and its category tab", async ({
+  page,
+}) => {
   await setup(page);
-  await selectHomestead(page);
-  await button(page, "FARM").click();
-  await expect(button(page, "OrganicHomestead")).toHaveAttribute(
+  await selectBuilding(page, "Farms", "Organic homestead");
+  await expect(button(page, "Organic homestead")).toHaveAttribute(
     "aria-pressed",
     "true",
   );
   await expect(button(page, "Farm")).toHaveAttribute("aria-pressed", "false");
-  await expect(button(page, "AgroIndustrial")).toHaveAttribute(
+  await expect(button(page, "Agro-industrial Farm")).toHaveAttribute(
     "aria-pressed",
     "false",
   );
-  await expect(button(page, "OrganicHomestead")).toHaveClass(/large-elevate/);
-  await expect(button(page, "Farm")).toHaveClass(/small-elevate/);
-  await button(page, "FARM").click();
-  await expect(button(page, "FARM")).toHaveClass(/large-elevate/);
-  await expect(button(page, "RESIDENTIAL")).not.toHaveClass(/large-elevate/);
+  await expect(tab(page, "Farms")).toHaveAttribute("aria-selected", "true");
+  await expect(tab(page, "Residential")).toHaveAttribute(
+    "aria-selected",
+    "false",
+  );
 });
 
-test("reopening a category shows the selected building large", async ({
+test("a tab shows its buildings with the wood cost", async ({ page }) => {
+  await setup(page);
+  await buildButton(page).click();
+  await tab(page, "Residential").click();
+  await expect(button(page, "Apartment building")).toBeVisible();
+  await expect(button(page, "Farm")).toHaveCount(0);
+  await expect(page.getByTestId("build-cost-AppartmentBuilding")).toHaveText(
+    /10$/,
+  );
+  await expect(
+    page.getByTestId("build-cost-AppartmentBuilding"),
+  ).not.toHaveClass(/error/);
+});
+
+test("the Build button toggles the panel and shows the selection while collapsed", async ({
   page,
 }) => {
   await setup(page);
-  await selectHomestead(page);
-  await button(page, "FARM").click();
-  await expect(button(page, "OrganicHomestead")).toHaveClass(/large-elevate/);
-  await expect(button(page, "Farm")).toHaveClass(/small-elevate/);
+  await expect(buildButton(page)).toHaveAttribute("aria-expanded", "false");
+  await selectBuilding(page, "Farms", "Farm");
+  await expect(buildButton(page)).toHaveAttribute("aria-expanded", "true");
+  await expect(buildButton(page)).toHaveText(/^constructionBuild$/);
+  await buildButton(page).click();
+  await expect(buildButton(page)).toHaveAttribute("aria-expanded", "false");
+  await expect(buildButton(page)).toHaveText(/Build: Farm$/);
+  await expect(page.getByTestId("build-panel")).toHaveCount(0);
+  await expect(page.getByTestId("building-details")).toBeVisible();
 });
 
-test("a second click on the open category closes it", async ({ page }) => {
+test("Escape clears the selection and collapses the panel", async ({
+  page,
+}) => {
   await setup(page);
-  await selectHomestead(page);
-  await button(page, "FARM").click();
-  await expect(button(page, "FARM")).toHaveAttribute("aria-expanded", "true");
-  await button(page, "FARM").click();
-  await expect(button(page, "FARM")).toHaveAttribute("aria-expanded", "false");
-  await clickOrigin(page);
-  expect(await buildingAt(page, origin)).toBe("OrganicHomestead");
-});
-
-test("opening another category closes the open one", async ({ page }) => {
-  await setup(page);
-  await button(page, "FARM").click();
-  await button(page, "RESIDENTIAL").click();
-  await expect(button(page, "RESIDENTIAL")).toHaveAttribute(
-    "aria-expanded",
-    "true",
-  );
-  await expect(button(page, "FARM")).toHaveAttribute("aria-expanded", "false");
-});
-
-test("a click on the map closes the category and builds", async ({ page }) => {
-  await setup(page);
-  await selectHomestead(page);
-  await button(page, "FARM").click();
-  await expect(button(page, "FARM")).toHaveAttribute("aria-expanded", "true");
-  await clickOrigin(page);
-  await expect(button(page, "FARM")).toHaveAttribute("aria-expanded", "false");
-  expect(await buildingAt(page, origin)).toBe("OrganicHomestead");
-});
-
-test("Escape clears the selection", async ({ page }) => {
-  await setup(page);
-  await selectHomestead(page);
+  await selectBuilding(page, "Farms", "Organic homestead");
   await page.keyboard.press("Escape");
+  await expect(page.getByTestId("build-panel")).toHaveCount(0);
+  await expect(buildButton(page)).toHaveText(/Build$/);
   await clickOrigin(page);
   expect(await buildingAt(page, origin)).toBe("SettlersCamp");
 });
 
+test("a click on the map builds and keeps the panel open", async ({ page }) => {
+  await setup(page);
+  await selectBuilding(page, "Farms", "Organic homestead");
+  await clickOrigin(page);
+  expect(await buildingAt(page, origin)).toBe("OrganicHomestead");
+  await expect(page.getByTestId("build-panel")).toBeVisible();
+  await expect(button(page, "Organic homestead")).toHaveAttribute(
+    "aria-pressed",
+    "false",
+  );
+});
+
+test("placing works with the list collapsed", async ({ page }) => {
+  await setup(page);
+  await selectBuilding(page, "Farms", "Organic homestead");
+  await buildButton(page).click();
+  await clickOrigin(page);
+  expect(await buildingAt(page, origin)).toBe("OrganicHomestead");
+});
+
 test("all menu icons load and the farm types differ", async ({ page }) => {
   await setup(page);
-  await button(page, "FARM").click();
-  const images = page.locator("header img");
-  await expect(images).toHaveCount(6);
+  await buildButton(page).click();
+  const images = page.getByTestId("build-panel").locator("img");
+  await expect(images).toHaveCount(3);
   await expect
     .poll(() =>
       images.evaluateAll((imgs) =>
@@ -108,19 +119,34 @@ test("all menu icons load and the farm types differ", async ({ page }) => {
       ),
     )
     .toBe(true);
-  const sources = await Promise.all(
-    ["OrganicHomestead", "Farm", "AgroIndustrial"].map((name) =>
-      button(page, name).locator("img").getAttribute("src"),
-    ),
+  const sources = await images.evaluateAll((imgs) =>
+    imgs.map((img) => img.getAttribute("src")),
   );
   expect(new Set(sources).size).toBe(3);
 });
 
-test("a click on the selected type clears the selection", async ({ page }) => {
+test("a click on the selected building clears the selection", async ({
+  page,
+}) => {
   await setup(page);
-  await selectHomestead(page);
-  await button(page, "FARM").click();
-  await button(page, "OrganicHomestead").click();
+  await selectBuilding(page, "Farms", "Organic homestead");
+  await button(page, "Organic homestead").click();
   await clickOrigin(page);
   expect(await buildingAt(page, origin)).toBe("SettlersCamp");
+});
+
+test("the build panel fits a narrow screen and places from the collapsed list", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 375, height: 812 });
+  await setup(page);
+  await selectBuilding(page, "Farms", "Organic homestead");
+  const box = (await page.getByTestId("build-panel").boundingBox())!;
+  expect(box.x).toBeGreaterThanOrEqual(0);
+  expect(box.x + box.width).toBeLessThanOrEqual(375);
+  expect(box.height).toBeLessThanOrEqual(812 / 2 + 1);
+  await buildButton(page).click();
+  await expect(buildButton(page)).toHaveText(/Build: Organic homestead$/);
+  await clickOrigin(page);
+  expect(await buildingAt(page, origin)).toBe("OrganicHomestead");
 });

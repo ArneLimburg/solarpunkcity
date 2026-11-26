@@ -14,6 +14,29 @@ export async function tilePosition(page: Page, coords: HexCoordinates) {
   return { x: box.x + position.x, y: box.y + position.y };
 }
 
+// opens the build panel if needed and selects a building by category tab and label
+export async function selectBuilding(
+  page: Page,
+  category: string,
+  label: string,
+) {
+  const build = page.getByRole("button", { name: /^Build/ });
+  if ((await build.getAttribute("aria-expanded")) !== "true") {
+    await build.click();
+  }
+  await page.getByRole("tab", { name: category, exact: true }).click();
+  await page.getByRole("button", { name: label, exact: true }).click();
+}
+
+// opens a HUD dropdown ("Workers" or "More") and returns its panel
+export async function openDropdown(page: Page, id: "workers" | "more") {
+  const button = page.getByTestId(`hud-${id}-button`);
+  if ((await button.getAttribute("aria-expanded")) !== "true") {
+    await button.click();
+  }
+  return page.getByTestId(`hud-${id}`);
+}
+
 // room for 300 wood (three wood storages far away from the tiles the tests
 // use) and 100 wood on top of the 9 wood from clearing the storage tiles
 export async function grantWood(page: Page) {

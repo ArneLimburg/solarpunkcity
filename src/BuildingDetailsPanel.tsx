@@ -69,19 +69,12 @@ export const BuildingDetailsPanel: FC<{
   const building = BuildingDefinition[type];
   return (
     <article
-      className="small-opacity padding"
+      className="hud-glass hud-panel"
       data-testid="building-details"
       role="button"
       aria-label="Hide building details"
       onClick={onHide}
-      style={{
-        position: "relative",
-        margin: "0 0 0 1rem",
-        maxWidth: "20rem",
-        alignSelf: "flex-start",
-        pointerEvents: "auto",
-        cursor: "pointer",
-      }}
+      style={{ position: "relative", cursor: "pointer" }}
     >
       <i
         aria-hidden="true"

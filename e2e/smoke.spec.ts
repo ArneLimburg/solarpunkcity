@@ -2,10 +2,16 @@ import { test, expect } from "./fixtures";
 import {
   grantWood,
   installClockWithNativeFrames,
+  openDropdown,
+  selectBuilding,
   tilePosition,
 } from "./helpers";
 import { GRID_RADIUS } from "../src/board";
-import { BuildingCategories, BuildingTypes } from "../src/gameDefinitions";
+import {
+  BuildingCategories,
+  BuildingTypes,
+  getLabel,
+} from "../src/gameDefinitions";
 
 test("app loads", async ({ page }) => {
   const errors: string[] = [];
@@ -59,38 +65,46 @@ test("one mountain mesh stands behind the board, visible and not pickable", asyn
   expect(stats.inView).toBe(true);
 });
 
-test("menu shows categories", async ({ page }) => {
+test("the build panel shows a tab per category and the buildings of a tab", async ({
+  page,
+}) => {
   await page.goto("./");
-  const expected = Object.values(BuildingCategories).filter(
+  const build = page.getByRole("button", { name: "Build", exact: true });
+  await expect(build).toHaveAttribute("aria-expanded", "false");
+  await expect(page.getByTestId("build-panel")).toHaveCount(0);
+  await build.click();
+  await expect(build).toHaveAttribute("aria-expanded", "true");
+  const categories = Object.values(BuildingCategories).filter(
     (category) => category.buildable,
   );
-  await expect(page.locator("header nav.top > .details > button")).toHaveCount(
-    expected.length,
+  await expect(page.getByRole("tab")).toHaveText(
+    categories.map((category) => category.label),
   );
-});
-
-test("category opens building list", async ({ page }) => {
-  await page.goto("./");
-  await page.getByRole("button", { name: "FARM", exact: true }).click();
-  const expected = Object.values(BuildingTypes).filter(
-    (building) => building.category === "FARM",
+  const expected = Object.entries(BuildingTypes)
+    .filter(([, building]) => building.category === "FARM")
+    .map(([type]) => getLabel(type as keyof typeof BuildingTypes));
+  await expect(page.getByTestId("build-panel").getByRole("button")).toHaveText(
+    expected.map((label) => new RegExp(`^${label}`)),
   );
-  await expect(page.locator("nav.list > button")).toHaveCount(expected.length);
+  await expect(page.getByTestId("build-cost-Farm")).toContainText("25");
 });
 
-test("status bar shows population", async ({ page }) => {
-  await page.goto("./");
-  await expect(page.getByTestId("status-bar")).toBeVisible();
-  await expect(page.getByTestId("status-population")).toContainText("2");
-});
-
-test("status bar shows the food stock and balance", async ({ page }) => {
+test("the HUD shows population, food and wood and no status bar remains", async ({
+  page,
+}) => {
   // freeze timers so that no week is calculated before the initial state is checked
   await installClockWithNativeFrames(page);
   await page.goto("./");
+  await expect(page.getByTestId("hud")).toBeVisible();
+  await expect(page.getByTestId("status-bar")).toHaveCount(0);
+  await expect(page.getByTestId("status-population")).toContainText("2");
   const food = page.getByTestId("status-food");
-  await expect(food).toHaveText(/^restaurant10 \(\+0\)$/);
+  await expect(food).toHaveText(/^restaurant10 \(\+0\/wk\)$/);
   await expect(food).not.toHaveClass(/error/);
+  const wood = page.getByTestId("status-wood");
+  await expect(wood).toContainText("0 / 0");
+  // without storage the capacity is 0
+  await expect(wood).toHaveClass(/error/);
 });
 
 test("food entry is marked as error when the balance is negative", async ({
@@ -103,49 +117,141 @@ test("food entry is marked as error when the balance is negative", async ({
   // the settlers' camp feeds the 2 residents
   await expect(food).not.toHaveClass(/error/);
   // building over the camp removes the food production
-  await page.getByRole("button", { name: "FARM", exact: true }).click();
-  await page.getByRole("button", { name: "OrganicHomestead" }).click();
+  await selectBuilding(page, "Farms", "Organic homestead");
   const { x, y } = await tilePosition(page, { q: 0, r: 0 });
   await page.mouse.move(x, y, { steps: 5 });
   await page.mouse.click(x, y);
-  await expect(food).toContainText("(−2)");
+  await expect(food).toContainText("(−2/wk)");
   await expect(food).toHaveClass(/error/);
 });
 
-test("status bar shows ecology and satisfaction", async ({ page }) => {
+test("the More dropdown shows ecology and satisfaction", async ({ page }) => {
   // freeze timers so that no week changes the labor factor
   await installClockWithNativeFrames(page);
   await page.goto("./");
+  const more = page.getByTestId("hud-more-button");
+  await expect(more).toHaveAttribute("aria-expanded", "false");
+  await expect(page.getByTestId("hud-more")).toHaveCount(0);
+  const panel = await openDropdown(page, "more");
+  await expect(more).toHaveAttribute("aria-expanded", "true");
   // the camp tile has no ecology, so it is just below 100 %
-  await expect(page.getByTestId("status-ecology")).toContainText("99 %");
-  const satisfaction = page.getByTestId("status-satisfaction");
+  await expect(panel.getByTestId("row-Ecology")).toContainText("99 %");
+  const satisfaction = panel.getByTestId("row-Satisfaction");
   await expect(satisfaction).toContainText("99 %");
-  await expect(satisfaction).toHaveAttribute(
-    "title",
-    "Satisfaction: 99 % (ecology 99 %, work 100 %)",
-  );
-  await expect(satisfaction).toHaveAttribute("aria-label", "satisfaction");
-  const labor = page.getByTestId("status-labor");
-  await expect(labor).toHaveText(/0 \(0 %\)$/);
-  await expect(labor).not.toHaveClass(/error/);
+  await expect(satisfaction).toContainText("ecology 99 %, work 100 %");
+  await expect(panel.getByTestId("row-Construction sites")).toContainText("0");
+  await expect(more).not.toHaveClass(/error/);
 });
 
-test("status bar shows a stock resource once it is available", async ({
+test("the More dropdown shows a stock resource once it is available", async ({
   page,
 }) => {
   await page.goto("./");
   await page.waitForFunction(() => window.__solarpunk !== undefined);
-  await expect(page.getByTestId("status-ore")).toHaveCount(0);
+  const panel = await openDropdown(page, "more");
+  await expect(panel.getByTestId("row-ore")).toHaveCount(0);
   await page.evaluate(() => window.__solarpunk?.addResources({ ore: 5 }));
-  await expect(page.getByTestId("status-ore")).toContainText("5");
+  await expect(panel.getByTestId("row-ore")).toContainText("5");
 });
 
-test("labor entry is marked as error when labor is not used well", async ({
+test("the Workers dropdown shows no report before the first week", async ({
+  page,
+}) => {
+  await installClockWithNativeFrames(page);
+  await page.goto("./");
+  const button = page.getByTestId("hud-workers-button");
+  await expect(button).toHaveText("Workers: 0 free");
+  const panel = await openDropdown(page, "workers");
+  await expect(panel).toContainText("Last week");
+  await expect(panel).toContainText("No weekly report yet");
+  // opening a dropdown does not advance the week
+  await expect(page.getByTestId("status-food")).toContainText("10 (+0/wk)");
+});
+
+test("the Workers dropdown lists the workforce of the last week", async ({
   page,
 }) => {
   await page.goto("./");
   // without storage no forest works, so all labor stays free after a week
-  const labor = page.getByTestId("status-labor");
-  await expect(labor).toHaveText(/2 \(100 %\)$/);
-  await expect(labor).toHaveClass(/error/);
+  const button = page.getByTestId("hud-workers-button");
+  await expect(button).toHaveText("Workers: 2 free");
+  await expect(button).toHaveClass(/error/);
+  const panel = await openDropdown(page, "workers");
+  await expect(panel.getByTestId("row-Food production")).toContainText("0");
+  await expect(panel.getByTestId("row-Construction")).toContainText("0");
+  await expect(panel.getByTestId("row-Forestry")).toContainText("0");
+  await expect(panel.getByTestId("row-Free")).toContainText("2 (100 %)");
+});
+
+test("only one dropdown is open, it closes with Escape and outside clicks", async ({
+  page,
+}) => {
+  await installClockWithNativeFrames(page);
+  await page.goto("./");
+  const workers = page.getByTestId("hud-workers-button");
+  const more = page.getByTestId("hud-more-button");
+  await workers.focus();
+  await page.keyboard.press("Enter");
+  await expect(workers).toHaveAttribute("aria-expanded", "true");
+  await more.focus();
+  await page.keyboard.press("Space");
+  await expect(more).toHaveAttribute("aria-expanded", "true");
+  await expect(workers).toHaveAttribute("aria-expanded", "false");
+  await page.keyboard.press("Escape");
+  await expect(more).toHaveAttribute("aria-expanded", "false");
+  await more.click();
+  await expect(more).toHaveAttribute("aria-expanded", "true");
+  await page.mouse.click(5, 400);
+  await expect(more).toHaveAttribute("aria-expanded", "false");
+  // a second click on the button closes the dropdown
+  await workers.click();
+  await workers.click();
+  await expect(workers).toHaveAttribute("aria-expanded", "false");
+});
+
+test("clicking in the HUD, a dropdown or a panel builds nothing", async ({
+  page,
+}) => {
+  await page.goto("./");
+  await page.waitForFunction(() => window.__solarpunk !== undefined);
+  await grantWood(page);
+  await selectBuilding(page, "Farms", "Organic homestead");
+  // the HUD, the dropdown and the panel cover buildable tiles of the map
+  for (const id of ["hud", "hud-more", "build-panel"]) {
+    await openDropdown(page, "more");
+    const box = (await page.getByTestId(id).boundingBox())!;
+    await page.mouse.click(box.x + box.width - 3, box.y + box.height - 3);
+  }
+  // a placement would have cleared the selection
+  await expect(page.getByTestId("building-details")).toBeVisible();
+  expect(
+    await page.evaluate(() =>
+      window.__solarpunk?.getBuildingType({ q: 0, r: 0 }),
+    ),
+  ).toBe("SettlersCamp");
+});
+
+test("the HUD and the panels have a translucent background and fit the viewport", async ({
+  page,
+}) => {
+  for (const size of [
+    { width: 1280, height: 800 },
+    { width: 375, height: 812 },
+  ]) {
+    await page.setViewportSize(size);
+    await page.goto("./");
+    await page.getByRole("button", { name: "Build", exact: true }).click();
+    await page.getByTestId("hud-more-button").click();
+    for (const id of ["hud", "build-panel", "hud-more"]) {
+      const element = page.getByTestId(id);
+      await expect(element).toBeVisible();
+      const box = (await element.boundingBox())!;
+      expect(box.x).toBeGreaterThanOrEqual(0);
+      expect(box.x + box.width).toBeLessThanOrEqual(size.width);
+      await expect(element).toHaveCSS(
+        "background-color",
+        "rgba(186, 222, 255, 0.75)",
+      );
+    }
+  }
 });

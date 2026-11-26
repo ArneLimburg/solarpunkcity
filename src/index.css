@@ -11,12 +11,166 @@ canvas {
   position: fixed;
   top: 0;
 }
-details {
-  align-self: flex-start;
+:root {
+  --hud-bg: rgba(186, 222, 255, 0.75);
+  --hud-panel-width: min(17rem, 360px);
 }
-.details {
-  align-self: flex-start;
+/* translucent light blue glass: HUD, dropdowns and panels */
+.hud-glass {
+  background: var(--hud-bg);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  color: #10243a;
+  border-radius: 0.75rem;
 }
-header {
-  height: 56px;
+.hud-glass .chip:not(.error) {
+  background: rgba(255, 255, 255, 0.6);
+  color: inherit;
+}
+.hud-glass button:not(.error) {
+  color: inherit;
+}
+/* only the HUD elements take pointer events, the map stays usable between them */
+.hud-root {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  pointer-events: none;
+}
+.hud-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.5rem;
+}
+.hud-top > * {
+  pointer-events: auto;
+}
+.hud-build {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+}
+.hud {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.5rem;
+}
+.hud-dropdown {
+  position: relative;
+}
+.hud-dropdown-panel {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-top: 0.25rem;
+  width: max-content;
+  min-width: 14rem;
+  max-width: min(var(--hud-panel-width), 90vw);
+  z-index: 20;
+}
+.hud-panel {
+  padding: 1rem;
+  margin: 0;
+  box-sizing: border-box;
+  overflow-y: auto;
+  pointer-events: auto;
+}
+.hud-areas {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0 0.5rem 0.5rem;
+}
+.hud-left,
+.hud-right {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  width: var(--hud-panel-width);
+  max-width: 100%;
+  max-height: 100%;
+  min-height: 0;
+}
+.hud-left:empty,
+.hud-right:empty {
+  display: none;
+}
+.hud-left {
+  margin-right: auto;
+}
+.hud-right {
+  margin-left: auto;
+}
+.hud-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-top: 0.5rem;
+}
+.hud-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  justify-content: flex-start;
+  margin: 0;
+  width: 100%;
+}
+.hud-row .max {
+  text-align: left;
+}
+/* desktop: Build at the top left, the HUD stays centered */
+@media (min-width: 601px) {
+  .hud-top {
+    position: relative;
+  }
+  .hud-build {
+    position: absolute;
+    left: 0.5rem;
+    top: 0.5rem;
+  }
+  /* the left panel starts below the Build button */
+  .hud-left {
+    margin-top: 2.5rem;
+  }
+}
+/* narrow: the HUD wraps across the full width, panels sit below / at the bottom */
+@media (max-width: 600px) {
+  .hud-top {
+    justify-content: flex-start;
+  }
+  .hud {
+    flex: 1 1 auto;
+  }
+  .hud-areas {
+    flex-direction: column;
+    justify-content: space-between;
+    align-items: stretch;
+  }
+  .hud-left,
+  .hud-right {
+    width: 100%;
+  }
+  .hud-left {
+    max-height: 50dvh;
+    margin: 0;
+  }
+  .hud-right {
+    max-height: 40dvh;
+    margin: 0;
+  }
+  .hud-left .hud-panel,
+  .hud-right .hud-panel {
+    max-height: 100%;
+  }
 }

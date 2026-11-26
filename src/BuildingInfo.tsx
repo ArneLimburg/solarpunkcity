@@ -47,19 +47,11 @@ export const BuildingInfo: FC<{
   report: BuildingReport | undefined;
   population: number;
   housing: number;
-}> = ({ building, center, report, population, housing }) => {
+  onClose: () => void;
+}> = ({ building, center, report, population, housing, onClose }) => {
   const residents = getResidents(building.resident, population, housing);
   return (
-    <article
-      className="small-opacity padding"
-      data-testid="building-info"
-      style={{
-        margin: "0 0 0 1rem",
-        maxWidth: "20rem",
-        alignSelf: "flex-start",
-        pointerEvents: "auto",
-      }}
-    >
+    <article className="hud-glass hud-panel" data-testid="building-info">
       <div className="row no-wrap">
         <img
           className="small"
@@ -82,6 +74,13 @@ export const BuildingInfo: FC<{
             )}
           </span>
         </span>
+        <button
+          className="circle transparent small"
+          aria-label="Close building info"
+          onClick={onClose}
+        >
+          <i aria-hidden="true">close</i>
+        </button>
       </div>
       {building.resident > 0 && (
         <div data-testid="info-residents">

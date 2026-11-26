@@ -5,6 +5,8 @@ import {
   BuildingCategories,
   BuildingDefinition,
   BuildingTypes,
+  getLabel,
+  type BuildingType,
 } from "../src/gameDefinitions";
 
 test("construction work and maximum builders of every building", () => {
@@ -48,6 +50,24 @@ test("the river is a not buildable water tile that cannot be built over", () => 
   for (const resources of [river.cost, river.produces, river.consumes]) {
     expect(Object.values(resources).every((value) => value === 0)).toBe(true);
   }
+});
+
+test("buildable categories and building types have display labels", () => {
+  expect(
+    Object.values(BuildingCategories).flatMap((category) =>
+      category.buildable ? [category.label] : [],
+    ),
+  ).toEqual(["Farms", "Residential", "Storage"]);
+  expect((Object.keys(BuildingTypes) as BuildingType[]).map(getLabel)).toEqual([
+    "Organic homestead",
+    "Farm",
+    "Agro-industrial Farm",
+    "Apartment building",
+    "Wood storage",
+    undefined,
+    undefined,
+    undefined,
+  ]);
 });
 
 const exists = (icon: string) => existsSync(join("public", icon));

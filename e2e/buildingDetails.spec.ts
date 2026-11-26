@@ -1,6 +1,6 @@
 import type { Page } from "@playwright/test";
 import { test, expect } from "./fixtures";
-import { buildingAt, grantWood, tilePosition } from "./helpers";
+import { buildingAt, grantWood, selectBuilding, tilePosition } from "./helpers";
 
 const origin = { q: 0, r: 0 };
 
@@ -10,9 +10,9 @@ async function setup(page: Page) {
   await grantWood(page);
 }
 
-const button = (page: Page, name: string) =>
-  page.getByRole("button", { name, exact: true });
 const panel = (page: Page) => page.getByTestId("building-details");
+const row = (page: Page, label: string) =>
+  page.getByRole("button", { name: label, exact: true });
 const chip = (page: Page, section: string, name: string) =>
   panel(page).getByTestId(section).getByTestId(`detail-${name}`);
 const detail = (page: Page, name: string) =>
@@ -21,8 +21,7 @@ const detail = (page: Page, name: string) =>
 test("shows the organic homestead details", async ({ page }) => {
   await setup(page);
   await expect(panel(page)).toHaveCount(0);
-  await button(page, "FARM").click();
-  await button(page, "OrganicHomestead").click();
+  await selectBuilding(page, "Farms", "Organic homestead");
   await expect(panel(page)).toContainText("Organic homestead");
   await expect(panel(page)).toContainText("Produces food for the residents");
   await expect(detail(page, "size")).toHaveText(/1 tile$/);
@@ -52,10 +51,8 @@ test("shows the organic homestead details", async ({ page }) => {
 
 test("updates when another type is selected", async ({ page }) => {
   await setup(page);
-  await button(page, "FARM").click();
-  await button(page, "OrganicHomestead").click();
-  await button(page, "FARM").click();
-  await button(page, "AgroIndustrial").click();
+  await selectBuilding(page, "Farms", "Organic homestead");
+  await selectBuilding(page, "Farms", "Agro-industrial Farm");
   await expect(panel(page)).toContainText("Agro-industrial Farm");
   await expect(detail(page, "size")).toHaveText(/19 tiles$/);
   await expect(detail(page, "residents")).toHaveText(/0$/);
@@ -72,8 +69,7 @@ test("updates when another type is selected", async ({ page }) => {
 
 test("omits empty sections for the apartment building", async ({ page }) => {
   await setup(page);
-  await button(page, "RESIDENTIAL").click();
-  await button(page, "AppartmentBuilding").click();
+  await selectBuilding(page, "Residential", "Apartment building");
   await expect(detail(page, "residents")).toHaveText(/15$/);
   await expect(detail(page, "ecology")).toHaveText(/0$/);
   await expect(chip(page, "details-cost", "wood")).toHaveText(
@@ -85,20 +81,16 @@ test("omits empty sections for the apartment building", async ({ page }) => {
 
 test("hides after Escape, deselecting and placing", async ({ page }) => {
   await setup(page);
-  await button(page, "FARM").click();
-  await button(page, "OrganicHomestead").click();
+  await selectBuilding(page, "Farms", "Organic homestead");
   await expect(panel(page)).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(panel(page)).toHaveCount(0);
 
-  await button(page, "FARM").click();
-  await button(page, "OrganicHomestead").click();
-  await button(page, "FARM").click();
-  await button(page, "OrganicHomestead").click();
+  await selectBuilding(page, "Farms", "Organic homestead");
+  await row(page, "Organic homestead").click();
   await expect(panel(page)).toHaveCount(0);
 
-  await button(page, "FARM").click();
-  await button(page, "OrganicHomestead").click();
+  await row(page, "Organic homestead").click();
   await expect(panel(page)).toBeVisible();
   const { x, y } = await tilePosition(page, origin);
   await page.mouse.move(x, y, { steps: 5 });
@@ -108,44 +100,36 @@ test("hides after Escape, deselecting and placing", async ({ page }) => {
   await expect(panel(page)).toHaveCount(0);
 });
 
-const statusBar = (page: Page) => page.getByTestId("status-bar");
-
-async function expectAboveStatusBar(page: Page) {
-  const p = await panel(page).boundingBox();
-  const s = await statusBar(page).boundingBox();
-  expect(p).not.toBeNull();
-  expect(s).not.toBeNull();
-  const panelBottom = p!.y + p!.height;
-  expect(panelBottom).toBeLessThanOrEqual(s!.y + 1);
-  expect(panelBottom).toBeGreaterThan(s!.y - 8);
-}
-
-test("sits above a wrapping status bar on mobile", async ({ page }) => {
+test("sits in the left area below the list on mobile and fits the screen", async ({
+  page,
+}) => {
   await page.setViewportSize({ width: 375, height: 812 });
   await setup(page);
-  await page.evaluate(() =>
-    window.__solarpunk?.addResources({ ore: 5, steel: 5 }),
-  );
-  await button(page, "FARM").click();
-  await button(page, "OrganicHomestead").click();
+  await selectBuilding(page, "Farms", "Organic homestead");
   await expect(panel(page)).toBeVisible();
-  await expectAboveStatusBar(page);
+  const list = (await page.getByTestId("build-panel").boundingBox())!;
+  const details = (await panel(page).boundingBox())!;
+  expect(details.y).toBeGreaterThanOrEqual(list.y + list.height - 1);
+  expect(details.x).toBeGreaterThanOrEqual(0);
+  expect(details.x + details.width).toBeLessThanOrEqual(375);
 });
 
-test("sits above the status bar on desktop", async ({ page }) => {
+test("sits at the left below the list on desktop", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   await setup(page);
-  await button(page, "FARM").click();
-  await button(page, "OrganicHomestead").click();
-  await expectAboveStatusBar(page);
+  await selectBuilding(page, "Farms", "Organic homestead");
+  const list = (await page.getByTestId("build-panel").boundingBox())!;
+  const details = (await panel(page).boundingBox())!;
+  expect(details.y).toBeGreaterThanOrEqual(list.y + list.height - 1);
+  expect(details.x).toBeLessThan(400);
+  expect(details.width).toBeLessThanOrEqual(360);
 });
 
 test("has a close icon, a pointer cursor and an aria-label", async ({
   page,
 }) => {
   await setup(page);
-  await button(page, "FARM").click();
-  await button(page, "OrganicHomestead").click();
+  await selectBuilding(page, "Farms", "Organic homestead");
   await expect(panel(page)).toHaveAttribute(
     "aria-label",
     "Hide building details",
@@ -158,38 +142,53 @@ test("hides on click, keeps the selection and shows again on reselect", async ({
   page,
 }) => {
   await setup(page);
-  await button(page, "FARM").click();
-  const homestead = button(page, "OrganicHomestead");
-  await homestead.click();
+  await selectBuilding(page, "Farms", "Organic homestead");
+  const homestead = row(page, "Organic homestead");
   await panel(page).click();
   await expect(panel(page)).toHaveCount(0);
-  await button(page, "FARM").click();
   await expect(homestead).toHaveAttribute("aria-pressed", "true");
 
   await homestead.click();
   await expect(panel(page)).toHaveCount(0);
-  await button(page, "FARM").click();
   await homestead.click();
   await expect(panel(page)).toBeVisible();
 
   await panel(page).click();
   await expect(panel(page)).toHaveCount(0);
-  await button(page, "FARM").click();
-  await button(page, "AgroIndustrial").click();
+  await row(page, "Agro-industrial Farm").click();
   await expect(panel(page)).toBeVisible();
+});
+
+test("hiding the details keeps the selection, collapsing shows it on the button", async ({
+  page,
+}) => {
+  await setup(page);
+  await selectBuilding(page, "Farms", "Organic homestead");
+  await panel(page).click();
+  await page.getByRole("button", { name: "Build", exact: true }).click();
+  await expect(page.getByTestId("build-panel")).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Build: Organic homestead" }),
+  ).toHaveAttribute("aria-expanded", "false");
+  const { x, y } = await tilePosition(page, origin);
+  await page.mouse.move(x, y, { steps: 5 });
+  await page.mouse.click(x, y);
+  await page.waitForTimeout(500);
+  expect(await buildingAt(page, origin)).toBe("OrganicHomestead");
+  await expect(
+    page.getByRole("button", { name: "Build", exact: true }),
+  ).toBeVisible();
 });
 
 test("clicking the panel does not build below it, building still works", async ({
   page,
 }) => {
   await setup(page);
-  await button(page, "FARM").click();
-  await button(page, "OrganicHomestead").click();
-  const box = (await panel(page).boundingBox())!;
+  await selectBuilding(page, "Farms", "Organic homestead");
   await panel(page).click();
   await page.waitForTimeout(300);
   await expect(panel(page)).toHaveCount(0);
-  expect(box).not.toBeNull();
+  expect(await buildingAt(page, origin)).toBe("SettlersCamp");
 
   const { x, y } = await tilePosition(page, origin);
   await page.mouse.move(x, y, { steps: 5 });
@@ -203,8 +202,7 @@ test("does not mark the wood of a construction site as unaffordable", async ({
 }) => {
   await setup(page);
   await page.evaluate(() => window.__solarpunk?.addResources({ wood: -110 }));
-  await button(page, "FARM").click();
-  await button(page, "AgroIndustrial").click();
+  await selectBuilding(page, "Farms", "Agro-industrial Farm");
   await expect(chip(page, "details-cost", "wood")).toBeVisible();
   await expect(chip(page, "details-cost", "wood")).not.toHaveClass(/error/);
   await expect(chip(page, "details-produces", "food")).not.toHaveClass(/error/);

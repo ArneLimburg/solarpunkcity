@@ -1,6 +1,12 @@
 import type { Page } from "@playwright/test";
 import { test, expect } from "./fixtures";
-import { buildingAt, grantWood, seedRandom, tilePosition } from "./helpers";
+import {
+  buildingAt,
+  grantWood,
+  seedRandom,
+  selectBuilding,
+  tilePosition,
+} from "./helpers";
 
 const getSettlers = (page: Page) =>
   page.evaluate(() => window.__solarpunk!.getSettlers());
@@ -127,8 +133,7 @@ test("figures do not take part in picking: hovering and building work beneath th
     .toEqual(settler.tile);
 
   // build on the tile of the settler: it is no longer walkable, nobody stays
-  await page.getByRole("button", { name: "FARM", exact: true }).click();
-  await page.getByRole("button", { name: "OrganicHomestead" }).click();
+  await selectBuilding(page, "Farms", "Organic homestead");
   // the details panel could cover the tile; clicking it hides it
   await page.getByTestId("building-details").click();
   await expect(page.getByTestId("building-details")).toHaveCount(0);
