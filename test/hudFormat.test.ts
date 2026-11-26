@@ -27,6 +27,7 @@ const state: GameState = {
   constructionSites: 2,
   sitesWaitingForWood: 0,
   workforce: { food: 4, construction: 3, forestry: 2, free: 3 },
+  week: 0,
 };
 
 test("people, food and wood", () => {

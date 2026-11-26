@@ -1,6 +1,7 @@
 import { useEffect, useState, type FC, type ReactNode } from "react";
 import type { GameState } from "./game";
 import { chipClassName } from "./buildingDetails";
+import { formatLongDate, formatSessionTime, formatShortDate } from "./calendar";
 import {
   formatConstructionSites,
   formatFood,
@@ -48,7 +49,20 @@ const Row: FC<{
   </div>
 );
 
-type Dropdown = "workers" | "more";
+type Dropdown = "workers" | "more" | "date";
+
+// mounted only while the dropdown is open: reads the clock when it opens and
+// refreshes every second
+const SessionTime: FC<{ sessionStart: number }> = ({ sessionStart }) => {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const interval = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(interval);
+  }, []);
+  return (
+    <Row name="Session time" value={formatSessionTime(now - sessionStart)} />
+  );
+};
 
 const DropdownButton: FC<{
   id: Dropdown;
@@ -80,7 +94,10 @@ const DropdownButton: FC<{
   </div>
 );
 
-export const StatusBar: FC<{ state: GameState }> = ({ state }) => {
+export const StatusBar: FC<{ state: GameState; sessionStart: number }> = ({
+  state,
+  sessionStart,
+}) => {
   const [open, setOpen] = useState<Dropdown | undefined>();
   useEffect(() => {
     if (!open) return;
@@ -180,6 +197,17 @@ export const StatusBar: FC<{ state: GameState }> = ({ state }) => {
               value={String(Math.floor(state.resources[name]))}
             />
           ))}
+        </DropdownButton>
+        <DropdownButton
+          id="date"
+          open={open === "date"}
+          error={false}
+          label={formatShortDate(state.week)}
+          onToggle={toggle}
+        >
+          <Row name="Date" value={formatLongDate(state.week)} />
+          <Row name="Week" value={`Week ${state.week} since founding`} />
+          <SessionTime sessionStart={sessionStart} />
         </DropdownButton>
       </div>
     </div>

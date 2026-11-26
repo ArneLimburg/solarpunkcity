@@ -40,6 +40,7 @@ let currentPopulation = INITIAL_POPULATION;
 const roster = createRoster(Math.floor(Math.random() * 2 ** 32));
 syncRoster(roster, INITIAL_POPULATION);
 let currentFoodBalance = 0;
+let currentWeek = 0;
 // free labor share of the last weekly tick in percent; the labor factor
 // derived from it is what residents judge in the next tick (no previous
 // week at game start: 100 %)
@@ -208,6 +209,7 @@ export type GameState = {
   constructionSites: number;
   sitesWaitingForWood: number;
   workforce: Workforce | undefined; // of the last tick
+  week: number; // completed weekly ticks, 0 for a new settlement
 };
 
 // how the workers were used in the last weekly tick
@@ -268,11 +270,13 @@ export function getState(): GameState {
     constructionSites: getConstructionSites().length,
     sitesWaitingForWood,
     workforce: currentWorkforce && { ...currentWorkforce },
+    week: currentWeek,
   };
 }
 
 export function calculateWeek(): GameState {
   calculateDevelopment();
+  currentWeek++;
   return getState();
 }
 
