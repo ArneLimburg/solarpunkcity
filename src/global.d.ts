@@ -44,6 +44,13 @@ declare global {
         meshes: number;
         drawCalls: number; // of the last frame, all meshes
       };
+      // the sea and beach meshes (names, how many are pickable); draw calls of the last frame
+      getBackdropStats(): {
+        meshes: string[];
+        pickable: number;
+        drawCalls: number;
+      };
+      setBackdropVisible(visible: boolean): void;
       // shows generated residents instead of the real ones (benchmark);
       // undefined goes back to the real ones
       showSettlers(count: number | undefined): void;

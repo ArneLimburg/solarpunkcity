@@ -12,6 +12,7 @@ import type { BuildingType } from "./gameDefinitions";
 import { build, finishConstruction, grantResources } from "./game";
 import { TILE_TOP, hexToPixel, tileKey } from "./hexGeometry";
 import type { Ring } from "./SelectionRing";
+import type { SeaRenderer } from "./SeaRenderer";
 import type { SettlerRenderer } from "./SettlerRenderer";
 
 type DevHooks = NonNullable<Window["__solarpunk"]>;
@@ -31,6 +32,7 @@ type DevHookSources = {
   // shows the model of a finished building
   showBuilding: (coords: HexCoordinates, type: BuildingType) => void;
   settlers: SettlerRenderer;
+  backdrop: SeaRenderer;
   // shows the given number of generated residents; undefined: the real ones
   showSettlers: (count: number | undefined) => void;
 };
@@ -49,6 +51,7 @@ export function createDevHooks({
   getCornerMaterial,
   showBuilding,
   settlers,
+  backdrop,
   showSettlers,
 }: DevHookSources): DevHooks {
   // the draw calls of the last frame (the engine's counter may keep running across frames)
@@ -69,6 +72,12 @@ export function createDevHooks({
       drawCalls,
     }),
     showSettlers,
+    getBackdropStats: () => ({
+      meshes: backdrop.meshes.map((mesh) => mesh.name),
+      pickable: backdrop.meshes.filter((mesh) => mesh.isPickable).length,
+      drawCalls,
+    }),
+    setBackdropVisible: backdrop.setVisible,
     tileToScreen: (coords) => {
       const world = hexToPixel(coords.q, coords.r);
       world.y = TILE_TOP;

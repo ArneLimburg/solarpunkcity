@@ -25,6 +25,13 @@ function setup() {
   const showBuilding = vi.fn();
   const showSettlers = vi.fn();
   const toGlobal = vi.fn(() => "viewport");
+  const backdrop = {
+    meshes: [
+      { name: "sea", isPickable: false },
+      { name: "beach", isPickable: false },
+    ] as never[],
+    setVisible: vi.fn(),
+  };
   const frame = {
     drawCalls: 0,
     beforeRender: () => {},
@@ -61,6 +68,7 @@ function setup() {
       getMeshCount: () => 2,
     },
     showSettlers,
+    backdrop,
     camera: { viewport: { toGlobal } } as unknown as ArcRotateCamera,
     canvas: { clientWidth: 100, clientHeight: 50 } as HTMLCanvasElement,
     ring: {
@@ -78,8 +86,23 @@ function setup() {
       corner === 2 ? "meadow" : undefined,
     showBuilding,
   });
-  return { hooks, toGlobal, showBuilding, showSettlers, frame };
+  return { hooks, toGlobal, showBuilding, showSettlers, frame, backdrop };
 }
+
+test("the backdrop hooks report the meshes and switch them", () => {
+  const { hooks, frame, backdrop } = setup();
+  frame.drawCalls = 5;
+  frame.beforeRender();
+  frame.drawCalls = 9;
+  frame.afterRender();
+  expect(hooks.getBackdropStats()).toEqual({
+    meshes: ["sea", "beach"],
+    pickable: 0,
+    drawCalls: 4,
+  });
+  hooks.setBackdropVisible(false);
+  expect(backdrop.setVisible).toHaveBeenCalledWith(false);
+});
 
 test("the settler hooks report figures, triangles and the last frame's draw calls", () => {
   const { hooks, frame, showSettlers } = setup();

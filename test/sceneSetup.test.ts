@@ -70,7 +70,8 @@ vi.mock("@babylonjs/core", () => {
   };
 });
 vi.mock("../src/TileRenderer", () => ({
-  makeMaterial: (name: string) => ({ name }),
+  makeMaterial: (name: string, color: unknown) => ({ name, color }),
+  FOREST_FLOOR_COLOR: { forest: true },
 }));
 
 import { setupScene } from "../src/sceneSetup";
@@ -108,7 +109,10 @@ test("the scene has a skybox, a camera, a background ground and a render loop", 
   expect(camera.attachControl).toHaveBeenCalledWith(canvas, true);
   expect(camera.upperRadiusLimit).toBe(120);
   expect(state.meshes.map((mesh) => mesh.name)).toEqual(["skyBox", "ground"]);
-  expect(state.meshes[1].material).toEqual({ name: "hexAlt" });
+  expect(state.meshes[1].material).toEqual({
+    name: "land",
+    color: { forest: true },
+  });
   // only the pick plane of the tile renderer is pickable
   expect(state.meshes.map((mesh) => mesh.isPickable)).toEqual([false, false]);
 

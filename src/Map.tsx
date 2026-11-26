@@ -24,6 +24,7 @@ import {
   createPreview,
   createRing,
 } from "./SelectionRing";
+import { createSeaRenderer } from "./SeaRenderer";
 import { createSettlerRenderer, type SettlerRenderer } from "./SettlerRenderer";
 import { createRoster, syncRoster, type Resident } from "./settlers";
 import { setupScene } from "./sceneSetup";
@@ -101,6 +102,7 @@ export const Map = forwardRef<
 
     const materials = createGroundMaterials(scene);
     materialsRef.current = materials;
+    const backdrop = createSeaRenderer(scene);
     const tiles = createTileRenderer(scene, materials);
     tilesRef.current = tiles;
     tiles.setGrounds(getRiverTiles(tiles.tiles), materials.water);
@@ -159,6 +161,7 @@ export const Map = forwardRef<
           cornersRef.current!.getMaterialName({ tile: coords, corner }),
         showBuilding: (coords, type) => place(coords, type, false),
         settlers,
+        backdrop,
         // shows generated residents instead of the roster; undefined goes back
         showSettlers: (count) => {
           generatedRef.current = count !== undefined;

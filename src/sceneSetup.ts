@@ -1,6 +1,5 @@
 import {
   ArcRotateCamera,
-  Color3,
   CubeTexture,
   Engine,
   HemisphericLight,
@@ -10,7 +9,7 @@ import {
   Texture,
   Vector3,
 } from "@babylonjs/core";
-import { makeMaterial } from "./TileRenderer";
+import { FOREST_FLOOR_COLOR, makeMaterial } from "./TileRenderer";
 
 const SKYBOX_FILES = [
   "skybox/daylight-box-right.png",
@@ -65,7 +64,7 @@ export function setupScene(canvas: HTMLCanvasElement) {
     { width: 1000, height: 1000 },
     scene,
   );
-  ground.material = makeMaterial("hexAlt", new Color3(0.5, 0.7, 0.9), scene);
+  ground.material = makeMaterial("land", FOREST_FLOOR_COLOR, scene);
   ground.isPickable = false;
 
   engine.runRenderLoop(() => {
