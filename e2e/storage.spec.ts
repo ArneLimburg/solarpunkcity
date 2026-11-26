@@ -2,6 +2,7 @@ import type { Page } from "@playwright/test";
 import { test, expect } from "./fixtures";
 import {
   buildingAt,
+  installClockWithNativeFrames,
   isUnderConstruction,
   openDropdown,
   selectBuilding,
@@ -85,6 +86,9 @@ test("a wood storage is placed on forest as a log yard and adds capacity", async
 test("a site without wood waits for it and the More dropdown shows it", async ({
   page,
 }) => {
+  // no weekly tick runs by itself, so a slow runner cannot skip the waiting week
+  await installClockWithNativeFrames(page);
+  await page.clock.pauseAt(Date.now() + 1000);
   await start(page);
   await selectBuilding(page, "Farms", "Organic homestead");
   // the camp gives no wood and there is no stock: the homestead is not blocked
@@ -94,6 +98,7 @@ test("a site without wood waits for it and the More dropdown shows it", async ({
     .toBe(false);
   await page.mouse.click(x, y);
   await expect.poll(() => buildingAt(page, origin)).toBe("OrganicHomestead");
+  await page.clock.runFor(1000);
   // forestry delivers 1 wood per week, a worker-week needs 1 wood: the site
   // waits every other week
   const panel = await openDropdown(page, "more");
