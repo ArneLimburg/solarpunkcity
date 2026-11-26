@@ -209,6 +209,65 @@ test("only one dropdown is open, it closes with Escape and outside clicks", asyn
   await expect(workers).toHaveAttribute("aria-expanded", "false");
 });
 
+test("the date dropdown shows the date, the week and the session time", async ({
+  page,
+}) => {
+  await installClockWithNativeFrames(page);
+  await page.clock.pauseAt(Date.now() + 1000); // nothing runs by itself
+  await page.goto("./");
+  const button = page.getByTestId("hud-date-button");
+  await expect(button).toHaveText("1 Jan 2030");
+  const panel = await openDropdown(page, "date");
+  await expect(panel).toContainText("Tuesday, 1 January 2030");
+  await expect(panel).toContainText("Week 0 since founding");
+  await expect(panel).toContainText("0:00:00");
+  // the wall clock advances without completing a tick (no timer fires)
+  const start = await page.evaluate(() => Date.now());
+  await page.clock.setSystemTime(start + 247_000);
+  // closing and reopening reads the clock anew
+  await button.click();
+  await button.click();
+  await expect(panel).toContainText("0:04:07");
+  await expect(panel).toContainText("Week 0 since founding");
+  await expect(button).toHaveText("1 Jan 2030");
+  await button.click();
+  await page.clock.setSystemTime(start + 307_000);
+  await button.click();
+  await expect(panel).toContainText("0:05:07");
+  // the open dropdown refreshes every second; the first tick completes a week
+  await page.clock.setSystemTime(start + 308_000);
+  await page.clock.runFor(1000);
+  await expect(panel).toContainText("0:05:09");
+  await expect(button).toHaveText("8 Jan 2030");
+  await expect(panel).toContainText("Tuesday, 8 January 2030");
+  await expect(panel).toContainText("Week 1 since founding");
+});
+
+test("the date dropdown toggles with the keyboard, Escape and outside clicks", async ({
+  page,
+}) => {
+  await installClockWithNativeFrames(page);
+  await page.goto("./");
+  const date = page.getByTestId("hud-date-button");
+  const workers = page.getByTestId("hud-workers-button");
+  await date.focus();
+  await page.keyboard.press("Enter");
+  await expect(date).toHaveAttribute("aria-expanded", "true");
+  await page.keyboard.press("Space");
+  await expect(date).toHaveAttribute("aria-expanded", "false");
+  await date.click();
+  await workers.click();
+  await expect(date).toHaveAttribute("aria-expanded", "false");
+  await expect(workers).toHaveAttribute("aria-expanded", "true");
+  await date.click();
+  await expect(workers).toHaveAttribute("aria-expanded", "false");
+  await page.keyboard.press("Escape");
+  await expect(date).toHaveAttribute("aria-expanded", "false");
+  await date.click();
+  await page.mouse.click(5, 400);
+  await expect(date).toHaveAttribute("aria-expanded", "false");
+});
+
 test("clicking in the HUD, a dropdown or a panel builds nothing", async ({
   page,
 }) => {
@@ -242,6 +301,20 @@ test("the HUD and the panels have a translucent background and fit the viewport"
     await page.setViewportSize(size);
     await page.goto("./");
     await page.getByRole("button", { name: "Build", exact: true }).click();
+    await page.getByTestId("hud-more-button").click();
+    for (const id of ["hud", "build-panel", "hud-more"]) {
+      const element = page.getByTestId(id);
+      await expect(element).toBeVisible();
+      const box = (await element.boundingBox())!;
+      expect(box.x).toBeGreaterThanOrEqual(0);
+      expect(box.x + box.width).toBeLessThanOrEqual(size.width);
+    }
+    await page.getByTestId("hud-date-button").click();
+    for (const id of ["hud", "hud-date"]) {
+      const box = (await page.getByTestId(id).boundingBox())!;
+      expect(box.x).toBeGreaterThanOrEqual(0);
+      expect(box.x + box.width).toBeLessThanOrEqual(size.width);
+    }
     await page.getByTestId("hud-more-button").click();
     for (const id of ["hud", "build-panel", "hud-more"]) {
       const element = page.getByTestId(id);

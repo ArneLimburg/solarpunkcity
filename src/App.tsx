@@ -22,6 +22,8 @@ import { StatusBar } from "./StatusBar";
 
 export const App: FC = () => {
   const [state, setState] = useState(getState);
+  // wall clock start of this run, for the session time
+  const [sessionStart] = useState(() => Date.now());
 
   const mapRef = useRef<{
     addBuilding: (
@@ -129,7 +131,7 @@ export const App: FC = () => {
             selected={selectedBuildingType}
             onToggle={() => setBuildOpen(!buildOpen)}
           />
-          <StatusBar state={state} />
+          <StatusBar state={state} sessionStart={sessionStart} />
         </div>
         <div className="hud-areas">
           <div className="hud-left">

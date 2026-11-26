@@ -29,7 +29,10 @@ export async function selectBuilding(
 }
 
 // opens a HUD dropdown ("Workers" or "More") and returns its panel
-export async function openDropdown(page: Page, id: "workers" | "more") {
+export async function openDropdown(
+  page: Page,
+  id: "workers" | "more" | "date",
+) {
   const button = page.getByTestId(`hud-${id}-button`);
   if ((await button.getAttribute("aria-expanded")) !== "true") {
     await button.click();

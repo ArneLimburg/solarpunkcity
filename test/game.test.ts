@@ -74,6 +74,14 @@ test("fresh game", () => {
   expectNoNegative(resources);
 });
 
+test("the week is 0 initially and increases by 1 per calculateWeek", () => {
+  expect(game.getState().week).toBe(0);
+  expect(game.getState().week).toBe(0); // reading does not change it
+  expect(game.calculateWeek().week).toBe(1);
+  expect(game.calculateWeek().week).toBe(2);
+  expect(game.getState().week).toBe(2);
+});
+
 test("homestead lets the population grow", () => {
   board.setBuilding(
     { q: 0, r: 0 },
