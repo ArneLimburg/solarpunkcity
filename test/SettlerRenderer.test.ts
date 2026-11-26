@@ -226,7 +226,9 @@ test("population, roster and figures agree through growth, shrinkage and regrowt
   const board = await import("../src/board");
   const game = await import("../src/game");
   const { BuildingDefinition } = await import("../src/gameDefinitions");
-  const { hexDistance, isWalkable } = await import("../src/settlers");
+  const { hexDistance, isWalkable, getUsableTiles } = await import(
+    "../src/settlers"
+  );
   board.setBuilding({ q: 5, r: 5 }, BuildingDefinition.AppartmentBuilding);
   const renderer = createSettlerRenderer(createScene(), 1);
 
@@ -249,10 +251,12 @@ test("population, roster and figures agree through growth, shrinkage and regrowt
       expect(removed.has(id)).toBe(false); // IDs are never reused
       everSeen.add(id);
     }
-    // newcomers stand on walkable tiles near the camp
+    // newcomers stand on walkable tiles of the settlement area
     for (const { tile } of renderer.getSettlers()) {
       expect(isWalkable(tile)).toBe(true);
-      expect(hexDistance(tile, { q: 0, r: 0 })).toBeLessThanOrEqual(3);
+      expect(getUsableTiles().some((t) => hexDistance(t, tile) === 0)).toBe(
+        true,
+      );
     }
     previous = state.residents;
     return state.population;

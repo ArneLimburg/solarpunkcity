@@ -59,7 +59,7 @@ function createPart(mesh: Mesh, scene: Scene): Part {
   material.specularColor = Color3.Black();
   mesh.material = material;
   mesh.isPickable = false;
-  // the routes stay near the camp: the figures are always in view of the bounds
+  // the base mesh bounds do not follow the instances: never cull the figures
   mesh.alwaysSelectAsActiveMesh = true;
   mesh.setEnabled(false);
   return {
