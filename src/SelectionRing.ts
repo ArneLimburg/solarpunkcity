@@ -153,6 +153,8 @@ export function createPointerHandler(
     ring.show(coordinates, getRadius(), isBlocked(coordinates));
     if (!isTouch || ringIsHere) {
       onSelected(coordinates);
+      // a placement changes whether the tiles are blocked
+      ring.show(coordinates, getRadius(), isBlocked(coordinates));
     }
   };
 }

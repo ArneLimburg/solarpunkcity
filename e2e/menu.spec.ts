@@ -90,15 +90,18 @@ test("Escape clears the selection and collapses the panel", async ({
   expect(await buildingAt(page, origin)).toBe("SettlersCamp");
 });
 
-test("a click on the map builds and keeps the panel open", async ({ page }) => {
+test("a click on the map builds and keeps the panel and the selection", async ({
+  page,
+}) => {
   await setup(page);
   await selectBuilding(page, "Farms", "Organic homestead");
   await clickOrigin(page);
   expect(await buildingAt(page, origin)).toBe("OrganicHomestead");
   await expect(page.getByTestId("build-panel")).toBeVisible();
+  // the building stays selected for the next copy
   await expect(button(page, "Organic homestead")).toHaveAttribute(
     "aria-pressed",
-    "false",
+    "true",
   );
 });
 

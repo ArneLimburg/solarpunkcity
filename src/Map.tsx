@@ -25,6 +25,7 @@ import {
   createPreview,
   createRing,
 } from "./SelectionRing";
+import { createHologram } from "./Hologram";
 import { createSeaRenderer } from "./SeaRenderer";
 import { createSettlerRenderer, type SettlerRenderer } from "./SettlerRenderer";
 import { createRoster, syncRoster, type Resident } from "./settlers";
@@ -147,6 +148,14 @@ export const Map = forwardRef<
           preview.isBlocked,
         ),
       );
+    const hologram = createHologram(
+      scene,
+      farmsRef.current!,
+      woodStorageRef.current!,
+    );
+    const hologramObserver = scene.onBeforeRenderObservable.add(() =>
+      hologram.update(previewTypeRef.current, ring.tile),
+    );
     const hideOnLeave = createLeaveHandler(ring);
     canvas.addEventListener("pointerleave", hideOnLeave);
 
@@ -185,6 +194,7 @@ export const Map = forwardRef<
       canvas.removeEventListener("pointerleave", hideOnLeave);
       delete window.__solarpunk;
       scene.onPointerObservable.remove(pointerObserver);
+      scene.onBeforeRenderObservable.remove(hologramObserver);
       dispose();
     };
   }, []);

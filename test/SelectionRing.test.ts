@@ -226,6 +226,27 @@ test("a mouse tap shows the ring and selects the tile", () => {
   expect(onSelected).toHaveBeenCalledWith({ q: 2, r: 1 });
 });
 
+test("the ring is refreshed after a selection changed the blocked state", () => {
+  const ring = createRing({} as Scene);
+  let blocked = false;
+  const handler = createPointerHandler(
+    {} as Scene,
+    ring,
+    () => {
+      blocked = true; // the selection placed a building
+    },
+    () => 0,
+    () => blocked,
+  );
+  const pickInfo = { hit: true, pickedPoint: hexToPixel(2, 1) };
+  handler({
+    type: PointerEventTypes.POINTERTAP,
+    event: { pointerType: "mouse", button: 0 },
+    pickInfo,
+  } as unknown as PointerInfo);
+  expect(ring.blocked).toBe(true);
+});
+
 test("a right click is ignored", () => {
   const { ring, onSelected, send } = setup();
   send(PointerEventTypes.POINTERTAP, { pointerType: "mouse", button: 2 });

@@ -16,6 +16,8 @@ const BARK_COLOR = new Color3(0.25, 0.15, 0.08);
 const END_GRAIN_COLOR = new Color3(0.85, 0.68, 0.45);
 
 export type WoodStorageRenderer = {
+  // the template meshes (shared geometry, not shown themselves)
+  meshes: Mesh[];
   // shows a log yard on the given center tile
   create: (center: { x: number; z: number }) => {
     dispose: () => void;
@@ -59,6 +61,7 @@ export function createWoodStorageRenderer(
   ];
   const triangles = (bark.indices.length + endGrain.indices.length) / 3;
   return {
+    meshes,
     create: (center) => {
       const instances = meshes.map((mesh) => {
         const instance = mesh.createInstance(`${mesh.name}_instance`);

@@ -43,7 +43,8 @@ async function place(
       page.evaluate((c) => window.__solarpunk?.getBuildingType(c), coords),
     )
     .toBe(type);
-  // placing deselects the type
+  // the type stays selected after placing, Escape ends the build mode
+  await page.keyboard.press("Escape");
   await expect(info(page)).toHaveCount(0);
 }
 

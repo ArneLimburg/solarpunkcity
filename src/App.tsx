@@ -81,7 +81,7 @@ export const App: FC = () => {
             type,
             BuildingDefinition[type].cost.labor > 0,
           );
-          selectBuildingType(undefined);
+          // the building stays selected for the next copy
         }
         return;
       }
