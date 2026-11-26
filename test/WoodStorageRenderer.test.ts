@@ -64,6 +64,7 @@ test("the logs are built once and every log yard shares them", () => {
     expect(mesh.instances[0].isPickable).toBe(false);
     expect(mesh.instances[1].position.set).toHaveBeenCalledWith(3, 0.1, 4);
   }
+  expect(renderer.meshes).toEqual(meshes);
   expect(first.triangles).toBe(720);
   expect(second.triangles).toBe(720);
 

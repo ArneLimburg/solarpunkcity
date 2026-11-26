@@ -86,7 +86,9 @@ test("omits empty sections for the apartment building", async ({ page }) => {
   await expect(panel(page).getByTestId("details-consumes")).toHaveCount(0);
 });
 
-test("hides after Escape, deselecting and placing", async ({ page }) => {
+test("hides after Escape and deselecting, stays while placing", async ({
+  page,
+}) => {
   await setup(page);
   await selectBuilding(page, "Farms", "Organic homestead");
   await expect(panel(page)).toBeVisible();
@@ -104,6 +106,9 @@ test("hides after Escape, deselecting and placing", async ({ page }) => {
   await page.mouse.click(x, y);
   await page.waitForTimeout(500);
   expect(await buildingAt(page, origin)).toBe("OrganicHomestead");
+  // the type stays selected for the next copy until Escape
+  await expect(panel(page)).toBeVisible();
+  await page.keyboard.press("Escape");
   await expect(panel(page)).toHaveCount(0);
 });
 
@@ -182,6 +187,11 @@ test("hiding the details keeps the selection, collapsing shows it on the button"
   await page.mouse.click(x, y);
   await page.waitForTimeout(500);
   expect(await buildingAt(page, origin)).toBe("OrganicHomestead");
+  // the building stays selected for the next copy until Escape
+  await expect(
+    page.getByRole("button", { name: "Build: Organic homestead" }),
+  ).toBeVisible();
+  await page.keyboard.press("Escape");
   await expect(
     page.getByRole("button", { name: "Build", exact: true }),
   ).toBeVisible();

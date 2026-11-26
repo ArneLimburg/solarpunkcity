@@ -113,6 +113,15 @@ test("all sawmills share one opaque mesh with vertex colors", () => {
   expect(second.triangles).toBe(first.triangles);
 });
 
+test("the template meshes of a type are exposed and built once", () => {
+  meshes.length = 0;
+  const renderer = createFarmRenderer({} as Scene, 1);
+  const templates = renderer.getMeshes("Farm");
+  expect(templates).toHaveLength(1);
+  expect(renderer.getMeshes("Farm")).toBe(templates);
+  expect(meshes).toHaveLength(1);
+});
+
 test("isModelType accepts the farms, the apartment building, the camp and the sawmill only", () => {
   expect(isModelType("Sawmill")).toBe(true);
   expect(isModelType("Farm")).toBe(true);

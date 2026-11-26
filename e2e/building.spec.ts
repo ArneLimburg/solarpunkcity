@@ -208,6 +208,22 @@ test.describe("touch", () => {
     expect(await buildingAt(page, next)).toBe("Forest");
   });
 
+  test("touch places repeatedly with two taps per copy", async ({ page }) => {
+    await setup(page);
+    for (const coords of row.slice(0, 2)) {
+      const { x, y } = await tilePosition(page, coords);
+      await page.touchscreen.tap(x, y);
+      await expect.poll(() => ringTile(page)).toEqual(coords);
+      // two quick taps would count as a double tap in Babylon
+      await page.waitForTimeout(500);
+      await page.touchscreen.tap(x, y);
+      await expect
+        .poll(() => buildingAt(page, coords))
+        .toBe("OrganicHomestead");
+      await page.waitForTimeout(500);
+    }
+  });
+
   test("quick double tap builds", async ({ page }) => {
     await setup(page);
     const { x, y } = await tilePosition(page, origin);
@@ -262,12 +278,83 @@ test("a click builds exactly once", async ({ page }) => {
   await page.waitForTimeout(1000);
   expect(await modelCount()).toBe(1);
 
-  // the selection was cleared, so a second click builds nothing
+  // after Escape a second click builds nothing
+  await page.keyboard.press("Escape");
   const second = await tilePosition(page, next);
   await page.mouse.move(second.x, second.y, { steps: 5 });
   await page.mouse.click(second.x, second.y);
   await page.waitForTimeout(500);
   expect(await buildingAt(page, next)).toBe("Forest");
+});
+
+// forest tiles right of the camp: off the river and not behind the details panel
+const row = [0, -1, -2, -3].map((q) => ({ q, r: -2 }));
+
+// the construction sites row of the More dropdown (opened if needed)
+const constructionSites = async (page: Page) =>
+  (await openDropdown(page, "more")).getByTestId("row-Construction sites");
+
+async function clickTile(page: Page, coords: { q: number; r: number }) {
+  const { x, y } = await tilePosition(page, coords);
+  await page.mouse.move(x, y, { steps: 5 });
+  await page.mouse.click(x, y);
+}
+
+test("four copies are placed in a row with one selection", async ({ page }) => {
+  // no week passes, so no construction site is finished in between
+  await installClockWithNativeFrames(page);
+  await setup(page);
+  for (const coords of row) {
+    await clickTile(page, coords);
+    await expect.poll(() => buildingAt(page, coords)).toBe("OrganicHomestead");
+  }
+  await expect(await constructionSites(page)).toHaveText(/sites4$/);
+  // the type is still selected
+  await expect(page.getByTestId("building-details")).toBeVisible();
+});
+
+test("a click on an invalid tile keeps the selection and builds nothing", async ({
+  page,
+}) => {
+  await installClockWithNativeFrames(page);
+  await setup(page);
+  await clickTile(page, row[0]);
+  await expect.poll(() => buildingAt(page, row[0])).toBe("OrganicHomestead");
+  // the same tile is occupied now
+  await clickTile(page, row[0]);
+  await expect.poll(() => ringBlocked(page)).toBe(true);
+  await expect(await constructionSites(page)).toHaveText(/sites1$/);
+  // close the dropdown, it covers the middle of the map
+  await page.getByTestId("hud-more-button").click();
+  // the selection is still active
+  await clickTile(page, row[1]);
+  await expect.poll(() => buildingAt(page, row[1])).toBe("OrganicHomestead");
+});
+
+test("Escape and the building icon exit blueprint mode", async ({ page }) => {
+  await setup(page);
+  await clickTile(page, row[0]);
+  await expect.poll(() => buildingAt(page, row[0])).toBe("OrganicHomestead");
+  await page.keyboard.press("Escape");
+  await clickTile(page, row[1]);
+  await page.waitForTimeout(300);
+  expect(await buildingAt(page, row[1])).toBe("Forest");
+
+  await selectBuilding(page, "Farms", "Organic homestead");
+  await clickTile(page, row[1]);
+  await expect.poll(() => buildingAt(page, row[1])).toBe("OrganicHomestead");
+  // a click on the selected building deselects it
+  await page
+    .getByRole("button", { name: "Organic homestead", exact: true })
+    .click();
+  await clickTile(page, row[2]);
+  await page.waitForTimeout(300);
+  expect(await buildingAt(page, row[2])).toBe("Forest");
+
+  // placed sites keep receiving work after exiting
+  await expect
+    .poll(() => isUnderConstruction(page, row[0]), { timeout: 15000 })
+    .toBe(false);
 });
 
 test("the More dropdown counts the construction sites", async ({ page }) => {
@@ -645,8 +732,13 @@ test("the ring is red over a building, and never without selection", async ({
   await page.mouse.click(x, y);
   await expect.poll(() => buildingAt(page, origin)).toBe("OrganicHomestead");
 
-  // the building is deselected after building, so the ring is not red
+  // the building stays selected, so its own site blocks the ring
   await page.mouse.move(x, y + 1);
+  await expect.poll(() => ringBlocked(page)).toBe(true);
+
+  // without selection the ring is never red
+  await page.keyboard.press("Escape");
+  await page.mouse.move(x, y);
   await expect.poll(() => ringBlocked(page)).toBe(false);
 
   await selectFarm(page);

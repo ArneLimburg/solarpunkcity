@@ -54,6 +54,8 @@ export type FarmModel = {
 export type FarmRenderer = {
   // shows a farm model on the given center tile
   create: (type: ModelType, center: { x: number; z: number }) => FarmModel;
+  // the template meshes of a type (shared geometry, not shown themselves)
+  getMeshes: (type: ModelType) => Mesh[];
 };
 
 type Template = { meshes: Mesh[]; triangles: number };
@@ -107,6 +109,7 @@ export function createFarmRenderer(
   };
 
   return {
+    getMeshes: (type) => getTemplate(type).meshes,
     create: (type, center) => {
       const template = getTemplate(type);
       const instances = template.meshes.map((mesh) => {
