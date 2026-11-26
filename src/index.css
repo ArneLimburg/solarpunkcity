@@ -154,6 +154,19 @@ canvas {
   }
   .hud {
     flex: 1 1 auto;
+    position: relative;
+  }
+  /* the dropdowns span the HUD instead of overflowing the screen */
+  .hud-dropdown {
+    position: static;
+  }
+  .hud-dropdown-panel {
+    left: 0;
+    right: 0;
+    transform: none;
+    width: auto;
+    min-width: 0;
+    max-width: none;
   }
   .hud-areas {
     flex-direction: column;

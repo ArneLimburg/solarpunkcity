@@ -220,7 +220,8 @@ test("clicking in the HUD, a dropdown or a panel builds nothing", async ({
   for (const id of ["hud", "hud-more", "build-panel"]) {
     await openDropdown(page, "more");
     const box = (await page.getByTestId(id).boundingBox())!;
-    await page.mouse.click(box.x + box.width - 3, box.y + box.height - 3);
+    // inset beyond the rounded corner, which does not take pointer events
+    await page.mouse.click(box.x + box.width - 8, box.y + box.height - 8);
   }
   // a placement would have cleared the selection
   await expect(page.getByTestId("building-details")).toBeVisible();

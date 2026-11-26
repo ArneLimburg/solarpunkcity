@@ -147,6 +147,8 @@ test("the build panel fits a narrow screen and places from the collapsed list", 
   expect(box.height).toBeLessThanOrEqual(812 / 2 + 1);
   await buildButton(page).click();
   await expect(buildButton(page)).toHaveText(/Build: Organic homestead$/);
+  // on a narrow screen the details panel covers the middle of the map
+  await button(page, "Hide building details").click();
   await clickOrigin(page);
   expect(await buildingAt(page, origin)).toBe("OrganicHomestead");
 });
