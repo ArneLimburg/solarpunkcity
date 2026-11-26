@@ -332,6 +332,8 @@ test("a click on an invalid tile keeps the selection and builds nothing", async 
 });
 
 test("Escape and the building icon exit blueprint mode", async ({ page }) => {
+  // many software-rendered mouse moves, slow on the CI runners
+  test.slow();
   await setup(page);
   await clickTile(page, row[0]);
   await expect.poll(() => buildingAt(page, row[0])).toBe("OrganicHomestead");
