@@ -136,6 +136,19 @@ test("opens, updates, switches and closes the building info", async ({
   await expect(info(page)).toHaveCount(0);
 });
 
+test("the building info is a bottom panel on narrow screens", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 375, height: 812 });
+  await page.goto("./");
+  await page.waitForFunction(() => window.__solarpunk !== undefined);
+  await click(page, origin);
+  await expect(info(page)).toContainText("Settlers' camp");
+  const box = (await info(page).boundingBox())!;
+  expect(box.y + box.height).toBeGreaterThan(812 - 20);
+  expect(box.height).toBeLessThanOrEqual(812 * 0.4 + 1);
+});
+
 test("the close button closes the building info on the right", async ({
   page,
 }) => {

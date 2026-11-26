@@ -183,7 +183,8 @@ canvas {
   }
   .hud-right {
     max-height: 40dvh;
-    margin: 0;
+    /* a bottom panel: push it down even when it is the only item */
+    margin: auto 0 0;
   }
   .hud-left .hud-panel,
   .hud-right .hud-panel {
