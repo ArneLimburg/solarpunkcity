@@ -1,6 +1,6 @@
 import type { Page } from "@playwright/test";
 import { test, expect } from "./fixtures";
-import { buildingAt, grantWood, tilePosition } from "./helpers";
+import { buildingAt, grantWood, seedRandom, tilePosition } from "./helpers";
 
 const getSettlers = (page: Page) =>
   page.evaluate(() => window.__solarpunk!.getSettlers());
@@ -26,6 +26,10 @@ test("a fresh game shows two settlers near the camp that walk, turn and pause", 
 }) => {
   // slow CI renders few frames and the settlers' time per frame is capped
   test.setTimeout(180_000);
+  // Pauses are random (a chance per reached tile) and the walk only advances
+  // with the frames, which are slow on CI runners. With this seed a settler
+  // pauses within its first tile, so the test does not depend on luck.
+  await seedRandom(page, 2);
   await start(page);
   const first = await getSettlers(page);
   expect(first).toHaveLength(2);
