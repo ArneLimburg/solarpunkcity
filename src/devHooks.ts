@@ -25,6 +25,7 @@ type DevHookSources = {
   ring: Ring;
   getTileMaterial: DevHooks["getTileMaterial"];
   getTileInstanceStats: DevHooks["getTileInstanceStats"];
+  getMountainStats: DevHooks["getMountainStats"];
   // the model currently shown on a tile ("q,r")
   models: Record<string, { triangles: number }>;
   getTreeCount: DevHooks["getTreeCount"];
@@ -46,6 +47,7 @@ export function createDevHooks({
   ring,
   getTileMaterial,
   getTileInstanceStats,
+  getMountainStats,
   models,
   getTreeCount,
   getCornerMaterial,
@@ -111,6 +113,7 @@ export function createDevHooks({
     isRingBlocked: () => ring.blocked,
     getTileMaterial,
     getTileInstanceStats,
+    getMountainStats,
     getModelCount: (coords) => (models[tileKey(coords)] ? 1 : 0),
     getModelTriangleCount: (coords) => models[tileKey(coords)]?.triangles ?? 0,
     getTreeCount,

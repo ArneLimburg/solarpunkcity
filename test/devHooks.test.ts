@@ -80,6 +80,12 @@ function setup() {
     },
     getTileMaterial: (coords) => (coords.q === 0 ? "meadow" : undefined),
     getTileInstanceStats: () => ({ instances: 7, finiteMatrices: 7 }),
+    getMountainStats: () => ({
+      meshes: 1,
+      triangles: 5,
+      pickable: false,
+      inView: true,
+    }),
     models: { "0,0": { triangles: 42 } },
     getTreeCount: () => 3,
     getCornerMaterial: (_coords, corner) =>
@@ -177,6 +183,7 @@ test("the hooks expose ring, models, trees, material and buildings", () => {
     instances: 7,
     finiteMatrices: 7,
   });
+  expect(hooks.getMountainStats().triangles).toBe(5);
   expect(hooks.getModelCount({ q: 0, r: 0 })).toBe(1);
   expect(hooks.getModelCount({ q: 1, r: 0 })).toBe(0);
   expect(hooks.getModelTriangleCount({ q: 0, r: 0 })).toBe(42);
