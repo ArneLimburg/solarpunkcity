@@ -275,6 +275,8 @@ test("the More dropdown counts the construction sites", async ({ page }) => {
   const sites = async () =>
     (await openDropdown(page, "more")).getByTestId("row-Construction sites");
   await expect(await sites()).toHaveText(/sites0$/);
+  // the open dropdown covers the middle of the map
+  await page.getByTestId("hud-more-button").click();
   const { x, y } = await tilePosition(page, origin);
   await page.mouse.move(x, y, { steps: 5 });
   await page.mouse.click(x, y);
@@ -353,6 +355,8 @@ test("the river is water without trees and cannot be built on", async ({
   await grantWood(page);
   await selectBuilding(page, "Farms", "Farm");
   await page.getByRole("button", { name: "Hide building details" }).click();
+  // the collapsed list no longer covers the map either
+  await page.getByRole("button", { name: /^Build/ }).click();
   const tile = river.find(({ r }) => r === 0)!;
   const { x, y } = await tilePosition(page, tile);
   await page.mouse.move(x, y, { steps: 5 });
