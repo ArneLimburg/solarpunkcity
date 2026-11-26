@@ -118,6 +118,9 @@ test("figures do not take part in picking: hovering and building work beneath th
   await page.getByRole("button", { name: "FARM", exact: true }).click();
   await page.getByRole("button", { name: "OrganicHomestead" }).click();
   await page.mouse.move(x, y, { steps: 5 });
+  await expect
+    .poll(() => page.evaluate(() => window.__solarpunk?.getRingTile()))
+    .toEqual(settler.tile);
   await page.mouse.click(x, y);
   await expect
     .poll(() => buildingAt(page, settler.tile))
