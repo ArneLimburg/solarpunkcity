@@ -29,6 +29,12 @@ export const BuildingCategories = {
     icon: "storage/storage.svg",
     label: "Storage",
   },
+  PRODUCTION: {
+    name: "PRODUCTION",
+    buildable: true,
+    icon: "production/production.svg",
+    label: "Production",
+  },
   FOREST: {
     name: "FOREST",
     buildable: false,
@@ -69,6 +75,11 @@ export const BuildingTypes = {
     icon: "storage/wood-storage.svg",
     label: "Wood storage",
   },
+  Sawmill: {
+    category: "PRODUCTION",
+    icon: "production/sawmill.svg",
+    label: "Sawmill",
+  },
   Forest: {
     category: "FOREST",
     icon: "forest/forest.svg",
@@ -102,7 +113,8 @@ export type Building = {
   maxBuilders: number; // workers per construction site and week
   produces: Resources;
   consumes: Resources;
-  storage?: Resources; // capacity the building adds
+  // capacity the building adds; only wood and planks are capped so far
+  storage?: Resources;
   recycling?: Resources;
 };
 export const BuildingDefinition: Record<BuildingType, Building> = {
@@ -137,7 +149,7 @@ export const BuildingDefinition: Record<BuildingType, Building> = {
     size: 19,
     resident: 0,
     ecology: -5,
-    cost: { ...emptyResources, wood: 65, labor: 80 },
+    cost: { ...emptyResources, planks: 40, labor: 80 },
     maxBuilders: 10,
     produces: { ...emptyResources, food: 60 },
     consumes: { ...emptyResources, labor: 8 },
@@ -167,6 +179,20 @@ export const BuildingDefinition: Record<BuildingType, Building> = {
     produces: { ...emptyResources },
     consumes: { ...emptyResources },
     storage: { ...emptyResources, wood: 100 },
+  },
+  Sawmill: {
+    name: "Sawmill",
+    type: "Sawmill",
+    description: "Saws logs into planks",
+    size: 1,
+    resident: 0,
+    ecology: 0,
+    cost: { ...emptyResources, wood: 15, labor: 10 },
+    maxBuilders: 3,
+    produces: { ...emptyResources, planks: 2 },
+    consumes: { ...emptyResources, wood: 4, labor: 2 },
+    storage: { ...emptyResources, planks: 20 },
+    recycling: { ...emptyResources, wood: 7 },
   },
   SettlersCamp: {
     name: "Settlers' camp",
@@ -200,7 +226,7 @@ export const BuildingDefinition: Record<BuildingType, Building> = {
     size: 1,
     resident: 15,
     ecology: 0,
-    cost: { ...emptyResources, wood: 10, labor: 20 },
+    cost: { ...emptyResources, planks: 6, labor: 20 },
     maxBuilders: 4,
     produces: emptyResources,
     consumes: { ...emptyResources }, // later water and energy

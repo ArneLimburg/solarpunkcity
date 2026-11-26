@@ -8,6 +8,7 @@ import {
   getLabel,
   type BuildingType,
 } from "../src/gameDefinitions";
+import { emptyResources } from "../src/resources";
 
 test("construction work and maximum builders of every building", () => {
   const work = (name: keyof typeof BuildingDefinition) => [
@@ -20,6 +21,43 @@ test("construction work and maximum builders of every building", () => {
   expect(work("AgroIndustrial")).toEqual([80, 10]);
   expect(work("Forest")).toEqual([0, 0]);
   expect(work("WoodStorage")).toEqual([0, 0]);
+  expect(work("Sawmill")).toEqual([10, 3]);
+});
+
+test("the sawmill and its category", () => {
+  const sawmill = BuildingDefinition.Sawmill;
+  expect(BuildingCategories.PRODUCTION).toMatchObject({
+    buildable: true,
+    label: "Production",
+    icon: "production/production.svg",
+  });
+  expect(BuildingTypes.Sawmill).toEqual({
+    category: "PRODUCTION",
+    icon: "production/sawmill.svg",
+    label: "Sawmill",
+  });
+  expect(sawmill).toMatchObject({
+    name: "Sawmill",
+    description: "Saws logs into planks",
+    size: 1,
+    resident: 0,
+    ecology: 0,
+  });
+  expect(sawmill.cost).toEqual({ ...emptyResources, wood: 15, labor: 10 });
+  expect(sawmill.consumes).toEqual({ ...emptyResources, wood: 4, labor: 2 });
+  expect(sawmill.produces).toEqual({ ...emptyResources, planks: 2 });
+  expect(sawmill.storage).toEqual({ ...emptyResources, planks: 20 });
+  expect(sawmill.recycling).toEqual({ ...emptyResources, wood: 7 });
+});
+
+test("planks replace wood in the costs of the apartment and the agro-industrial farm", () => {
+  expect(BuildingDefinition.AppartmentBuilding.cost.planks).toBe(6);
+  expect(BuildingDefinition.AgroIndustrial.cost.planks).toBe(40);
+  for (const { cost } of Object.values(BuildingDefinition)) {
+    expect(cost.wood > 0 && cost.planks > 0).toBe(false);
+  }
+  expect(BuildingDefinition.AppartmentBuilding.cost.wood).toBe(0);
+  expect(BuildingDefinition.AgroIndustrial.cost.wood).toBe(0);
 });
 
 test("the wood storage is a free storage building without recycling", () => {
@@ -57,13 +95,14 @@ test("buildable categories and building types have display labels", () => {
     Object.values(BuildingCategories).flatMap((category) =>
       category.buildable ? [category.label] : [],
     ),
-  ).toEqual(["Farms", "Residential", "Storage"]);
+  ).toEqual(["Farms", "Residential", "Storage", "Production"]);
   expect((Object.keys(BuildingTypes) as BuildingType[]).map(getLabel)).toEqual([
     "Organic homestead",
     "Farm",
     "Agro-industrial Farm",
     "Apartment building",
     "Wood storage",
+    "Sawmill",
     undefined,
     undefined,
     undefined,

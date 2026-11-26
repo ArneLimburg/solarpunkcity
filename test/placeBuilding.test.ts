@@ -33,6 +33,7 @@ function setup() {
     farmland: { name: "farmland" },
     soil: { name: "soil" },
     gravel: { name: "gravel" },
+    earth: { name: "earth" },
   } as GroundMaterials;
   const update = vi.fn();
   const createLogYard = vi.fn(() => model);
@@ -64,6 +65,14 @@ test("a wood storage shows the log yard on gravel", () => {
   expect(setGrounds.mock.calls[0][1]).toBe(parts.materials.gravel);
   expect(createLogYard).toHaveBeenCalledWith(hexToPixel(0, 0));
   expect(create).not.toHaveBeenCalled();
+  expect(models["0,0"]).toBe(model);
+});
+
+test("a sawmill shows its model on compacted earth", () => {
+  const { parts, create, models, model, setGrounds } = setup();
+  placeBuilding({ q: 0, r: 0 }, "Sawmill", parts);
+  expect(setGrounds.mock.calls[0][1]).toBe(parts.materials.earth);
+  expect(create).toHaveBeenCalledWith("Sawmill", hexToPixel(0, 0));
   expect(models["0,0"]).toBe(model);
 });
 

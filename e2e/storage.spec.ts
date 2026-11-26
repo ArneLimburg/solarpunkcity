@@ -103,7 +103,7 @@ test("a site without wood waits for it and the More dropdown shows it", async ({
   // waits every other week
   const panel = await openDropdown(page, "more");
   await expect(panel.getByTestId("row-Construction sites")).toHaveText(
-    /sites1 \(1 waiting for wood\)$/,
+    /sites1 \(1 waiting for material\)$/,
   );
   await expect(panel.getByTestId("row-Construction sites")).toHaveClass(
     /error/,

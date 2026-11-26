@@ -101,7 +101,20 @@ test("the settlers' camp is built from code with one opaque mesh", () => {
   expect(model.triangles).toBeLessThan(1000);
 });
 
-test("isModelType accepts the farms, the apartment building and the camp only", () => {
+test("all sawmills share one opaque mesh with vertex colors", () => {
+  meshes.length = 0;
+  const renderer = createFarmRenderer({} as Scene, 1);
+  const first = renderer.create("Sawmill", { x: 0, z: 0 });
+  const second = renderer.create("Sawmill", { x: 5, z: 5 });
+  expect(meshes).toHaveLength(1);
+  expect(meshes[0].instances).toHaveLength(2);
+  expect(first.triangles).toBeGreaterThan(0);
+  expect(first.triangles).toBeLessThan(1000);
+  expect(second.triangles).toBe(first.triangles);
+});
+
+test("isModelType accepts the farms, the apartment building, the camp and the sawmill only", () => {
+  expect(isModelType("Sawmill")).toBe(true);
   expect(isModelType("Farm")).toBe(true);
   expect(isModelType("AppartmentBuilding")).toBe(true);
   expect(isModelType("SettlersCamp")).toBe(true);

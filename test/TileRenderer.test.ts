@@ -226,6 +226,8 @@ test("the ground materials keep their names and the forest floor is textured", (
   expect(materials.soil.diffuseTexture).toBeUndefined();
   expect(materials.gravel.name).toBe("gravel");
   expect(materials.gravel.diffuseTexture).toBeUndefined();
+  expect(materials.earth.name).toBe("earth");
+  expect(materials.earth.diffuseTexture).toBeUndefined();
   expect(materials.water.name).toBe("water");
   expect(materials.water.diffuseTexture).toBeUndefined();
   expect(materials.water.specularColor).not.toEqual({ r: 0, g: 0, b: 0 });
@@ -261,7 +263,9 @@ test("exactly one base mesh per ground material holds the tiles as thin instance
       mesh(material).map(() => material),
     );
   }
-  expect(tileMeshes).toHaveLength(6 * mesh(materials.meadow).length);
+  expect(tileMeshes).toHaveLength(
+    Object.keys(materials).length * mesh(materials.meadow).length,
+  );
   // the water surface lies 0.05 below the land, the land layers are not moved
   expect(mesh(materials.water).every((m) => m.position.y === -0.05)).toBe(true);
   expect(mesh(materials.meadow).every((m) => m.position.y === 0)).toBe(true);
@@ -308,6 +312,7 @@ test("exactly one base mesh per ground material holds the tiles as thin instance
   expect(count(mesh(materials.farmland))).toBe(0);
   expect(count(mesh(materials.soil))).toBe(0);
   expect(count(mesh(materials.gravel))).toBe(0);
+  expect(count(mesh(materials.earth))).toBe(0);
   const forest = placed(mesh(materials.forestFloor));
   expect(forest.size).toBe(TILE_COUNT);
   expect(forest.has(matrixOf(2, -1))).toBe(true);

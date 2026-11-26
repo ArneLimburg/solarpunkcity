@@ -3,6 +3,7 @@ export type Resources = {
   water: number;
   labor: number;
   wood: number;
+  planks: number;
   ore: number;
   steel: number;
   glass: number;
@@ -14,6 +15,7 @@ export const emptyResources: Resources = {
   water: 0,
   labor: 0,
   wood: 0,
+  planks: 0,
   ore: 0,
   steel: 0,
   glass: 0,
@@ -29,6 +31,7 @@ export function addResources(
     water: resourcesA.water + resourcesB.water,
     labor: resourcesA.labor + resourcesB.labor,
     wood: resourcesA.wood + resourcesB.wood,
+    planks: resourcesA.planks + resourcesB.planks,
     ore: resourcesA.ore + resourcesB.ore,
     steel: resourcesA.steel + resourcesB.steel,
     glass: resourcesA.glass + resourcesB.glass,
@@ -45,6 +48,7 @@ export function subtractResources(
     water: resourcesA.water - resourcesB.water,
     labor: resourcesA.labor - resourcesB.labor,
     wood: resourcesA.wood - resourcesB.wood,
+    planks: resourcesA.planks - resourcesB.planks,
     ore: resourcesA.ore - resourcesB.ore,
     steel: resourcesA.steel - resourcesB.steel,
     glass: resourcesA.glass - resourcesB.glass,
@@ -61,6 +65,7 @@ export function hasEnoughResources(
     available.water >= cost.water &&
     available.labor >= cost.labor &&
     available.wood >= cost.wood &&
+    available.planks >= cost.planks &&
     available.ore >= cost.ore &&
     available.steel >= cost.steel &&
     available.glass >= cost.glass &&

@@ -19,6 +19,12 @@ export function formatWood(state: GameState): string {
   )}`;
 }
 
+export function formatPlanks(state: GameState): string {
+  return `${Math.floor(state.resources.planks)} / ${Math.floor(
+    state.capacity.planks,
+  )}`;
+}
+
 export function formatWorkersButton(state: GameState): string {
   return `Workers: ${Math.floor(state.resources.labor)} free`;
 }
@@ -39,15 +45,16 @@ export function formatSatisfactionDetail(state: GameState): string {
 
 export function formatConstructionSites(state: GameState): string {
   return state.sitesWaitingForWood > 0
-    ? `${state.constructionSites} (${state.sitesWaitingForWood} waiting for wood)`
+    ? `${state.constructionSites} (${state.sitesWaitingForWood} waiting for material)`
     : `${state.constructionSites}`;
 }
 
-// stocks of the More dropdown: everything but wood that is above 0
+// stocks of the More dropdown: everything but wood and planks (which have
+// their own entries in the top HUD) that is above 0
 export function getFurtherStocks(
   resources: Resources,
 ): (typeof stockResources)[number][] {
   return stockResources.filter(
-    (name) => name !== "wood" && resources[name] > 0,
+    (name) => name !== "wood" && name !== "planks" && resources[name] > 0,
   );
 }

@@ -4,6 +4,7 @@ import {
   formatEcology,
   formatTiles,
   nonZeroResources,
+  planksPerBuilderWeek,
   unaffordableCosts,
   woodPerBuilderWeek,
 } from "../src/buildingDetails";
@@ -39,17 +40,27 @@ test("unaffordableCosts accounts for the best-case recycling", () => {
   const wood = (amount: number) => ({ ...emptyResources, wood: amount });
   // a building without construction work is paid in full when placed
   const storage = BuildingDefinition.WoodStorage;
-  storage.cost = { ...emptyResources, wood: 4 };
+  // the sawmill recycles the most wood: 7 per tile
+  storage.cost = { ...emptyResources, wood: 8 };
   expect([...unaffordableCosts("WoodStorage", wood(0))]).toEqual(["wood"]);
   expect(unaffordableCosts("WoodStorage", wood(1)).size).toBe(0);
   storage.cost = { ...emptyResources, wood: 65 };
-  expect([...unaffordableCosts("WoodStorage", wood(61))]).toEqual(["wood"]);
-  expect(unaffordableCosts("WoodStorage", wood(62)).size).toBe(0);
+  expect([...unaffordableCosts("WoodStorage", wood(57))]).toEqual(["wood"]);
+  expect(unaffordableCosts("WoodStorage", wood(58)).size).toBe(0);
 });
 
 test("unaffordableCosts never reports the wood of a construction site", () => {
   expect(unaffordableCosts("Farm", emptyResources).size).toBe(0);
   expect(unaffordableCosts("AgroIndustrial", emptyResources).size).toBe(0);
+  expect(unaffordableCosts("AppartmentBuilding", emptyResources).size).toBe(0);
+  expect(unaffordableCosts("Sawmill", emptyResources).size).toBe(0);
+});
+
+test("planksPerBuilderWeek is the plank cost per work", () => {
+  expect(planksPerBuilderWeek("AppartmentBuilding")).toBeCloseTo(0.3);
+  expect(planksPerBuilderWeek("AgroIndustrial")).toBeCloseTo(0.5);
+  expect(planksPerBuilderWeek("Farm")).toBe(0);
+  expect(planksPerBuilderWeek("WoodStorage")).toBe(0);
 });
 
 test("woodPerBuilderWeek is the wood cost per work", () => {

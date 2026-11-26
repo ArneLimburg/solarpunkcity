@@ -17,8 +17,9 @@ export type PlacedBuilding = {
   building: Building;
   center: HexCoordinates;
   remainingWork?: number;
-  // construction sites only: wood in the site's own supply and wood that is
-  // still to be used up (cost.wood minus the wood already used)
+  // construction sites only: construction material (wood, or planks for
+  // buildings with a plank cost) in the site's own supply and material that is
+  // still to be used up (the cost minus the material already used)
   siteWood?: number;
   remainingWood?: number;
   sequence: number; // placement order, oldest first
@@ -140,7 +141,8 @@ export function placeBuilding(
     ...(remainingWork > 0 && {
       remainingWork,
       siteWood,
-      remainingWood: building.cost.wood,
+      // no building costs both wood and planks
+      remainingWood: building.cost.wood + building.cost.planks,
     }),
   };
   for (const tile of getFootprint(center, getFootprintRadius(building.size))) {

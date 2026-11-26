@@ -6,6 +6,7 @@ export type PartShape =
   | "box"
   | "openBox"
   | "cylinder"
+  | "log" // cylinder with 6 segments
   | "cone"
   | "prism"
   | "sphere";
@@ -26,6 +27,10 @@ export const FarmPalette = {
   canvas: [0.93, 0.89, 0.76],
   stone: [0.55, 0.55, 0.57],
   earth: [0.5, 0.4, 0.28],
+  bark: [0.25, 0.15, 0.08],
+  plank: [0.86, 0.7, 0.45],
+  darkWood: [0.3, 0.2, 0.14],
+  sawdust: [0.92, 0.82, 0.62],
 } as const satisfies Record<string, readonly [number, number, number]>;
 export type PaletteColor = keyof typeof FarmPalette;
 

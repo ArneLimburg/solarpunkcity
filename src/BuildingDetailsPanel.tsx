@@ -4,6 +4,7 @@ import {
   formatEcology,
   formatTiles,
   nonZeroResources,
+  planksPerBuilderWeek,
   unaffordableCosts,
   woodPerBuilderWeek,
 } from "./buildingDetails";
@@ -35,8 +36,8 @@ const Section: FC<{
   resources: Resources;
   testId: string;
   errors?: Set<keyof Resources>;
-  woodSuffix?: string;
-}> = ({ title, resources, testId, errors = noErrors, woodSuffix }) => {
+  materialSuffix?: string; // for wood and planks
+}> = ({ title, resources, testId, errors = noErrors, materialSuffix }) => {
   const entries = nonZeroResources(resources);
   if (entries.length === 0) return null;
   return (
@@ -49,8 +50,8 @@ const Section: FC<{
             name={name}
             icon={resourceIcons[name]}
             value={
-              name === "wood" && woodSuffix
-                ? `${value} ${woodSuffix}`
+              (name === "wood" || name === "planks") && materialSuffix
+                ? `${value} ${materialSuffix}`
                 : String(value)
             }
             error={errors.has(name)}
@@ -102,7 +103,9 @@ export const BuildingDetailsPanel: FC<{
         resources={building.cost}
         testId="details-cost"
         errors={unaffordableCosts(type, resources)}
-        woodSuffix={building.cost.labor > 0 ? "during construction" : undefined}
+        materialSuffix={
+          building.cost.labor > 0 ? "during construction" : undefined
+        }
       />
       {building.maxBuilders > 0 && (
         <div className="small-text" data-testid="details-builders">
@@ -112,6 +115,11 @@ export const BuildingDetailsPanel: FC<{
       {building.cost.wood > 0 && building.cost.labor > 0 && (
         <div className="small-text" data-testid="details-wood-per-builder">
           Wood per builder-week: {woodPerBuilderWeek(type).toFixed(1)}
+        </div>
+      )}
+      {building.cost.planks > 0 && building.cost.labor > 0 && (
+        <div className="small-text" data-testid="details-planks-per-builder">
+          Planks per builder-week: {planksPerBuilderWeek(type).toFixed(1)}
         </div>
       )}
       <Section

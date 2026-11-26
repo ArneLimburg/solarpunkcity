@@ -64,7 +64,9 @@ export const BuildList: FC<{
       {(Object.keys(BuildingTypes) as BuildingType[])
         .filter((type) => BuildingTypes[type].category === category)
         .map((type) => {
-          const { wood } = BuildingDefinition[type].cost;
+          // the construction material: planks or wood
+          const { wood, planks } = BuildingDefinition[type].cost;
+          const material = planks > 0 ? "planks" : "wood";
           return (
             <button
               key={type}
@@ -82,12 +84,12 @@ export const BuildList: FC<{
               <span className="max">{getLabel(type)}</span>
               <span
                 className={chipClassName(
-                  unaffordableCosts(type, resources).has("wood"),
+                  unaffordableCosts(type, resources).has(material),
                 )}
                 data-testid={`build-cost-${type}`}
               >
-                <i aria-hidden="true">{resourceIcons.wood}</i>
-                <span>{wood}</span>
+                <i aria-hidden="true">{resourceIcons[material]}</i>
+                <span>{planks > 0 ? planks : wood}</span>
               </span>
             </button>
           );

@@ -5,6 +5,7 @@ import {
   formatFood,
   formatFreeRow,
   formatPercent,
+  formatPlanks,
   formatPopulation,
   formatSatisfactionDetail,
   formatWood,
@@ -26,7 +27,7 @@ const state: GameState = {
   foodBalance: 2.6,
   constructionSites: 2,
   sitesWaitingForWood: 0,
-  workforce: { food: 4, construction: 3, forestry: 2, free: 3 },
+  workforce: { food: 4, construction: 3, production: 0, forestry: 2, free: 3 },
   week: 0,
 };
 
@@ -47,13 +48,29 @@ test("ecology, satisfaction and construction sites", () => {
   expect(formatSatisfactionDetail(state)).toBe("ecology 80 %, work 60 %");
   expect(formatConstructionSites(state)).toBe("2");
   expect(formatConstructionSites({ ...state, sitesWaitingForWood: 1 })).toBe(
-    "2 (1 waiting for wood)",
+    "2 (1 waiting for material)",
   );
 });
 
-test("further stocks only above 0", () => {
+test("planks as stock and capacity", () => {
+  expect(
+    formatPlanks({
+      ...state,
+      resources: { ...state.resources, planks: 12.8 },
+      capacity: { ...state.capacity, planks: 20 },
+    }),
+  ).toBe("12 / 20");
+});
+
+test("further stocks only above 0, wood and planks have their own entry", () => {
   expect(getFurtherStocks(state.resources)).toEqual([]);
   expect(
-    getFurtherStocks({ ...state.resources, wood: 5, ore: 2, steel: 0 }),
+    getFurtherStocks({
+      ...state.resources,
+      wood: 5,
+      planks: 7,
+      ore: 2,
+      steel: 0,
+    }),
   ).toEqual(["ore"]);
 });
