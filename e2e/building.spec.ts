@@ -301,6 +301,8 @@ async function clickTile(page: Page, coords: { q: number; r: number }) {
 }
 
 test("four copies are placed in a row with one selection", async ({ page }) => {
+  // many software-rendered mouse moves, slow on the CI runners
+  test.slow();
   // no week passes, so no construction site is finished in between
   await installClockWithNativeFrames(page);
   await setup(page);
@@ -316,6 +318,8 @@ test("four copies are placed in a row with one selection", async ({ page }) => {
 test("a click on an invalid tile keeps the selection and builds nothing", async ({
   page,
 }) => {
+  // many software-rendered mouse moves, slow on the CI runners
+  test.slow();
   await installClockWithNativeFrames(page);
   await setup(page);
   await clickTile(page, row[0]);
