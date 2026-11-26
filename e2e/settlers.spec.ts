@@ -146,10 +146,13 @@ test("figures do not take part in picking: hovering and building work beneath th
     .poll(() => buildingAt(page, settler.tile))
     .toBe("OrganicHomestead");
   await expect
-    .poll(async () =>
-      (await getSettlers(page)).some(
-        ({ tile }) => tile.q === settler.tile.q && tile.r === settler.tile.r,
-      ),
+    .poll(
+      async () =>
+        (await getSettlers(page)).some(
+          ({ tile }) => tile.q === settler.tile.q && tile.r === settler.tile.r,
+        ),
+      // the settler walks off from where it stands, which takes a while on slow runners
+      { timeout: 20_000 },
     )
     .toBe(false);
   expect(await getSettlers(page)).toHaveLength(2);
