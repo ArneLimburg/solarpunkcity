@@ -59,3 +59,17 @@ export async function installClockWithNativeFrames(page: Page) {
     window.cancelAnimationFrame = native.__nativeCancelAnimationFrame;
   });
 }
+
+// Replaces Math.random by a seeded generator (mulberry32) before the page
+// loads, so the settler roster and their walks are the same in every run.
+export const seedRandom = (page: Page, seed: number) =>
+  page.addInitScript((initial) => {
+    let state = initial;
+    Math.random = () => {
+      state = (state + 0x6d2b79f5) | 0;
+      let t = state;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }, seed);
