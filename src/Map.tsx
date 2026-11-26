@@ -8,6 +8,7 @@ import {
   createWoodStorageRenderer,
   type WoodStorageRenderer,
 } from "./WoodStorageRenderer";
+import { createMountainRenderer } from "./MountainRenderer";
 import { createForest, type ForestRenderer } from "./ForestRenderer";
 import { HEX_SIZE, hexToPixel } from "./hexGeometry";
 import {
@@ -108,6 +109,7 @@ export const Map = forwardRef<
     const tiles = createTileRenderer(scene, materials);
     tilesRef.current = tiles;
     tiles.setGrounds(getRiverTiles(tiles.tiles), materials.water);
+    const mountains = createMountainRenderer(scene);
     cornersRef.current = createCornerRenderer(
       scene,
       materials,
@@ -159,6 +161,7 @@ export const Map = forwardRef<
         ring,
         getTileMaterial: (coords) => tiles.getGround(coords),
         getTileInstanceStats: tiles.getInstanceStats,
+        getMountainStats: mountains.getStats,
         models: modelsRef.current,
         getTreeCount: (coords) => forestRef.current!.getTreeCount(coords),
         getCornerMaterial: (coords, corner) =>

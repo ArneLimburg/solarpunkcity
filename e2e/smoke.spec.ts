@@ -43,6 +43,22 @@ test("the tile layers hold exactly one finite matrix per board tile", async ({
   expect(stats.finiteMatrices).toBe(tileCount);
 });
 
+test("one mountain mesh stands behind the board, visible and not pickable", async ({
+  page,
+}) => {
+  await page.goto("./");
+  await expect(page.locator("canvas")).toBeVisible();
+  await page.waitForFunction(() => window.__solarpunk !== undefined);
+  const stats = await page.evaluate(() =>
+    window.__solarpunk!.getMountainStats(),
+  );
+  expect(stats.meshes).toBe(1);
+  expect(stats.triangles).toBeGreaterThan(0);
+  expect(stats.triangles).toBeLessThan(4000);
+  expect(stats.pickable).toBe(false);
+  expect(stats.inView).toBe(true);
+});
+
 test("menu shows categories", async ({ page }) => {
   await page.goto("./");
   const expected = Object.values(BuildingCategories).filter(
