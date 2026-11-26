@@ -35,6 +35,32 @@ acceptance criterion.
 Push back on vague answers ("better", "nicer", "some") and on tickets that are too big:
 one ticket should be one pull request. Offer to split large ideas into several tickets.
 
+The implementation agent has 45 minutes per run (`timeout-minutes` in `implement.yaml`); a
+run that hits the limit loses all its work. Keep every ticket small enough:
+
+- One concern per ticket: game rules, UI, or a 3D model. When a ticket touches more than
+  one of them, propose a split before drafting, e.g. rules and resources first, then the UI
+  that shows them, then the model.
+- A 3D model built from code always gets its own ticket.
+- Aim for at most about 15 changed files and 500 changed lines in the pull request. Estimate
+  this from the files the ticket touches and their tests; split if the estimate is larger.
+- Each part must be mergeable on its own (lint, build and tests pass) and leave the game
+  playable: no part may make something unbuildable that a later part makes buildable again.
+  Name the order under `## Dependencies` and create later parts without the label `ready`, so
+  they wait for the earlier ones.
+
+Example: a sawmill that turns wood into planks, with apartments built from planks (#86), is
+three tickets in this order:
+
+1. **Rules** – the `planks` resource, the `Sawmill` definition, plank storage, the sawmill
+   step of the weekly tick and plank delivery to construction sites, with unit tests. The
+   sawmill is not offered in the build menu yet, and no building costs planks yet.
+2. **Model** – the sawmill model built from code (pure geometry plus renderer, wired into
+   the map), with unit tests and an e2e check that places it through the dev hooks.
+3. **UI and costs** – the build menu offers the sawmill, the HUD shows planks and waiting
+   sites, the details panel shows plank costs, and the apartment switches from wood to
+   planks. Only now can players use the chain, so the game is never stuck in between.
+
 ## 3. Draft
 
 Show the full issue to the user before creating it:
