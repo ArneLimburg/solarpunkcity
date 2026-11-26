@@ -184,9 +184,9 @@ test("canPlace is false off the board and on non-recyclable buildings", () => {
   expect(game.canPlace("Farm", { q: 0, r: 0 })).toBe(true);
 });
 
-test("Farm costs 25 wood and AgroIndustrial 65 wood", () => {
+test("Farm costs 25 wood and AgroIndustrial 40 planks", () => {
   expect(definitions.BuildingDefinition.Farm.cost.wood).toBe(25);
-  expect(definitions.BuildingDefinition.AgroIndustrial.cost.wood).toBe(65);
+  expect(definitions.BuildingDefinition.AgroIndustrial.cost.planks).toBe(40);
 });
 
 test("build recycles all footprint tiles of the old buildings", () => {
@@ -635,7 +635,8 @@ test("getState reflects a build", () => {
   const before = game.getState();
   game.build("AppartmentBuilding", { q: 0, r: 0 });
   const after = game.getState();
-  expect(after.resources.wood).toBe(before.resources.wood);
+  // the apartment needs planks, the recycled wood of the forest goes to the stock
+  expect(after.resources.wood).toBe(before.resources.wood + 3);
   expect(after.constructionSites).toBe(before.constructionSites + 1);
 });
 
@@ -738,6 +739,7 @@ function workforceSum(workforce: Workforce) {
   return (
     workforce.food +
     workforce.construction +
+    workforce.production +
     workforce.forestry +
     workforce.free
   );
@@ -751,13 +753,25 @@ test("the workforce splits the workers into food, construction, forestry and fre
   board.setBuilding({ q: 20, r: 0 }, farm(1, 1)); // 1 worker for 1 food
   board.placeBuilding({ q: 5, r: 0 }, testBuilding({ maxBuilders: 1 }), 10);
   const { workforce, resources } = game.calculateWeek(); // 2 workers
-  expect(workforce).toEqual({ food: 1, construction: 1, forestry: 0, free: 0 });
+  expect(workforce).toEqual({
+    food: 1,
+    construction: 1,
+    production: 0,
+    forestry: 0,
+    free: 0,
+  });
   expect(workforce!.free).toBe(resources.labor);
 });
 
 test("the workforce counts the workers in forests", () => {
   const { workforce, resources } = game.calculateWeek(); // 2 workers
-  expect(workforce).toEqual({ food: 0, construction: 0, forestry: 2, free: 0 });
+  expect(workforce).toEqual({
+    food: 0,
+    construction: 0,
+    production: 0,
+    forestry: 2,
+    free: 0,
+  });
   expect(workforce!.free).toBe(resources.labor);
 });
 

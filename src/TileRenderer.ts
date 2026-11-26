@@ -33,6 +33,7 @@ const MEADOW_COLOR = new Color3(0.55, 0.78, 0.4);
 const FARMLAND_COLOR = new Color3(0.55, 0.45, 0.3);
 const SOIL_COLOR = new Color3(0.4, 0.26, 0.15);
 const GRAVEL_COLOR = new Color3(0.78, 0.7, 0.55);
+const EARTH_COLOR = new Color3(0.5, 0.4, 0.28);
 export const WATER_COLOR = new Color3(0.1, 0.65, 0.75);
 const TILE_DEPTH = 0.2; // height of a tile below its top
 const CHUNK_SIZE = 8 * HEX_SIZE * Math.sqrt(3); // edge of a spatial chunk of tiles
@@ -43,6 +44,7 @@ export type GroundMaterials = {
   farmland: StandardMaterial;
   soil: StandardMaterial;
   gravel: StandardMaterial;
+  earth: StandardMaterial; // compacted earth below production buildings
   water: StandardMaterial;
 };
 
@@ -72,6 +74,7 @@ export function createGroundMaterials(scene: Scene): GroundMaterials {
     farmland: makeMaterial("farmland", FARMLAND_COLOR, scene),
     soil: makeMaterial("soil", SOIL_COLOR, scene),
     gravel: makeMaterial("gravel", GRAVEL_COLOR, scene),
+    earth: makeMaterial("earth", EARTH_COLOR, scene),
     water,
   };
 }

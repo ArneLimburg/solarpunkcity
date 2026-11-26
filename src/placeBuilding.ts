@@ -34,7 +34,8 @@ export function placeBuilding(
     parts;
   const radius = getFootprintRadius(BuildingDefinition[type].size);
   // bare soil below construction sites, farmland below farms, gravel below
-  // storages, meadow below everything else
+  // storages, compacted earth below production buildings, meadow below
+  // everything else
   const category = BuildingTypes[type].category;
   const ground = underConstruction
     ? materials.soil
@@ -42,7 +43,9 @@ export function placeBuilding(
       ? materials.farmland
       : category === "STORAGE"
         ? materials.gravel
-        : materials.meadow;
+        : category === "PRODUCTION"
+          ? materials.earth
+          : materials.meadow;
   // the building replaces trees, previous models and ground on its whole footprint
   for (const tile of getFootprint(coords, radius)) {
     forest.clearTile(tile);

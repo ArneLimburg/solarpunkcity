@@ -46,18 +46,21 @@ test("marks only the selected building and its category tab", async ({
   );
 });
 
-test("a tab shows its buildings with the wood cost", async ({ page }) => {
+test("a tab shows its buildings with the material cost", async ({ page }) => {
   await setup(page);
   await buildButton(page).click();
   await tab(page, "Residential").click();
   await expect(button(page, "Apartment building")).toBeVisible();
   await expect(button(page, "Farm")).toHaveCount(0);
   await expect(page.getByTestId("build-cost-AppartmentBuilding")).toHaveText(
-    /10$/,
+    /6$/,
   );
   await expect(
     page.getByTestId("build-cost-AppartmentBuilding"),
   ).not.toHaveClass(/error/);
+  await tab(page, "Production").click();
+  await expect(button(page, "Sawmill")).toBeVisible();
+  await expect(page.getByTestId("build-cost-Sawmill")).toHaveText(/15$/);
 });
 
 test("the Build button toggles the panel and shows the selection while collapsed", async ({

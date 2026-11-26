@@ -25,17 +25,20 @@ week passes every second. Everything below happens once per week unless stated o
 
 ## 2. Resources
 
-| Resource | What it is                                                                                         | What it is used for                                                       |
-| -------- | -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
-| Wood     | Comes from forests (0.5 wood per forest per week) and from clearing forest. It is kept in a stock. | Used up week by week while a building is under construction (section 4).  |
-| Food     | Comes from farms. It is kept in a stock, which works as a buffer.                                  | Every resident eats 1 food per week.                                      |
-| Labor    | Equals the number of residents. Every resident is one worker per week. It is **not** stored.       | Staffing farms, constructing buildings and working in forests (for wood). |
+| Resource | What it is                                                                                         | What it is used for                                                                                        |
+| -------- | -------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| Wood     | Comes from forests (0.5 wood per forest per week) and from clearing forest. It is kept in a stock. | Used up week by week while a building is under construction (section 4), and sawn into planks by sawmills. |
+| Planks   | Come from sawmills (2 planks per sawmill per week). They are kept in a stock.                      | Used up week by week while an apartment building or an agro-industrial farm is under construction.         |
+| Food     | Comes from farms. It is kept in a stock, which works as a buffer.                                  | Every resident eats 1 food per week.                                                                       |
+| Labor    | Equals the number of residents. Every resident is one worker per week. It is **not** stored.       | Staffing farms, constructing buildings, sawing planks and working in forests (for wood).                   |
 
-**Storage.** Wood needs a place to be stored. The capacity for wood is the sum of the storage of
-all finished buildings: every wood storage adds 100 wood, without any wood storage the capacity
-is 0. The wood stock never exceeds the capacity. Other resources are not capped yet. The status
-bar always shows wood as `stock / capacity` (for example `3 / 100`); with a capacity of 0 the
-entry is shown in the error style.
+**Storage.** Wood and planks need a place to be stored. The capacity for wood is the sum of the
+storage of all finished buildings: every wood storage adds 100 wood, without any wood storage the
+capacity is 0. The capacity for planks works the same way: every finished sawmill adds 20 planks,
+without a sawmill it is 0. The wood and plank stocks never exceed their capacity. Other resources
+are not capped yet. The top bar always shows wood as `stock / capacity` (for example `3 / 100`);
+with a capacity of 0 the entry is shown in the error style. Planks are shown right after the wood
+in the same way (for example `12 / 20`), but only while the plank capacity is above 0.
 
 Unused labor is lost at the end of the week. The labor shown in the status bar is the labor that
 was left over after all work of the last week.
@@ -49,11 +52,16 @@ was left over after all work of the last week.
 
 What happens when you place a building:
 
-- No wood is paid when placing, and the wood in your stock is not checked. The wood of a
-  building under construction is delivered week by week (see section 4).
-- Every forest tile under the building is cleared and gives you **3 wood**. This wood goes into
-  the wood supply of the new construction site first, up to the wood cost of the building. Only
-  the rest goes into the wood stock and has to fit into the storages (see below).
+- No wood or planks are paid when placing, and the stock is not checked. The wood or planks of a
+  building under construction are delivered week by week (see section 4).
+- Every forest tile under the building is cleared and gives you **3 wood**. For a building that
+  is built from wood, this wood goes into the wood supply of the new construction site first, up
+  to the wood cost of the building. Only the rest goes into the wood stock and has to fit into
+  the storages (see below). A building that is built from planks cannot use wood, so all the
+  cleared wood goes into the wood stock: an agro-industrial farm on 19 forest tiles needs room
+  for 57 wood.
+- A sawmill that is built over gives back **7 wood** per tile like cleared forest. Its plank
+  storage is gone at once, and planks above the new capacity are lost.
 - The building is not finished yet. It becomes a construction site (see section 4).
 - A building that has a wood cost but needs no construction work is paid in full when it is
   placed and is finished at once. A building with neither wood cost nor work (the wood storage)
@@ -81,25 +89,31 @@ week by week.
   in worker-weeks: one resident working for one week does one worker-week of work.
 - Every building has a **maximum number of builders per week**. More residents than that cannot
   work on the same site at the same time.
-- Each construction site has its own **wood supply**. It holds at most the wood the site still
-  needs (the wood cost minus the wood that has already been used up). The supply starts with the
-  wood from the cleared forest (section 3).
-- Every worker-week needs wood: the wood cost divided by the work of the building. This is the
+- Most buildings are built from wood, the apartment building and the agro-industrial farm are
+  built from **planks** (no building needs both). Everything said here about wood holds for the
+  planks of these buildings, too; the wood stock is replaced by the plank stock.
+- Each construction site has its own **material supply**. It holds at most the wood (or planks)
+  the site still needs (the cost minus what has already been used up). The supply of a wood site
+  starts with the wood from the cleared forest (section 3); the supply of a plank site starts
+  empty.
+- Every worker-week needs material: the cost divided by the work of the building. This is the
   **wood per builder-week** (a farm: 25 wood for 24 worker-weeks, about 1.04 wood per
-  builder-week). The details panel shows it.
+  builder-week) or the **planks per builder-week** (an apartment building: 6 planks for 20
+  worker-weeks, 0.3 planks per builder-week). The details panel shows it.
 - Each week the available residents are assigned to the construction sites, **oldest site
   first**. A site gets as many builders as the maximum allows, but never more than the work it
-  still needs, never more than the residents that are still free, and never more than its wood
-  allows: the wood in its own supply plus the wood stock, divided by the wood per builder-week
-  and rounded down. Free residents move on to the next site.
-- The wood that the builders use comes from the site's own supply first, then from the wood
-  stock. Only the wood used this week is taken from the stock; the stock is never moved to the
-  sites in advance. In the last week of work the site uses exactly the wood it still needs, so
-  in total it uses exactly its wood cost.
-- A site that gets no builder only because of missing wood is **waiting for wood** that week.
-  Sites keep their wood supply and their progress, also during hunger.
+  still needs, never more than the residents that are still free, and never more than its
+  material allows: the material in its own supply plus the stock, divided by the material per
+  builder-week and rounded down. Free residents move on to the next site.
+- The material that the builders use comes from the site's own supply first, then from the
+  stock. Only the material used this week is taken from the stock; the stock is never moved to
+  the sites in advance. In the last week of work the site uses exactly the material it still
+  needs, so in total it uses exactly its cost (an apartment building: exactly 6 planks).
+- A site that gets no builder only because of missing wood or planks is **waiting for
+  material** that week. Sites keep their supply and their progress, also during hunger.
 - Wood comes to a site from the cleared forest (when placing) and from forestry (section 5, step
-  4). The wood in site supplies does not count to the wood stock or to the wood capacity.
+  4); planks come from sawmills (section 5, step 4). The material in site supplies does not
+  count to the stocks or to the capacities.
 - Work that has been done is never lost. If the population shrinks, the sites simply get fewer
   builders.
 - In the week the last work is done, the site becomes the finished building. It starts to
@@ -111,9 +125,9 @@ week by week.
   - cannot be built over. A construction site cannot be cancelled.
 - On the map the tiles of a construction site show **bare brown soil**: no trees, no forest
   floor and no building. When the building is finished, it appears on the map.
-- The status bar shows how many construction sites there currently are. If sites are waiting
-  for wood, their number is shown as well (for example `3 (1 waiting)`) and the entry is shown in
-  the error style.
+- The **More** menu shows how many construction sites there currently are. If sites are waiting
+  for wood or planks, their number is shown as well (for example `3 (1 waiting for material)`)
+  and the entry and the **More** button are shown in the error style.
 
 Example: an organic homestead needs 4 worker-weeks and takes at most 2 builders. With 2
 residents and enough wood it is finished after 2 weeks. A farm needs 24 worker-weeks and takes
@@ -141,15 +155,27 @@ storage it is still built: forestry delivers the missing wood to the site, it ju
 3. **Construction.** The workers that are still free work on the construction sites as
    described in section 4, oldest site first, as far as the wood allows. Sites that are completed
    this week are finished at the end of the week.
-4. **Other production.** The workers that are still free do the remaining work, such as
-   forestry: every forest tile that gets a worker produces 0.5 wood. A building that cannot be
-   staffed fully or lacks other inputs does not produce anything. The produced wood goes into the
-   wood supplies of the construction sites first (oldest site first, each up to its free space);
-   the rest goes into the wood stock, capped so that the stock never exceeds the capacity. Wood
-   that reaches a site this week is used from the next week on. Forestry only works while there
-   is free space in a site supply or in the wood storage. Otherwise (for example without a wood
-   storage and without a construction site that needs wood) no forest works and its labor stays
-   free.
+4. **Other production.** The workers that are still free do the remaining work, in this order:
+   1. **Sawmills** (finished ones only, in the order they were placed). A sawmill works only if
+      the wood stock holds at least 4 wood, at least 2 workers are still free, and there is free
+      space in the supply of a construction site that is built from planks or in the plank
+      storage. It then takes 4 wood from the wood stock (never from a site supply) and 2
+      workers and makes 2 planks. The planks go into the supplies of the plank sites first
+      (oldest site first, each up to its free space); the rest goes into the plank stock,
+      capped so that the stock never exceeds the capacity, and planks beyond that are lost.
+      Planks that reach a site this week are used from the next week on. A sawmill never works
+      partly.
+   2. **Forestry and everything else.** Every forest tile that gets a worker produces 0.5 wood.
+      A building that cannot be staffed fully or lacks other inputs does not produce anything.
+      The produced wood goes into the wood supplies of the construction sites first (oldest
+      site first, each up to its free space); the rest goes into the wood stock, capped so that
+      the stock never exceeds the capacity. Wood that reaches a site this week is used from the
+      next week on. Forestry only works while there is free space in a wood site supply or in the
+      wood storage. Otherwise (for example without a wood storage and without a construction
+      site that needs wood) no forest works and its labor stays free.
+
+   Because the sawmills come first, they get the free workers before the forests do.
+
 5. **Population growth.** If everyone could eat, the population grows. The growth is the smallest
    of
    - 10 % of the population, multiplied by the satisfaction (a satisfaction of 50 % halves it)
@@ -195,23 +221,28 @@ storage it is still built: forestry delivers the missing wood to the site, it ju
 
 ## 7. All buildings
 
-| Building             | Tiles | Wood | Work (worker-weeks)  | Wood per builder-week | Builders per week | Produces per week | Consumes per week | Residents | Ecology per tile |
-| -------------------- | ----- | ---- | -------------------- | --------------------- | ----------------- | ----------------- | ----------------- | --------- | ---------------- |
-| Organic homestead    | 1     | 4    | 4                    | 1.0                   | 2                 | 3 food            | 2 workers         | 3         | +0.5             |
-| Apartment building   | 1     | 10   | 20                   | 0.5                   | 4                 | –                 | –                 | 15        | 0                |
-| Farm                 | 7     | 25   | 24                   | 1.0                   | 6                 | 20 food           | 4 workers         | 2         | +0.2             |
-| Agro-industrial farm | 19    | 65   | 80                   | 0.8                   | 10                | 60 food           | 8 workers         | 0         | −5               |
-| Wood storage         | 1     | –    | – (finished at once) | –                     | –                 | –                 | –                 | 0         | 0                |
-| Forest               | 1     | –    | –                    | –                     | –                 | 0.5 wood          | 1 worker          | 0         | +1               |
-| Settlers' camp       | 1     | –    | –                    | –                     | –                 | 2 food            | –                 | 2         | 0                |
-| River                | 1     | –    | –                    | –                     | –                 | –                 | –                 | 0         | +1               |
+| Building             | Tiles | Material  | Work (worker-weeks)  | Material per builder-week | Builders per week | Produces per week | Consumes per week | Residents | Ecology per tile |
+| -------------------- | ----- | --------- | -------------------- | ------------------------- | ----------------- | ----------------- | ----------------- | --------- | ---------------- |
+| Organic homestead    | 1     | 4 wood    | 4                    | 1.0                       | 2                 | 3 food            | 2 workers         | 3         | +0.5             |
+| Apartment building   | 1     | 6 planks  | 20                   | 0.3                       | 4                 | –                 | –                 | 15        | 0                |
+| Farm                 | 7     | 25 wood   | 24                   | 1.0                       | 6                 | 20 food           | 4 workers         | 2         | +0.2             |
+| Agro-industrial farm | 19    | 40 planks | 80                   | 0.5                       | 10                | 60 food           | 8 workers         | 0         | −5               |
+| Wood storage         | 1     | –         | – (finished at once) | –                         | –                 | –                 | –                 | 0         | 0                |
+| Sawmill              | 1     | 15 wood   | 10                   | 1.5                       | 3                 | 2 planks          | 4 wood, 2 workers | 0         | 0                |
+| Forest               | 1     | –         | –                    | –                         | –                 | 0.5 wood          | 1 worker          | 0         | +1               |
+| Settlers' camp       | 1     | –         | –                    | –                         | –                 | 2 food            | –                 | 2         | 0                |
+| River                | 1     | –         | –                    | –                         | –                 | –                 | –                 | 0         | +1               |
 
-The wood of a building is not paid when placing, but used up during construction.
+The wood or planks of a building are not paid when placing, but used up during construction.
+The early game (settlers' camp, homestead, farm) needs wood only; a growing town needs the first
+production chain: forest, wood, sawmill, planks, construction site.
 
 The wood storage is free, is finished immediately when placed (no construction site, gravel
-ground and a log yard on the map), stores 100 wood and cannot be built over. The forest and the
-settlers' camp cannot be built. A cleared forest tile gives 3 wood, the camp gives nothing. The
-river cannot be built and cannot be built over.
+ground and a log yard on the map), stores 100 wood and cannot be built over. The sawmill is an
+open saw shed with a saw bench, a plank stack and a log pile on bare earth; it stores 20 planks
+and gives back 7 wood when it is built over. The forest and the settlers' camp cannot be built. A
+cleared forest tile gives 3 wood, the camp gives nothing. The river cannot be built and cannot be
+built over.
 
 ## 8. Example: the first weeks
 
@@ -226,7 +257,7 @@ river cannot be built and cannot be built over.
 - **Week 2:** Same food balance. The supply holds only 1 wood, so only 1 resident can build (3 of
   4 worker-weeks). The other resident works in a forest and delivers 0.5 wood to the site.
 - **Week 3:** The supply holds 0.5 wood, which is not enough for a worker-week: the site is
-  waiting for wood (the status bar shows `1 (1 waiting)`). Both residents are free for forestry.
+  waiting for wood (the More menu shows `1 (1 waiting for material)`). Both residents are free for forestry.
   One forest delivers 0.5 wood and fills the supply with the last wood the site needs; the other
   forest has no room for its wood (there is no wood storage) and does not work.
 - **Week 4:** One resident finishes the homestead with the last wood. The soil is replaced by
@@ -237,3 +268,8 @@ river cannot be built and cannot be built over.
   staffed with 1 worker (1.5 food). The city is in balance: for further growth it needs more
   housing and more farms. For further buildings, a wood storage keeps the wood from forestry
   that no construction site needs.
+- **Later:** An apartment building needs 6 planks, which only a sawmill makes. With a wood
+  storage in place, the sawmill is built from 15 wood and 10 worker-weeks. Once it is finished
+  it turns 4 wood and 2 workers into 2 planks per week, fills the supply of the apartment site
+  first and then its own plank storage (20 planks). The apartment site builds with at most
+  floor(available planks / 0.3) workers and waits for material when the planks run out.

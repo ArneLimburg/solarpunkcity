@@ -11,6 +11,7 @@ export type Geometry = {
 };
 
 const SEGMENTS = 8;
+const LOG_SEGMENTS = 6;
 const PHI = (1 + Math.sqrt(5)) / 2;
 
 // the triangles of the shapes fit into the box [-0.5, 0.5]^3
@@ -57,13 +58,13 @@ function prism(): Triangle[] {
 }
 
 // cylinder, or a cone when the top radius is 0
-function round(topRadius: number): Triangle[] {
+function round(topRadius: number, segments = SEGMENTS): Triangle[] {
   const ring = (y: number, radius: number, i: number): Vec => {
-    const angle = (2 * Math.PI * i) / SEGMENTS;
+    const angle = (2 * Math.PI * i) / segments;
     return [0.5 * radius * Math.cos(angle), y, 0.5 * radius * Math.sin(angle)];
   };
   const triangles: Triangle[] = [];
-  for (let i = 0; i < SEGMENTS; i++) {
+  for (let i = 0; i < segments; i++) {
     const a = ring(-0.5, 1, i);
     const b = ring(-0.5, 1, i + 1);
     const c = ring(0.5, topRadius, i);
@@ -126,6 +127,7 @@ const SHAPES: Record<PartShape, () => Triangle[]> = {
   openBox,
   prism,
   cylinder: () => round(1),
+  log: () => round(1, LOG_SEGMENTS),
   cone: () => round(0),
   sphere,
 };

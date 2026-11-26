@@ -14,6 +14,7 @@ const a: Resources = {
   water: 20,
   labor: 30,
   wood: 40,
+  planks: 45,
   ore: 50,
   steel: 60,
   glass: 70,
@@ -25,6 +26,7 @@ const b: Resources = {
   water: 2,
   labor: 3,
   wood: 4,
+  planks: 4.5,
   ore: 5,
   steel: 6,
   glass: 7,
@@ -39,6 +41,7 @@ describe("addResources", () => {
       water: 22,
       labor: 33,
       wood: 44,
+      planks: 49.5,
       ore: 55,
       steel: 66,
       glass: 77,
@@ -55,6 +58,7 @@ describe("subtractResources", () => {
       water: 18,
       labor: 27,
       wood: 36,
+      planks: 40.5,
       ore: 45,
       steel: 54,
       glass: 63,
@@ -95,6 +99,6 @@ describe("immutability", () => {
     expect(inputA).toEqual(a);
     expect(inputB).toEqual(b);
     expect(Object.values(emptyResources).every((v) => v === 0)).toBe(true);
-    expect(Object.keys(emptyResources)).toHaveLength(9);
+    expect(Object.keys(emptyResources)).toHaveLength(10);
   });
 });

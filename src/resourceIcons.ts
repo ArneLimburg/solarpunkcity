@@ -5,6 +5,7 @@ export const resourceIcons: Record<keyof Resources, string> = {
   water: "water_drop",
   labor: "engineering",
   wood: "forest",
+  planks: "carpenter",
   ore: "diamond",
   steel: "hardware",
   glass: "window",
@@ -15,6 +16,7 @@ export const resourceIcons: Record<keyof Resources, string> = {
 // resources shown as stock in the status bar, in display order
 export const stockResources = [
   "wood",
+  "planks",
   "ore",
   "steel",
   "glass",

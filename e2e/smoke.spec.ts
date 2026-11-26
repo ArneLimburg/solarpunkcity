@@ -179,6 +179,7 @@ test("the Workers dropdown lists the workforce of the last week", async ({
   const panel = await openDropdown(page, "workers");
   await expect(panel.getByTestId("row-Food production")).toContainText("0");
   await expect(panel.getByTestId("row-Construction")).toContainText("0");
+  await expect(panel.getByTestId("row-Production")).toContainText("0");
   await expect(panel.getByTestId("row-Forestry")).toContainText("0");
   await expect(panel.getByTestId("row-Free")).toContainText("2 (100 %)");
 });

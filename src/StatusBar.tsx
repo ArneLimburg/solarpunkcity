@@ -7,6 +7,7 @@ import {
   formatFood,
   formatFreeRow,
   formatPercent,
+  formatPlanks,
   formatPopulation,
   formatSatisfactionDetail,
   formatWood,
@@ -148,6 +149,13 @@ export const StatusBar: FC<{ state: GameState; sessionStart: number }> = ({
           value={formatWood(state)}
           error={state.capacity.wood === 0}
         />
+        {state.capacity.planks > 0 && (
+          <Entry
+            name="planks"
+            icon={resourceIcons.planks}
+            value={formatPlanks(state)}
+          />
+        )}
       </div>
       <div className="row no-wrap center-align">
         <DropdownButton
@@ -162,6 +170,7 @@ export const StatusBar: FC<{ state: GameState; sessionStart: number }> = ({
             <>
               <Row name="Food production" value={String(workforce.food)} />
               <Row name="Construction" value={String(workforce.construction)} />
+              <Row name="Production" value={String(workforce.production)} />
               <Row name="Forestry" value={String(workforce.forestry)} />
               <Row name="Free" value={formatFreeRow(state, workforce)} />
             </>

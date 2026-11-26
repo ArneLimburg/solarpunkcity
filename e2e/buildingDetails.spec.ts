@@ -57,11 +57,15 @@ test("updates when another type is selected", async ({ page }) => {
   await expect(detail(page, "size")).toHaveText(/19 tiles$/);
   await expect(detail(page, "residents")).toHaveText(/0$/);
   await expect(detail(page, "ecology")).toHaveText(/−5$/);
-  await expect(chip(page, "details-cost", "wood")).toHaveText(
-    /65 during construction$/,
+  await expect(chip(page, "details-cost", "planks")).toHaveText(
+    /40 during construction$/,
   );
-  await expect(panel(page).getByTestId("details-wood-per-builder")).toHaveText(
-    "Wood per builder-week: 0.8",
+  await expect(chip(page, "details-cost", "wood")).toHaveCount(0);
+  await expect(
+    panel(page).getByTestId("details-planks-per-builder"),
+  ).toHaveText("Planks per builder-week: 0.5");
+  await expect(panel(page).getByTestId("details-wood-per-builder")).toHaveCount(
+    0,
   );
   await expect(chip(page, "details-produces", "food")).toHaveText(/60$/);
   await expect(chip(page, "details-consumes", "labor")).toHaveText(/8$/);
@@ -72,9 +76,12 @@ test("omits empty sections for the apartment building", async ({ page }) => {
   await selectBuilding(page, "Residential", "Apartment building");
   await expect(detail(page, "residents")).toHaveText(/15$/);
   await expect(detail(page, "ecology")).toHaveText(/0$/);
-  await expect(chip(page, "details-cost", "wood")).toHaveText(
-    /10 during construction$/,
+  await expect(chip(page, "details-cost", "planks")).toHaveText(
+    /6 during construction$/,
   );
+  await expect(
+    panel(page).getByTestId("details-planks-per-builder"),
+  ).toHaveText("Planks per builder-week: 0.3");
   await expect(panel(page).getByTestId("details-produces")).toHaveCount(0);
   await expect(panel(page).getByTestId("details-consumes")).toHaveCount(0);
 });
@@ -197,14 +204,30 @@ test("clicking the panel does not build below it, building still works", async (
   expect(await buildingAt(page, origin)).toBe("OrganicHomestead");
 });
 
-test("does not mark the wood of a construction site as unaffordable", async ({
+test("shows the sawmill with its storage", async ({ page }) => {
+  await setup(page);
+  await selectBuilding(page, "Production", "Sawmill");
+  await expect(panel(page)).toContainText("Saws logs into planks");
+  await expect(chip(page, "details-cost", "wood")).toHaveText(
+    /15 during construction$/,
+  );
+  await expect(chip(page, "details-storage", "planks")).toHaveText(/20$/);
+  await expect(chip(page, "details-produces", "planks")).toHaveText(/2$/);
+  await expect(chip(page, "details-consumes", "wood")).toHaveText(/4$/);
+  await expect(chip(page, "details-consumes", "labor")).toHaveText(/2$/);
+  await expect(panel(page).getByTestId("details-builders")).toHaveText(
+    "Builders per week: max 3",
+  );
+});
+
+test("does not mark the materials of a construction site as unaffordable", async ({
   page,
 }) => {
   await setup(page);
   await page.evaluate(() => window.__solarpunk?.addResources({ wood: -110 }));
   await selectBuilding(page, "Farms", "Agro-industrial Farm");
-  await expect(chip(page, "details-cost", "wood")).toBeVisible();
-  await expect(chip(page, "details-cost", "wood")).not.toHaveClass(/error/);
+  await expect(chip(page, "details-cost", "planks")).toBeVisible();
+  await expect(chip(page, "details-cost", "planks")).not.toHaveClass(/error/);
   await expect(chip(page, "details-produces", "food")).not.toHaveClass(/error/);
   await expect(chip(page, "details-consumes", "labor")).not.toHaveClass(
     /error/,
