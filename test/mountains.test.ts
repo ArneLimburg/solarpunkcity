@@ -49,11 +49,11 @@ const close = (actual: number[], expected: readonly number[]) =>
 // vertices on the valley line
 const stream = vertices.filter((v) => v.x === valleyX);
 // a sample of the sector in steps of 0.5
-const samples: { x: number; z: number; depth: number }[] = [];
+const samples: { x: number; z: number }[] = [];
 for (let z = edgeZ; z > -100; z -= 0.5) {
   for (let x = -50; x <= 50; x += 0.5) {
     if (Math.hypot(x, z) <= 100) {
-      samples.push({ x, z, depth: zAt(0) - z === 0 ? 0 : -z - 46 });
+      samples.push({ x, z });
     }
   }
 }
@@ -125,7 +125,8 @@ describe("valley", () => {
 
   test("the valley floor rises from the water height to about 8", () => {
     expect(RIVER_WATER_HEIGHT).toBeCloseTo(TILE_TOP - WATER_DEPTH);
-    expect(height(valleyX, edgeZ)).toBeCloseTo(RIVER_WATER_HEIGHT);
+    // at the board edge (the outer tile corners) the floor is just below the water surface
+    expect(height(valleyX, zAt(0))).toBeCloseTo(RIVER_WATER_HEIGHT - 0.01);
     expect(height(valleyX, edgeZ - VALLEY_LENGTH)).toBeCloseTo(
       VALLEY_END_HEIGHT,
     );
@@ -147,6 +148,21 @@ describe("valley", () => {
     expect(at(0, wide)).toBeLessThanOrEqual(at(0, 0) + 0.05);
   });
 
+  test("the floor and the mesh stay below the water surface of the first river tile", () => {
+    const halfTile = (Math.sqrt(3) / 2) * HEX_SIZE;
+    for (let z = edgeZ; z >= edgeZ - HEX_SIZE; z -= 0.1) {
+      for (let dx = -halfTile; dx <= halfTile; dx += 0.1) {
+        expect(height(valleyX + dx, z)).toBeLessThan(RIVER_WATER_HEIGHT);
+      }
+    }
+    // the grid vertices around the tile, so the interpolated triangles stay below as well
+    const around = vertices.filter(
+      (v) => Math.abs(v.x - valleyX) < 1.6 && v.z > edgeZ - 1.6,
+    );
+    expect(around.length).toBeGreaterThanOrEqual(6);
+    for (const v of around) expect(v.y).toBeLessThan(RIVER_WATER_HEIGHT);
+  });
+
   test("the valley ends behind its end", () => {
     const end = height(valleyX, edgeZ - VALLEY_LENGTH - 6);
     expect(end).toBeGreaterThan(VALLEY_END_HEIGHT + 1);
@@ -161,6 +177,13 @@ describe("mesh data", () => {
     expect(data.colors.length / 4).toBe(data.positions.length / 3);
     expect(Math.max(...data.indices)).toBe(vertices.length - 1);
     for (const v of vertices) expect(Math.hypot(v.x, v.z)).toBeLessThan(100.01);
+  });
+
+  test("no triangle lies flat at height 0 (it would fight with the ground)", () => {
+    for (let i = 0; i < data.indices.length; i += 3) {
+      const heights = data.indices.slice(i, i + 3).map((n) => vertices[n].y);
+      expect(Math.max(...heights)).toBeGreaterThan(0);
+    }
   });
 
   test("triangles face up", () => {

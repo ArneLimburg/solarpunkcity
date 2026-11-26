@@ -102,17 +102,25 @@ export function getMountainHeight(
 
   // the valley starts at the line through the centres of the edge row
   const along = Math.max(0, depth + HEX_SIZE);
-  const half =
-    ((Math.sqrt(3) / 2) * HEX_SIZE * (VALLEY_LENGTH - along)) / VALLEY_LENGTH;
+  // the floor is one tile wide at the edge and narrows to a V; right behind the edge it is at
+  // least one grid cell wide so that no grid triangle reaches above the river tile
+  const half = Math.max(
+    ((Math.sqrt(3) / 2) * HEX_SIZE * (VALLEY_LENGTH - along)) / VALLEY_LENGTH,
+    MOUNTAIN_SPACING * (1 - Math.max(0, along - MOUNTAIN_SPACING) / 3),
+  );
   const across = Math.abs(x - getValleyX(course));
   const carve =
     (1 -
       smoothstep(Math.max(0, half), Math.max(0, half) + VALLEY_BLEND, across)) *
     (1 - smoothstep(VALLEY_LENGTH, VALLEY_LENGTH + 4, along));
+  // below the water surface under the river tile, rising from the outer tile corners on
+  const start = RIVER_WATER_HEIGHT - 0.01;
   const floor =
-    RIVER_WATER_HEIGHT +
-    (VALLEY_END_HEIGHT - RIVER_WATER_HEIGHT) *
-      (Math.min(along, VALLEY_LENGTH) / VALLEY_LENGTH) ** 2;
+    start +
+    (VALLEY_END_HEIGHT - start) *
+      (Math.min(Math.max(0, along - HEX_SIZE), VALLEY_LENGTH - HEX_SIZE) /
+        (VALLEY_LENGTH - HEX_SIZE)) **
+        2;
   return Math.min(height, height + (floor - height) * carve);
 }
 
@@ -223,11 +231,28 @@ export function createMountainData(
         ({ x, z }) => Math.hypot(x, z) <= MOUNTAIN_RANGE,
       );
       if (touchesSector && inRange) {
-        const a = vertexOf(column, row);
-        const b = vertexOf(column + 1, row);
-        const c = vertexOf(column, row + 1);
-        const d = vertexOf(column + 1, row + 1);
-        data.indices.push(a, c, b, b, c, d);
+        // triangles at height 0 would be coplanar with the background ground
+        const triangles = [
+          [
+            [column, row],
+            [column, row + 1],
+            [column + 1, row],
+          ],
+          [
+            [column + 1, row],
+            [column, row + 1],
+            [column + 1, row + 1],
+          ],
+        ];
+        for (const triangle of triangles) {
+          const flat = triangle.every(([c, r]) => {
+            const { x, z } = point(c, r);
+            return getMountainHeight(x, z, radius, course) <= 0;
+          });
+          if (!flat) {
+            data.indices.push(...triangle.map(([c, r]) => vertexOf(c, r)));
+          }
+        }
       }
     }
   }
