@@ -1,5 +1,6 @@
 import { beforeEach, expect, test, vi } from "vitest";
 import type { HexCoordinates } from "../src/board";
+import type { Walker } from "../src/settlers";
 import { hexToPixel, pixelToHex } from "../src/hexGeometry";
 
 let board: typeof import("../src/board");
@@ -30,17 +31,22 @@ function areaTiles(): HexCoordinates[] {
 const same = (a: HexCoordinates, b: HexCoordinates) =>
   a.q === b.q && a.r === b.r;
 
-// turns every tile of the settlement area into a storage, except the given ones
+// turns every tile near the camp into a river (not walkable, not built, so the
+// settlement area does not grow), except the camp and the given ones
 function blockAllExcept(free: HexCoordinates[]) {
   for (const tile of areaTiles()) {
-    if (!free.some((other) => same(other, tile))) {
-      board.setBuilding(tile, definitions.BuildingDefinition.WoodStorage);
+    if (!free.some((other) => same(other, tile)) && !same(tile, ORIGIN)) {
+      block(tile);
     }
   }
 }
 
 function block(tile: HexCoordinates) {
-  board.setBuilding(tile, definitions.BuildingDefinition.WoodStorage);
+  board.setBuilding(tile, definitions.BuildingDefinition.River);
+}
+
+function inArea(tile: HexCoordinates): boolean {
+  return settlers.getUsableTiles().some((other) => same(other, tile));
 }
 
 function expectValidLoop(loop: HexCoordinates[]) {
@@ -48,7 +54,7 @@ function expectValidLoop(loop: HexCoordinates[]) {
   expect(loop.length).toBeLessThanOrEqual(6);
   for (let i = 0; i < loop.length; i++) {
     expect(settlers.hexDistance(loop[i], loop[(i + 1) % loop.length])).toBe(1);
-    expect(settlers.hexDistance(loop[i], ORIGIN)).toBeLessThanOrEqual(3);
+    expect(inArea(loop[i])).toBe(true);
     expect(settlers.isWalkable(loop[i])).toBe(true);
   }
   expect(new Set(loop.map((tile) => `${tile.q},${tile.r}`)).size).toBe(
@@ -118,13 +124,49 @@ test("only forest tiles on the board are walkable", () => {
   expect(settlers.isWalkable({ q: board.GRID_RADIUS, r: 1 })).toBe(false);
 });
 
-test("the settlement area holds the walkable tiles within 3 tiles", () => {
+test("on the initial board the settlement area holds the walkable tiles within 3 of the camp", () => {
   const tiles = settlers.getUsableTiles();
   // 37 tiles minus the camp
   expect(tiles).toHaveLength(36);
   expect(tiles.some((tile) => same(tile, ORIGIN))).toBe(false);
+  const expected = areaTiles().filter(settlers.isWalkable);
+  expect(tiles).toHaveLength(expected.length);
+  expect(expected.every(inArea)).toBe(true);
   block({ q: 1, r: 0 });
   expect(settlers.getUsableTiles()).toHaveLength(35);
+});
+
+test("the settlement area is a belt of 3 tiles around every built tile", () => {
+  const farm = definitions.BuildingDefinition.Farm;
+  // single tile at distance 3 (in), 4 (out)
+  board.setBuilding(
+    { q: 20, r: 0 },
+    definitions.BuildingDefinition.WoodStorage,
+  );
+  expect(inArea({ q: 17, r: 0 })).toBe(true);
+  expect(inArea({ q: 16, r: 0 })).toBe(false);
+  // the built tile itself
+  expect(inArea({ q: 20, r: 0 })).toBe(false);
+  // a river tile next to a building
+  block({ q: 19, r: 0 });
+  expect(inArea({ q: 19, r: 0 })).toBe(false);
+  expect(inArea({ q: 18, r: 0 })).toBe(true);
+  // a construction site counts
+  board.placeBuilding({ q: -20, r: 0 }, farm, 4, 0);
+  expect(inArea({ q: -24, r: 0 })).toBe(true);
+  expect(inArea({ q: -25, r: 0 })).toBe(false);
+  // one tile of a multi-tile footprint is enough
+  board.placeBuilding({ q: 0, r: 20 }, farm);
+  const edge = { q: 1 + 3, r: 20 };
+  expect(inArea(edge)).toBe(true);
+  expect(inArea({ q: edge.q + 1, r: 20 })).toBe(false);
+  // two far buildings: both belts, not the gap
+  expect(inArea({ q: 17, r: 0 })).toBe(true);
+  expect(inArea({ q: -24, r: 0 })).toBe(true);
+  expect(inArea({ q: -10, r: 0 })).toBe(false);
+  // the area is cached until the board changes
+  expect(settlers.getUsableTiles()).toEqual(settlers.getUsableTiles());
+  expect(board.getBoardVersion()).toBeGreaterThan(0);
 });
 
 test("the scene coordinates match the hex geometry", () => {
@@ -266,14 +308,26 @@ test("a settler on a tile that became blocked moves to the nearest walkable tile
   const standing = walker.loop[0];
   walker.segment = 0;
   walker.progress = 0;
+  walker.x = settlers.tileX(standing);
+  walker.z = settlers.tileZ(standing);
   block(standing);
   settlers.updateWalkers([walker]);
   expectValidLoop(walker.loop);
-  const now = settlers.getStandingTile(walker);
+  const now = walker.goal;
   expect(settlers.isWalkable(now)).toBe(true);
   expect(settlers.hexDistance(now, standing)).toBeLessThanOrEqual(2);
-  expect(walker.x).toBeCloseTo(settlers.tileX(walker.loop[0]));
+  // it walks there instead of jumping
+  expect(walker.x).toBeCloseTo(settlers.tileX(standing));
+  expect(walker.approaching).toBe(true);
   expect(walker.walking).toBe(false);
+  settlers.advanceWalker(walker, 0.1);
+  expect(walker.walking).toBe(true);
+  settlers.advanceWalker(
+    walker,
+    walker.approachLength / settlers.WALK_SPEED - 0.1,
+  );
+  expect(walker.approaching).toBe(false);
+  expect(walker.x).toBeCloseTo(settlers.tileX(walker.loop[0]));
 });
 
 test("a settler stands on the half of the segment it is closer to", () => {
@@ -294,6 +348,7 @@ test("without any loop a settler pauses on the nearest walkable tile and resumes
   blockAllExcept(free);
   settlers.updateWalkers([walker]);
   expect(walker.loop).toEqual([]);
+  settlers.advanceWalker(walker, 10);
   const rest = settlers.getStandingTile(walker);
   expect(free.some((tile) => same(tile, rest))).toBe(true);
   expect(walker.x).toBeCloseTo(settlers.tileX(rest));
@@ -311,7 +366,7 @@ test("without any loop a settler pauses on the nearest walkable tile and resumes
   expectValidLoop(walker.loop);
 });
 
-test("a loop may be found elsewhere in the area", () => {
+test("a settler never picks a loop far away when none is near", () => {
   const walker = settlers.createWalker(1, 9);
   // a triangle far from the walker is the only loop that is left
   const triangle = [
@@ -320,13 +375,101 @@ test("a loop may be found elsewhere in the area", () => {
     { q: 2, r: -3 },
   ];
   blockAllExcept([...triangle, { q: -3, r: 3 }]);
+  // the walker stands on a blocked tile next to the lonely tile (-3, 3)
+  walker.loop = [];
+  walker.rest = { q: -2, r: 2 };
+  walker.x = settlers.tileX(walker.rest);
+  walker.z = settlers.tileZ(walker.rest);
+  settlers.updateWalkers([walker]);
+  settlers.advanceWalker(walker, 100);
+  expect(walker.loop).toEqual([]);
+  expect(settlers.getStandingTile(walker)).toEqual({ q: -3, r: 3 });
+  expect(walker.x).toBeCloseTo(settlers.tileX({ q: -3, r: 3 }));
+});
+
+function walkAndCheck(walkers: Walker[], frames: number) {
+  const seconds = 1 / 30;
+  for (let i = 0; i < frames; i++) {
+    const before = walkers.map(({ x, z }) => ({ x, z }));
+    walkers.forEach((walker, index) => {
+      settlers.advanceWalker(walker, seconds);
+      const moved = Math.hypot(
+        walker.x - before[index].x,
+        walker.z - before[index].z,
+      );
+      expect(moved).toBeLessThanOrEqual(settlers.WALK_SPEED * seconds + 1e-6);
+    });
+  }
+}
+
+test("newcomers spawn in the belt of a far building and nowhere else", () => {
+  board.placeBuilding(
+    { q: 0, r: -10 },
+    definitions.BuildingDefinition.OrganicHomestead,
+  );
+  const area = settlers.getUsableTiles();
+  expect(area.length).toBeGreaterThan(36);
+  const far = new Set<number>();
+  for (let id = 1; id <= 60; id++) {
+    const walker = settlers.createWalker(id, id * 31);
+    expectValidLoop(walker.loop);
+    expect(walker.loop.every(inArea)).toBe(true);
+    const tile = settlers.getStandingTile(walker);
+    expect(inArea(tile)).toBe(true);
+    if (settlers.hexDistance(tile, ORIGIN) > 3) {
+      far.add(id);
+    }
+  }
+  expect(far.size).toBeGreaterThan(0);
+  expect(far.size).toBeLessThan(60);
+});
+
+test("a settler whose loop is unaffected keeps it when a far building is placed", () => {
+  const walker = settlers.createWalker(1, 9);
+  const loop = walker.loop;
+  board.placeBuilding({ q: 0, r: -15 }, definitions.BuildingDefinition.Farm);
+  settlers.updateWalkers([walker]);
+  expect(walker.loop).toBe(loop);
+  expect(walker.approaching).toBe(false);
+});
+
+test("settlers walk off a new construction site without jumping", () => {
+  const first = settlers.createWalker(1, 9);
+  const second = settlers.createWalker(2, 4);
+  const before = [first, second].map(({ id }) => id);
+  // the first one stands on the site, the second one has a tile of its loop on it
+  first.segment = 0;
+  first.progress = 0;
+  const site = settlers.getStandingTile(first);
+  const other = second.loop.find((tile) => !same(tile, site))!;
+  board.setBuilding(site, definitions.BuildingDefinition.Farm);
+  board.setBuilding(other, definitions.BuildingDefinition.Farm);
+  settlers.updateWalkers([first, second]);
+  expect([first, second].map(({ id }) => id)).toEqual(before);
+  walkAndCheck([first, second], 20 * 30);
+  for (const walker of [first, second]) {
+    expect(walker.approaching).toBe(false);
+    expect(walker.loop.length).toBeGreaterThan(0);
+    expectValidLoop(walker.loop);
+  }
+  walkAndCheck([first, second], 20 * 30);
+});
+
+test("a settler standing on a blocked tile keeps its standing tile until half way", () => {
+  const walker = settlers.createWalker(1, 9);
   walker.segment = 0;
   walker.progress = 0;
+  const standing = settlers.getStandingTile(walker);
+  board.setBuilding(standing, definitions.BuildingDefinition.Farm);
   settlers.updateWalkers([walker]);
-  expectValidLoop(walker.loop);
-  expect(walker.loop.every((tile) => triangle.some((t) => same(t, tile)))).toBe(
-    true,
+  expect(walker.approaching).toBe(true);
+  expect(settlers.getStandingTile(walker)).toEqual(standing);
+  settlers.advanceWalker(
+    walker,
+    (walker.approachLength / settlers.WALK_SPEED) * 0.9,
   );
+  expect(walker.approaching).toBe(true);
+  expect(settlers.getStandingTile(walker)).toEqual(walker.goal);
 });
 
 test("without any walkable tile in the area a settler stays where it is", () => {

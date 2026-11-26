@@ -1,4 +1,11 @@
-import { getBuilding, isOnBoard, type HexCoordinates } from "./board";
+import {
+  getBoardVersion,
+  getBuilding,
+  getBuiltTiles,
+  getFootprint,
+  isOnBoard,
+  type HexCoordinates,
+} from "./board";
 import { BuildingTypes } from "./gameDefinitions";
 
 // Residents (one record per person) and the walking settlers (pure movement
@@ -77,7 +84,7 @@ export function syncRoster(roster: Roster, population: number): Resident[] {
 
 // ---- walkable tiles ----
 
-export const SETTLEMENT_RADIUS = 3; // hex distance from (0, 0)
+export const SETTLEMENT_BELT = 3; // hex distance to the nearest built tile
 export const MIN_LOOP_TILES = 3;
 export const MAX_LOOP_TILES = 6;
 
@@ -106,21 +113,38 @@ export function isWalkable(coords: HexCoordinates): boolean {
   );
 }
 
+// The settlement area: the walkable tiles within SETTLEMENT_BELT tiles of a
+// built tile (camp, building or construction site). Computed again only when
+// the board changed.
+let areaVersion = -1;
+let areaTiles: HexCoordinates[] = [];
+let areaKeys = new Set<string>();
+
+function updateArea() {
+  const version = getBoardVersion();
+  if (version === areaVersion) {
+    return;
+  }
+  const near = new Map<string, HexCoordinates>();
+  for (const built of getBuiltTiles()) {
+    for (const tile of getFootprint(built, SETTLEMENT_BELT)) {
+      near.set(`${tile.q},${tile.r}`, tile);
+    }
+  }
+  areaTiles = [...near.values()].filter(isWalkable);
+  areaKeys = new Set(areaTiles.map((tile) => `${tile.q},${tile.r}`));
+  areaVersion = version;
+}
+
 // walkable and inside the settlement area
 function isUsable(coords: HexCoordinates): boolean {
-  return hexDistance(coords, ORIGIN) <= SETTLEMENT_RADIUS && isWalkable(coords);
+  updateArea();
+  return areaKeys.has(`${coords.q},${coords.r}`);
 }
 
 export function getUsableTiles(): HexCoordinates[] {
-  const tiles: HexCoordinates[] = [];
-  for (let q = -SETTLEMENT_RADIUS; q <= SETTLEMENT_RADIUS; q++) {
-    for (let r = -SETTLEMENT_RADIUS; r <= SETTLEMENT_RADIUS; r++) {
-      if (isUsable({ q, r })) {
-        tiles.push({ q, r });
-      }
-    }
-  }
-  return tiles;
+  updateArea();
+  return [...areaTiles];
 }
 
 function shuffle<T>(items: T[], owner: { seed: number }): T[] {
@@ -202,6 +226,12 @@ export type Walker = {
   phase: number; // bobbing, radians
   walking: boolean;
   bob: number; // current height above the ground
+  // A walker first walks in a straight line from where it is to the first tile
+  // of its new loop (or rest tile): after the board changed under it.
+  approaching: boolean;
+  from: HexCoordinates; // tile the approach started on
+  goal: HexCoordinates; // tile the approach leads to
+  approachLength: number; // scene units of the approach when it started
 };
 
 const SQRT3 = Math.sqrt(3);
@@ -245,11 +275,11 @@ function setLoop(walker: Walker, loop: HexCoordinates[]) {
   walker.segment = 0;
   walker.progress = 0;
   walker.pause = 0;
-  walker.x = walker.loopX[0];
-  walker.z = walker.loopZ[0];
+  walker.approaching = false;
 }
 
 function stay(walker: Walker, tile: HexCoordinates) {
+  walker.approaching = false;
   walker.loop = [];
   walker.loopX = [];
   walker.loopZ = [];
@@ -260,6 +290,13 @@ function stay(walker: Walker, tile: HexCoordinates) {
 
 // the tile the walker is standing on
 export function getStandingTile(walker: Walker): HexCoordinates {
+  if (walker.approaching) {
+    const left = Math.hypot(
+      tileX(walker.goal) - walker.x,
+      tileZ(walker.goal) - walker.z,
+    );
+    return left * 2 < walker.approachLength ? walker.goal : walker.from;
+  }
   if (walker.loop.length === 0) {
     return walker.rest;
   }
@@ -268,7 +305,8 @@ export function getStandingTile(walker: Walker): HexCoordinates {
   return walker.loop[walker.progress < half ? from : nextIndex(walker, from)];
 }
 
-// a settler on a random usable tile near the camp, on a random spot of its loop
+// a settler on a random tile of the settlement area (uniformly), on a random
+// spot of its loop
 export function createWalker(id: number, seed: number): Walker {
   const walker: Walker = {
     id,
@@ -286,6 +324,10 @@ export function createWalker(id: number, seed: number): Walker {
     phase: 0,
     walking: false,
     bob: 0,
+    approaching: false,
+    from: ORIGIN,
+    goal: ORIGIN,
+    approachLength: 0,
   };
   walker.phase = random(walker) * Math.PI * 2;
   const tiles = getUsableTiles();
@@ -294,7 +336,7 @@ export function createWalker(id: number, seed: number): Walker {
   }
   const loop = findAnyLoop(walker, tiles);
   if (!loop) {
-    stayAt(walker, tiles[0]);
+    stayAt(walker, tiles[Math.floor(random(walker) * tiles.length)]);
     return walker;
   }
   setLoop(walker, loop);
@@ -343,15 +385,42 @@ function turn(walker: Walker, target: number, seconds: number) {
   walker.heading += Math.max(-maxTurn, Math.min(maxTurn, delta));
 }
 
+// Walks straight towards the goal tile; returns the seconds that are left
+// after arriving.
+function approach(walker: Walker, seconds: number): number {
+  const dx = tileX(walker.goal) - walker.x;
+  const dz = tileZ(walker.goal) - walker.z;
+  const distance = Math.hypot(dx, dz);
+  const step = Math.min(seconds, distance / WALK_SPEED);
+  const fraction = (step * WALK_SPEED) / distance;
+  walker.walking = step > 0;
+  walker.x += dx * fraction;
+  walker.z += dz * fraction;
+  walker.phase += step * BOB_FREQUENCY;
+  turn(walker, Math.atan2(dx, dz), step);
+  if (step * WALK_SPEED >= distance - 1e-9) {
+    walker.x = tileX(walker.goal);
+    walker.z = tileZ(walker.goal);
+    walker.approaching = false;
+  }
+  return seconds - step;
+}
+
 // Moves the walker along its loop by the elapsed seconds. Random numbers are
 // only drawn when a tile is reached, so the result hardly depends on how the
 // time is split into frames. Allocates nothing.
 export function advanceWalker(walker: Walker, seconds: number) {
-  if (walker.loop.length === 0) {
-    return;
-  }
   let remaining = seconds;
   walker.walking = false;
+  if (walker.approaching) {
+    remaining = approach(walker, remaining);
+  }
+  if (walker.approaching || walker.loop.length === 0) {
+    walker.bob = walker.walking
+      ? Math.abs(Math.sin(walker.phase)) * BOB_HEIGHT
+      : 0;
+    return;
+  }
   while (remaining > 0) {
     const from = walker.segment;
     const to = nextIndex(walker, from);
@@ -398,28 +467,51 @@ function isAffected(walker: Walker): boolean {
   return walker.loop.length === 0 || !walker.loop.every(isUsable);
 }
 
-// Picks another loop for walkers whose loop (or standing tile) is no longer
-// usable. A walker on a tile that became unusable first moves to the nearest
-// usable tile. Without any loop it rests; without any usable tile it stays.
-export function updateWalkers(walkers: Walker[]) {
-  const affected = walkers.filter(isAffected);
-  if (affected.length === 0) {
-    return;
-  }
+export type Route = {
+  start: HexCoordinates; // tile of the settlement area to walk to
+  loop?: HexCoordinates[]; // loop that starts there; none: rest on the tile
+};
+
+// Chooses where a walker goes next, independent of how it gets there (the
+// animation in advanceWalker): the tile of the settlement area nearest to
+// `from` (that tile itself if it belongs to the area) and a loop starting
+// there. Without a loop nearby the walker rests on that tile; it never picks a
+// loop elsewhere. Undefined if the settlement area is empty.
+export function pickRoute(
+  walker: { seed: number },
+  from: HexCoordinates,
+): Route | undefined {
   const tiles = getUsableTiles();
-  for (const walker of affected) {
+  if (tiles.length === 0) {
+    return undefined;
+  }
+  const start = isUsable(from) ? from : nearestTile(tiles, from);
+  return { start, loop: findLoop(start, walker) };
+}
+
+// Sends walkers whose loop (or standing tile) is no longer usable to a new
+// route. They walk there from where they are, they never jump. Without any
+// usable tile they stay.
+export function updateWalkers(walkers: Walker[]) {
+  for (const walker of walkers.filter(isAffected)) {
     const standing = getStandingTile(walker);
-    if (tiles.length === 0) {
+    const route = pickRoute(walker, standing);
+    if (!route) {
       stay(walker, standing);
       continue;
     }
-    const start = isUsable(standing) ? standing : nearestTile(tiles, standing);
-    const loop = findLoop(start, walker) ?? findAnyLoop(walker, tiles);
-    if (loop) {
-      setLoop(walker, loop);
+    if (route.loop) {
+      setLoop(walker, route.loop);
     } else {
-      stayAt(walker, start);
+      stay(walker, route.start);
     }
+    walker.from = standing;
+    walker.goal = route.start;
+    walker.approachLength = Math.hypot(
+      tileX(route.start) - walker.x,
+      tileZ(route.start) - walker.z,
+    );
+    walker.approaching = walker.approachLength > 1e-9;
     walker.bob = 0;
     walker.walking = false;
   }

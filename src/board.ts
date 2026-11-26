@@ -1,4 +1,8 @@
-import { BuildingDefinition, type Building } from "./gameDefinitions";
+import {
+  BuildingDefinition,
+  BuildingTypes,
+  type Building,
+} from "./gameDefinitions";
 
 export const GRID_RADIUS = 30; // how many rings around center of the field
 
@@ -21,8 +25,28 @@ export type PlacedBuilding = {
 };
 
 let nextSequence = 0;
+let boardVersion = 0;
 const tiles = initBoard();
 type HexLocation = string;
+
+// increases whenever buildings are placed or completed (for caches)
+export function getBoardVersion(): number {
+  return boardVersion;
+}
+
+// every tile that holds anything other than forest or water: the camp, buildings
+// and construction sites
+export function getBuiltTiles(): HexCoordinates[] {
+  const built: HexCoordinates[] = [];
+  for (const [location, placed] of tiles) {
+    const category = BuildingTypes[placed.building.type].category;
+    if (category !== "FOREST" && category !== "WATER") {
+      const [q, r] = location.split(",").map(Number);
+      built.push({ q, r });
+    }
+  }
+  return built;
+}
 
 function uniquePlaced(): PlacedBuilding[] {
   return [...new Set(tiles.values())];
@@ -67,6 +91,7 @@ export function completeSites(): PlacedBuilding[] {
     delete site.siteWood;
     delete site.remainingWood;
   }
+  boardVersion++;
   return completed;
 }
 
@@ -90,6 +115,7 @@ export function isUnderConstruction(location: HexCoordinates): boolean {
 
 // places a building on a single tile
 export function setBuilding(location: HexCoordinates, building: Building) {
+  boardVersion++;
   tiles.set(toHexLocation(location), {
     building,
     center: location,
@@ -106,6 +132,7 @@ export function placeBuilding(
   remainingWork = 0,
   siteWood = 0,
 ) {
+  boardVersion++;
   const placed: PlacedBuilding = {
     building,
     center,
