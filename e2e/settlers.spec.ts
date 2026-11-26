@@ -105,6 +105,10 @@ test("generated settlers cost at most two draw calls and the roster comes back",
   expect(crowd.count).toBe(10);
   expect(crowd.drawCalls - baseline.drawCalls).toBeLessThanOrEqual(2);
 
+  // a weekly tick (1 s) hands the roster over again but must not replace the crowd
+  await page.waitForTimeout(2500);
+  expect((await stats()).count).toBe(10);
+
   await page.evaluate(() => window.__solarpunk!.showSettlers(undefined));
   await frames(2);
   expect((await stats()).count).toBe(2);
@@ -125,6 +129,9 @@ test("figures do not take part in picking: hovering and building work beneath th
   // build on the tile of the settler: it is no longer walkable, nobody stays
   await page.getByRole("button", { name: "FARM", exact: true }).click();
   await page.getByRole("button", { name: "OrganicHomestead" }).click();
+  // the details panel could cover the tile; clicking it hides it
+  await page.getByTestId("building-details").click();
+  await expect(page.getByTestId("building-details")).toHaveCount(0);
   await page.mouse.move(x, y, { steps: 5 });
   await expect
     .poll(() => page.evaluate(() => window.__solarpunk?.getRingTile()))
