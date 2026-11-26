@@ -76,8 +76,11 @@ canvas {
   max-width: min(var(--hud-panel-width), 90vw);
   z-index: 20;
 }
-.hud-panel {
+/* doubled class: must beat BeerCSS `:has(> [class*='margin']) { padding: 0.1px }` */
+.hud-panel.hud-glass {
   padding: 1rem;
+}
+.hud-panel {
   margin: 0;
   box-sizing: border-box;
   overflow-y: auto;
