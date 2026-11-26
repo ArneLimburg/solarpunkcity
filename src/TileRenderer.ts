@@ -28,12 +28,12 @@ import {
   tileKey,
 } from "./hexGeometry";
 
-const FOREST_FLOOR_COLOR = new Color3(0.2, 0.42, 0.18);
+export const FOREST_FLOOR_COLOR = new Color3(0.2, 0.42, 0.18);
 const MEADOW_COLOR = new Color3(0.55, 0.78, 0.4);
 const FARMLAND_COLOR = new Color3(0.55, 0.45, 0.3);
 const SOIL_COLOR = new Color3(0.4, 0.26, 0.15);
 const GRAVEL_COLOR = new Color3(0.78, 0.7, 0.55);
-const WATER_COLOR = new Color3(0.1, 0.65, 0.75);
+export const WATER_COLOR = new Color3(0.1, 0.65, 0.75);
 const TILE_DEPTH = 0.2; // height of a tile below its top
 const CHUNK_SIZE = 8 * HEX_SIZE * Math.sqrt(3); // edge of a spatial chunk of tiles
 
