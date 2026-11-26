@@ -111,6 +111,8 @@ test("the Workers dropdown lists Production between Construction and Forestry", 
 }) => {
   await setup(page);
   const panel = await openDropdown(page, "workers");
+  // the rows appear with the first weekly report
+  await expect(panel.getByTestId("row-Free")).toBeVisible();
   const names = await panel
     .locator("[data-testid^='row-']")
     .evaluateAll((rows) => rows.map((row) => row.getAttribute("data-testid")));

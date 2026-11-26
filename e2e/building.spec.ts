@@ -285,6 +285,7 @@ test("the More dropdown counts the construction sites", async ({ page }) => {
   const { x, y } = await tilePosition(page, origin);
   await page.mouse.move(x, y, { steps: 5 });
   await page.mouse.click(x, y);
+  await expect.poll(() => isUnderConstruction(page, origin)).toBe(true);
   await expect(await sites()).toHaveText(/sites1$/);
   await finishConstruction(page);
   // the next weekly tick updates the dropdown
