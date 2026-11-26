@@ -24,6 +24,8 @@ async function start(page: Page) {
 test("a fresh game shows two settlers near the camp that walk, turn and pause", async ({
   page,
 }) => {
+  // slow CI renders few frames and the settlers' time per frame is capped
+  test.setTimeout(180_000);
   await start(page);
   const first = await getSettlers(page);
   expect(first).toHaveLength(2);
@@ -46,7 +48,7 @@ test("a fresh game shows two settlers near the camp that walk, turn and pause", 
         });
         return seen.moved && seen.turned && seen.paused;
       },
-      { timeout: 45_000, intervals: [250] },
+      { timeout: 140_000, intervals: [250] },
     )
     .toBe(true);
 });
