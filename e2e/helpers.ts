@@ -78,7 +78,9 @@ export async function installClockWithNativeFrames(page: Page) {
     native.__nativeCancelAnimationFrame =
       window.cancelAnimationFrame.bind(window);
   });
-  await page.clock.install();
+  await page.clock.install({ time: 0 });
+  // install() lets the fake time flow; pausing stops the weekly interval for good
+  await page.clock.pauseAt(1000);
   await page.addInitScript(() => {
     const native = window as unknown as NativeFrames;
     window.requestAnimationFrame = native.__nativeRequestAnimationFrame;
