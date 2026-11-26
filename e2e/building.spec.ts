@@ -4,6 +4,7 @@ import {
   buildingAt,
   finishConstruction,
   grantWood,
+  installClockWithNativeFrames,
   isUnderConstruction,
   openDropdown,
   selectBuilding,
@@ -270,6 +271,10 @@ test("a click builds exactly once", async ({ page }) => {
 });
 
 test("the More dropdown counts the construction sites", async ({ page }) => {
+  // no weekly tick runs by itself, so a slow runner cannot finish the site
+  // before the dropdown is read
+  await installClockWithNativeFrames(page);
+  await page.clock.pauseAt(Date.now() + 1000);
   await setup(page);
   // a click on the map closes the dropdown, so it is opened again each time
   const sites = async () =>
@@ -283,6 +288,7 @@ test("the More dropdown counts the construction sites", async ({ page }) => {
   await expect(await sites()).toHaveText(/sites1$/);
   await finishConstruction(page);
   // the next weekly tick updates the dropdown
+  await page.clock.runFor(1000);
   await expect(await sites()).toHaveText(/sites0$/);
 });
 
@@ -385,7 +391,9 @@ test("the camp is shown as one model and disappears when built over", async ({
     await page.evaluate((c) => window.__solarpunk?.getTreeCount(c), origin),
   ).toBe(0);
 
-  await setup(page);
+  // the page is already loaded, so it is not loaded a second time
+  await grantWood(page);
+  await selectBuilding(page, "Farms", "Organic homestead");
   const { x, y } = await tilePosition(page, origin);
   await page.mouse.move(x, y, { steps: 5 });
   await page.mouse.click(x, y);

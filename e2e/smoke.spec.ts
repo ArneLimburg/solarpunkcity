@@ -294,6 +294,7 @@ test("clicking in the HUD, a dropdown or a panel builds nothing", async ({
 test("the HUD and the panels have a translucent background and fit the viewport", async ({
   page,
 }) => {
+  test.setTimeout(180_000); // loads the page twice with software rendering
   for (const size of [
     { width: 1280, height: 800 },
     { width: 375, height: 812 },
