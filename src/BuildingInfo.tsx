@@ -2,7 +2,11 @@ import type { FC } from "react";
 import type { HexCoordinates } from "./board";
 import { formatEcology, nonZeroResources } from "./buildingDetails";
 import { BuildingTypes, type Building } from "./gameDefinitions";
-import type { BuildingReport, BuildingStatus } from "./game";
+import type {
+  BuildingReport,
+  BuildingStatus,
+  ConstructionReport,
+} from "./game";
 import type { Resources } from "./resources";
 import type { Resident } from "./settlers";
 import { resourceIcons } from "./resourceIcons";
@@ -46,9 +50,22 @@ export const BuildingInfo: FC<{
   center: HexCoordinates;
   report: BuildingReport | undefined;
   occupants: Resident[];
+  construction: ConstructionReport | undefined; // construction sites only
+  storedWood: number;
+  fieldEfficiency: number; // percent
   onSelectResident: (id: number) => void;
   onClose: () => void;
-}> = ({ building, center, report, occupants, onSelectResident, onClose }) => {
+}> = ({
+  building,
+  center,
+  report,
+  occupants,
+  construction,
+  storedWood,
+  fieldEfficiency,
+  onSelectResident,
+  onClose,
+}) => {
   return (
     <article className="hud-glass hud-panel" data-testid="building-info">
       <div className="row no-wrap">
@@ -81,7 +98,29 @@ export const BuildingInfo: FC<{
           <i aria-hidden="true">close</i>
         </button>
       </div>
-      {building.resident > 0 && (
+      {construction && (
+        <div data-testid="info-construction">
+          <h6 className="no-margin small">Construction</h6>
+          <div data-testid="info-progress">
+            {construction.percent}% complete
+          </div>
+          <div data-testid="info-remaining-work">
+            Remaining work: {construction.remainingWork} worker-weeks
+          </div>
+          <div data-testid="info-builders">
+            Builders last week: {construction.builders} / {building.maxBuilders}
+          </div>
+          {construction.weeks === undefined ? (
+            <div data-testid="info-waiting">Waiting for builders</div>
+          ) : (
+            <div data-testid="info-weeks">
+              About {construction.weeks}{" "}
+              {construction.weeks === 1 ? "week" : "weeks"} left
+            </div>
+          )}
+        </div>
+      )}
+      {!construction && building.resident > 0 && (
         <div data-testid="info-residents">
           <h6 className="no-margin small">Residents</h6>
           <div data-testid="info-residents-count">
@@ -109,7 +148,17 @@ export const BuildingInfo: FC<{
           )}
         </div>
       )}
-      {report ? (
+      {!construction && building.storage && building.storage.wood > 0 && (
+        <div data-testid="info-wood-stock">
+          Wood stock {storedWood} / {building.storage.wood}
+        </div>
+      )}
+      {!construction && building.produces.food > 0 && (
+        <div data-testid="info-field-efficiency">
+          Field efficiency {fieldEfficiency}%
+        </div>
+      )}
+      {construction ? null : report ? (
         <div data-testid="info-last-week">
           <h6 className="no-margin small">Last week</h6>
           {building.consumes.labor > 0 && (

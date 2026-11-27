@@ -111,6 +111,69 @@ export function getBuildingReport(
   return placed && reports.get(placed);
 }
 
+// the builders of the last weekly tick by construction site; a site placed
+// since then has none
+let siteBuilders = new Map<PlacedBuilding, number>();
+
+// how far a construction site is
+export type ConstructionReport = {
+  percent: number; // completed work, rounded down
+  remainingWork: number; // worker-weeks
+  builders: number; // assigned in the last completed week
+  weeks?: number; // estimate at that work rate, only with builders
+};
+
+// the progress of the construction site at a center, undefined for a finished
+// building
+export function getConstructionReport(
+  center: HexCoordinates,
+): ConstructionReport | undefined {
+  const placed = getPlacedBuilding(center);
+  if (!placed || placed.remainingWork === undefined) {
+    return undefined;
+  }
+  const { remainingWork } = placed;
+  const builders = siteBuilders.get(placed) ?? 0;
+  const total = placed.building.cost.labor;
+  return {
+    percent: Math.floor(((total - remainingWork) / total) * 100),
+    remainingWork,
+    builders,
+    ...(builders > 0 && { weeks: Math.ceil(remainingWork / builders) }),
+  };
+}
+
+// the wood a finished storage holds: the stock fills the storages in placement
+// order up to their capacity, what is above the capacity of all of them stays
+// with the last one, so the shown stocks add up to the stock
+export function getStoredWood(center: HexCoordinates): number {
+  const storages = getPlacedBuildings()
+    .filter(({ building }) => (building.storage?.wood ?? 0) > 0)
+    .sort((a, b) => a.sequence - b.sequence);
+  let rest = currentResources.wood;
+  for (const [index, storage] of storages.entries()) {
+    const isLast = index === storages.length - 1;
+    const stored = isLast
+      ? rest
+      : Math.min(rest, storage.building.storage!.wood);
+    if (sameTile(storage.center, center)) {
+      return stored;
+    }
+    rest -= stored;
+  }
+  return 0;
+}
+
+function sameTile(a: HexCoordinates, b: HexCoordinates): boolean {
+  return a.q === b.q && a.r === b.r;
+}
+
+// the harvest of the fields in percent (ecology dependent), separate from what
+// a farm actually produced
+export function getFieldEfficiency(): number {
+  return Math.round(getHarvestFactor() * 100);
+}
+
 // whether the footprint is on the board and free of buildings without recycling
 export function canPlace(
   buildingType: BuildingType,
@@ -570,6 +633,7 @@ function calculateDevelopment() {
 function construct(labor: number): number {
   let used = 0;
   sitesWaitingForWood = 0;
+  siteBuilders = new Map();
   for (const site of getConstructionSites()) {
     const { cost, maxBuilders } = site.building;
     const material = getMaterial(site.building);
@@ -600,6 +664,7 @@ function construct(labor: number): number {
     );
     site.remainingWood = site.remainingWood! - amount;
     workOnSite(site, workers);
+    siteBuilders.set(site, workers);
     used += workers;
   }
   return used;

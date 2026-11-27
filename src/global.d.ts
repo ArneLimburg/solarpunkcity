@@ -33,6 +33,9 @@ declare global {
         coords: HexCoordinates,
         corner: number,
       ): string | undefined;
+      // the text of the label above the selected construction site, undefined
+      // while it is hidden
+      getProgressLabel(): string | undefined;
       // the figures of the settlers (tile: where each one is standing)
       getSettlers(): {
         id: number;

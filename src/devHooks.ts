@@ -32,6 +32,7 @@ type DevHookSources = {
   getCornerMaterial: DevHooks["getCornerMaterial"];
   // shows the model of a finished building
   showBuilding: (coords: HexCoordinates, type: BuildingType) => void;
+  getProgressLabel: DevHooks["getProgressLabel"];
   settlers: SettlerRenderer;
   backdrop: SeaRenderer;
   // shows the given number of generated residents; undefined: the real ones
@@ -52,6 +53,7 @@ export function createDevHooks({
   getTreeCount,
   getCornerMaterial,
   showBuilding,
+  getProgressLabel,
   settlers,
   backdrop,
   showSettlers,
@@ -135,6 +137,7 @@ export function createDevHooks({
     getModelTriangleCount: (coords) => models[tileKey(coords)]?.triangles ?? 0,
     getTreeCount,
     getCornerMaterial,
+    getProgressLabel,
     addResources: grantResources,
     addWoodStorage: (coords) => {
       build("WoodStorage", coords);

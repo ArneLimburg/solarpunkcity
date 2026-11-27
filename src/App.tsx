@@ -13,9 +13,12 @@ import {
   calculateWeek,
   canBuild,
   getBuildingReport,
+  getConstructionReport,
+  getFieldEfficiency,
   getHome,
   getOccupants,
   getState,
+  getStoredWood,
   takeCompletedBuildings,
 } from "./game";
 import { BuildingDetailsPanel } from "./BuildingDetailsPanel";
@@ -144,6 +147,7 @@ export const App: FC = () => {
   }, [selectBuildingType]);
   const closeInfo = useCallback(() => showInfo(undefined), [showInfo]);
   const infoPlaced = infoCenter && getPlacedBuilding(infoCenter);
+  const construction = infoPlaced && getConstructionReport(infoPlaced.center);
   // a resident who left the population has no profile and no marker
   const settler = state.residents.find(({ id }) => id === settlerId);
   return (
@@ -156,6 +160,11 @@ export const App: FC = () => {
           residents={state.residents}
           onSettlerSelected={selectSettler}
           selectedSettler={settler?.id}
+          progress={
+            construction
+              ? { center: infoPlaced!.center, percent: construction.percent }
+              : undefined
+          }
         />
       </main>
       <div className="hud-root">
@@ -202,6 +211,9 @@ export const App: FC = () => {
                 center={infoPlaced.center}
                 report={getBuildingReport(infoPlaced.center)}
                 occupants={getOccupants(infoPlaced)}
+                construction={construction}
+                storedWood={getStoredWood(infoPlaced.center)}
+                fieldEfficiency={getFieldEfficiency()}
                 onSelectResident={selectSettler}
                 onClose={closeInfo}
               />

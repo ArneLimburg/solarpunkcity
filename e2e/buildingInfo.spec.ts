@@ -75,10 +75,36 @@ test("opens, updates, switches and closes the building info", async ({
   await click(page, house);
   await expect(info(page)).toContainText("Appartment Building");
   await expect(info(page).getByTestId("info-center")).toHaveText("3, -3");
-  await expect(info(page).getByTestId("info-no-data")).toBeVisible();
+  await expect(info(page).getByTestId("info-no-data")).toHaveCount(0);
+  await expect(info(page).getByTestId("info-progress")).toHaveText(
+    /^\d+% complete$/,
+  );
+  await expect(info(page).getByTestId("info-remaining-work")).toContainText(
+    "worker-weeks",
+  );
+  await expect(info(page).getByTestId("info-builders")).toContainText("/ 4");
+  await expect(info(page).getByTestId("info-residents")).toHaveCount(0);
+  const percent = (await info(page)
+    .getByTestId("info-progress")
+    .textContent())!.replace(/% complete$/, "");
+  // the map label shows the same value
+  await expect
+    .poll(() => page.evaluate(() => window.__solarpunk?.getProgressLabel()))
+    .toBe(`${percent}%`);
+
+  // the house needs planks that do not exist, so nobody builds it
+  await expect(info(page).getByTestId("info-waiting")).toHaveText(
+    "Waiting for builders",
+  );
+  await expect(info(page).getByTestId("info-progress")).toHaveText(
+    "0% complete",
+  );
 
   // after the construction and the next tick the last week is shown
   await finishConstruction(page);
+  await expect
+    .poll(() => page.evaluate(() => window.__solarpunk?.getProgressLabel()))
+    .toBeUndefined();
   await expect(info(page).getByTestId("info-last-week")).toBeVisible();
   await expect(info(page).getByTestId("info-no-data")).toHaveCount(0);
   await expect(info(page).getByTestId("info-residents-count")).toHaveText(
@@ -95,6 +121,9 @@ test("opens, updates, switches and closes the building info", async ({
     "Workers 0 / 2",
   );
   await expect(info(page).getByTestId("info-status")).toHaveText("Not needed");
+  await expect(info(page).getByTestId("info-field-efficiency")).toHaveText(
+    "Field efficiency 100%",
+  );
 
   // any footprint tile selects the farm; the panel shows its center
   await click(page, farmEdge);
