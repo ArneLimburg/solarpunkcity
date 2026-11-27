@@ -269,9 +269,14 @@ built over.
   worker (1.5 food). 1.5 food are left after eating, so the population grows to 3 and the
   stock holds 1.5 food.
 - **Week 6:** There are 3 residents who need 3 food. The camp and the homestead with 1 worker
-  produce 3.5, and the stock holds enough for the possible growth of 1. The city is in
-  balance: for further growth it needs more housing and more farms. For further buildings, a wood storage keeps the wood from forestry
-  that no construction site needs.
+  produce 3.5, and the stock of 1.5 food already covers the possible growth of 1. 2 food are
+  left after eating, so the population grows to 4 and the stock holds 2 food.
+- **Week 7:** There are 4 residents who need 4 food. The stock covers the possible growth of 1, so
+  the target is 4: the homestead needs 2 workers (the camp and 1 worker produce only 3.5, with 2
+  workers 5). 3 food are left after eating, so the population grows to 5 and the stock holds 3
+  food. Housing is full, so the city is in balance: for further growth it needs more housing and
+  more farms. For further buildings, a wood storage keeps the wood from forestry that no
+  construction site needs.
 - **Later:** An apartment building needs 6 planks, which only a sawmill makes. With a wood
   storage in place, the sawmill is built from 15 wood and 10 worker-weeks. Once it is finished
   it turns 4 wood and 2 workers into 2 planks per week, fills the supply of the apartment site
