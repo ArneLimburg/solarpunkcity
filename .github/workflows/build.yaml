@@ -2,7 +2,7 @@
 # branch without an open pull request against main. A push to a branch with such a pull request is
 # built by the pull_request event only; its skipped push build counts as passed.
 #
-# The e2e tests run in eight parallel shards. The job "build" collects the shards, merges their
+# The e2e tests run in twelve parallel shards. The job "build" collects the shards, merges their
 # coverage and Playwright reports and checks the coverage thresholds. Its name is the required
 # status check of the ruleset, so it must stay "build".
 name: Build
@@ -61,7 +61,7 @@ jobs:
       - run: npm run test --if-present
 
   e2e:
-    name: e2e (${{ matrix.shard }}/8)
+    name: e2e (${{ matrix.shard }}/12)
     needs: pull-request
     # Also runs when the lookup was skipped (pull_request, workflow_dispatch) or failed.
     if: |
@@ -71,7 +71,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4, 5, 6, 7, 8]
+        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
     env:
       # a shard only writes raw coverage data; the thresholds are checked by the job "build"
       E2E_COVERAGE_SHARD: "1"
@@ -84,7 +84,7 @@ jobs:
           cache: "npm"
       - run: npm ci
       - run: npx playwright install --with-deps chromium
-      - run: npm run test:e2e -- --shard=${{ matrix.shard }}/8
+      - run: npm run test:e2e -- --shard=${{ matrix.shard }}/12
       - if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4
         with:
