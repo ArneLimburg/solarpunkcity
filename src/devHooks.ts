@@ -143,6 +143,10 @@ export function createDevHooks({
       build("WoodStorage", coords);
       showBuilding(coords, "WoodStorage");
     },
+    addHydroPowerPlant: (coords) => {
+      build("HydroPowerPlant", coords);
+      showBuilding(coords, "HydroPowerPlant");
+    },
     finishConstruction: () =>
       finishConstruction().forEach(({ coords, type }) =>
         showBuilding(coords, type),

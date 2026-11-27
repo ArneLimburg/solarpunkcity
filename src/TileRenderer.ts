@@ -268,9 +268,12 @@ export function createTileRenderer(
   };
 }
 
-// the tiles that hold the river
+// the tiles that hold the river, also below a hydro power plant
 export function getRiverTiles(coordinates: HexCoordinates[]) {
-  return coordinates.filter((tile) => getBuilding(tile)?.type === "River");
+  return coordinates.filter((tile) => {
+    const type = getBuilding(tile)?.type;
+    return type === "River" || type === "HydroPowerPlant";
+  });
 }
 
 // the tiles that currently hold a forest

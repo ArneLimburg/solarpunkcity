@@ -7,6 +7,7 @@ import {
 } from "@babylonjs/core";
 import { buildGeometry } from "./farmGeometry";
 import { getApartmentLayout } from "./apartment";
+import { getHydroPowerPlantLayout } from "./hydroPowerPlant";
 import { getSawmillLayout } from "./sawmill";
 import { getSupermarketLayout } from "./supermarket";
 import { getSettlersCampLayout } from "./settlersCamp";
@@ -25,7 +26,8 @@ export type ModelType =
   | "AppartmentBuilding"
   | "SettlersCamp"
   | "Sawmill"
-  | "Supermarket";
+  | "Supermarket"
+  | "HydroPowerPlant";
 
 export function isModelType(type: string): type is ModelType {
   return (
@@ -33,7 +35,8 @@ export function isModelType(type: string): type is ModelType {
     type === "AppartmentBuilding" ||
     type === "SettlersCamp" ||
     type === "Sawmill" ||
-    type === "Supermarket"
+    type === "Supermarket" ||
+    type === "HydroPowerPlant"
   );
 }
 
@@ -47,6 +50,9 @@ function getLayout(type: ModelType, hexSize: number): FarmPart[] {
   if (type === "Supermarket") {
     return getSupermarketLayout(hexSize);
   }
+  if (type === "HydroPowerPlant") {
+    return getHydroPowerPlantLayout(hexSize);
+  }
   return type === "SettlersCamp"
     ? getSettlersCampLayout(hexSize)
     : getApartmentLayout(hexSize);
@@ -58,8 +64,12 @@ export type FarmModel = {
 };
 
 export type FarmRenderer = {
-  // shows a farm model on the given center tile
-  create: (type: ModelType, center: { x: number; z: number }) => FarmModel;
+  // shows a farm model on the given center tile, turned around Y by rotation
+  create: (
+    type: ModelType,
+    center: { x: number; z: number },
+    rotation?: number,
+  ) => FarmModel;
   // the template meshes of a type (shared geometry, not shown themselves)
   getMeshes: (type: ModelType) => Mesh[];
 };
@@ -116,11 +126,12 @@ export function createFarmRenderer(
 
   return {
     getMeshes: (type) => getTemplate(type).meshes,
-    create: (type, center) => {
+    create: (type, center, rotation = 0) => {
       const template = getTemplate(type);
       const instances = template.meshes.map((mesh) => {
         const instance = mesh.createInstance(`${mesh.name}_instance`);
         instance.position.set(center.x, TILE_TOP, center.z);
+        instance.rotation.y = rotation;
         instance.isPickable = false;
         return instance;
       });
