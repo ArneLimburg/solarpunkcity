@@ -608,7 +608,7 @@ function calculateDevelopment() {
     currentPopulation += Math.min(possibleGrowth, Math.floor(leftFood));
     currentResources.food = Math.min(leftFood, foodCapacity);
   }
-  syncRoster(roster, currentPopulation, currentWeek); // newcomers are added, the newest leave first
+  syncRoster(roster, currentPopulation, currentWeek + 1); // newcomers are added, the newest leave first
   updateHomes();
   const constructionWorkers = construct(labor);
   currentResources.labor = labor - constructionWorkers;

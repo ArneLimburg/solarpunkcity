@@ -99,6 +99,20 @@ test("the week is 0 initially and increases by 1 per calculateWeek", () => {
   expect(game.getState().week).toBe(2);
 });
 
+test("newcomers are as old as their starting age in the week they appear", async () => {
+  const { ageInWeek } = await import("../src/calendar");
+  board.setBuilding(
+    { q: 0, r: 0 },
+    definitions.BuildingDefinition.OrganicHomestead,
+  );
+  const { residents, week, population } = game.calculateWeek();
+  expect(population).toBe(3);
+  expect(residents).toHaveLength(3);
+  for (const r of residents) {
+    expect(ageInWeek(r.birthDate, week)).toBe(r.age);
+  }
+});
+
 test("homestead lets the population grow", () => {
   board.setBuilding(
     { q: 0, r: 0 },
