@@ -133,6 +133,7 @@ test("buildable categories and building types have display labels", () => {
     "Supermarket",
     "Sawmill",
     "Hydro power plant",
+    "Wind turbine",
     undefined,
     undefined,
     undefined,
@@ -173,8 +174,31 @@ test("the hydro power plant is a buildable energy building on the river", () => 
     expect(consumes.energy).toBe(
       type === "Sawmill" ? 2 : type === "AgroIndustrial" ? 4 : 0,
     );
-    expect(produces.energy).toBe(type === "HydroPowerPlant" ? 10 : 0);
+    expect(produces.energy).toBe(
+      type === "HydroPowerPlant" ? 10 : type === "WindTurbine" ? 4 : 0,
+    );
   }
+});
+
+test("the wind turbine is a small automated energy building", () => {
+  expect(BuildingTypes.WindTurbine).toEqual({
+    category: "ENERGY",
+    icon: "energy/wind-turbine.svg",
+    label: "Wind turbine",
+  });
+  expect(BuildingDefinition.WindTurbine).toEqual({
+    name: "Wind turbine",
+    type: "WindTurbine",
+    description: "Turns the wind into energy",
+    size: 1,
+    resident: 0,
+    ecology: -1,
+    cost: { ...emptyResources, wood: 10, labor: 10 },
+    maxBuilders: 2,
+    produces: { ...emptyResources, energy: 4 },
+    consumes: emptyResources,
+    recycling: { ...emptyResources, wood: 5 },
+  });
 });
 
 const exists = (icon: string) => existsSync(join("public", icon));
