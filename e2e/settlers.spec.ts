@@ -151,10 +151,13 @@ test("figures do not take part in picking: hovering and building work beneath th
     .poll(
       async () =>
         (await getSettlers(page)).some(
-          ({ tile }) => tile.q === settler.tile.q && tile.r === settler.tile.r,
+          ({ id, tile }) =>
+            id === settler.id &&
+            tile.q === settler.tile.q &&
+            tile.r === settler.tile.r,
         ),
       // the settler walks off from where it stands, which takes a while on slow runners
-      { timeout: 20_000 },
+      { timeout: 30_000 },
     )
     .toBe(false);
   // the settler walked off and was not removed; the weekly ticks may have
