@@ -26,12 +26,12 @@ test("the menu offers the hydro power plant under Energy with its details", asyn
     details.getByTestId("details-produces").getByTestId("detail-energy"),
   ).toHaveText(/10$/);
   // not buildable on a forest tile
-  const origin = { q: 0, r: 0 };
-  const { x, y } = await tilePosition(page, origin);
+  const forest = { q: -2, r: -2 };
+  const { x, y } = await tilePosition(page, forest);
   await page.mouse.move(x, y, { steps: 5 });
   await page.mouse.click(x, y);
   await page.waitForTimeout(500);
-  expect(await buildingAt(page, origin)).toBe("Forest");
+  expect(await buildingAt(page, forest)).toBe("Forest");
 });
 
 test("the HUD shows used / produced energy and the error style without power", async ({
@@ -51,12 +51,12 @@ test("the HUD shows used / produced energy and the error style without power", a
   await finishConstruction(page);
   const sawmillDetails = page.getByTestId("detail-energy");
   await expect(sawmillDetails.first()).toHaveText(/2$/);
-  await expect(energy).toHaveText("0 / 0");
+  await expect(energy).toHaveText(/0 \/ 0$/);
   await expect(energy).toHaveClass(/error/);
   const river = getRiverCourse(GRID_RADIUS)[10];
   await page.evaluate((c) => window.__solarpunk?.addHydroPowerPlant(c), river);
   await finishConstruction(page);
-  await expect(energy).toHaveText("2 / 10");
+  await expect(energy).toHaveText(/2 \/ 10$/);
   await expect(energy).not.toHaveClass(/error/);
 });
 

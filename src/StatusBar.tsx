@@ -157,7 +157,7 @@ export const StatusBar: FC<{ state: GameState; sessionStart: number }> = ({
             value={formatPlanks(state)}
           />
         )}
-        {(state.energyProduced > 0 || state.energyUsed > 0) && (
+        {(state.energyProduced > 0 || state.buildingsWithoutEnergy > 0) && (
           <Entry
             name="energy"
             icon={resourceIcons.energy}
