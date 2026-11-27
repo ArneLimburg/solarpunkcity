@@ -68,6 +68,8 @@ export function setupScene(canvas: HTMLCanvasElement) {
   ground.isPickable = false;
 
   engine.runRenderLoop(() => {
+    // Cached texture bindings can go stale in the embedded browser.
+    engine.resetTextureCache();
     scene.render();
   });
 
