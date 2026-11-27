@@ -70,7 +70,7 @@ test("the camp needs no labor, so both settlers can build from week 1", () => {
   game.build("OrganicHomestead", { q: 1, r: 0 });
   game.calculateWeek();
   // the homestead has 2 builders at most and both are free
-  expect(board.getConstructionSites()[0].remainingWork).toBe(2);
+  expect(board.getConstructionSites()[0].remainingWork).toBe(30);
 });
 
 test("below 90 % ecology the camp produces less than 2 food", () => {

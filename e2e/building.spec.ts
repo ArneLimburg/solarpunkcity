@@ -394,7 +394,10 @@ test("a finished building replaces its construction site after its weeks of work
   await page.mouse.move(x, y, { steps: 5 });
   await page.mouse.click(x, y);
   await expect.poll(() => buildingAt(page, origin)).toBe("OrganicHomestead");
-  // 4 worker-weeks with 2 workers: the weekly tick finishes it after 2 weeks
+  // 32 worker-weeks with 2 workers take 16 weeks: skip them, the next
+  // weekly tick completes the building
+  await expect.poll(() => isUnderConstruction(page, origin)).toBe(true);
+  await finishConstruction(page);
   await expect
     .poll(() => isUnderConstruction(page, origin), { timeout: 15000 })
     .toBe(false);

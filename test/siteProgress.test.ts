@@ -14,7 +14,7 @@ test("a new site is at 0 % and waits for builders", () => {
   game.build("OrganicHomestead", first);
   expect(game.getConstructionReport(first)).toEqual({
     percent: 0,
-    remainingWork: 4,
+    remainingWork: 32,
     builders: 0,
   });
 });
@@ -22,14 +22,17 @@ test("a new site is at 0 % and waits for builders", () => {
 test("the progress changes with the completed work only", () => {
   game.build("OrganicHomestead", first);
   game.grantResources({ wood: 10 });
-  game.calculateWeek(); // 2 builders of 4 worker-weeks
+  game.calculateWeek(); // 2 builders of 32 worker-weeks
   expect(game.getConstructionReport(first)).toEqual({
-    percent: 50,
-    remainingWork: 2,
+    percent: 6,
+    remainingWork: 30,
     builders: 2,
-    weeks: 1,
+    weeks: 15,
   });
-  game.calculateWeek();
+  for (let week = 1; week < 16; week++) {
+    expect(game.getConstructionReport(first)).toBeDefined();
+    game.calculateWeek();
+  }
   expect(game.getConstructionReport(first)).toBeUndefined(); // finished
 });
 
@@ -40,7 +43,7 @@ test("a site without builders stays where it is", () => {
   game.calculateWeek(); // the older site takes both builders
   expect(game.getConstructionReport(second)).toEqual({
     percent: 0,
-    remainingWork: 4,
+    remainingWork: 32,
     builders: 0,
   });
 });
