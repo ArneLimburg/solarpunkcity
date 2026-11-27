@@ -98,6 +98,8 @@ Tickets become pull requests without manual steps; the repository owner reviews 
 3. After each Build, `.github/workflows/agent-review.yaml` (Opus) reviews it. `review:changes`
    sends it back to step 2 (at most 3 times), `review:approved` or `review:max-rounds` requests
    a review from the owner. `agent-blocked` means an agent gave up and a human must take over.
+   A comment on the pull request announces each run that addresses a review (agent or owner,
+   step 4) as soon as it starts.
    An implementation agent that stops without a commit and without a reason is started once more
    (label `agent-retry`) before it gets `agent-blocked`.
 4. A "changes requested" review by the owner on an agent pull request starts `implement.yaml`

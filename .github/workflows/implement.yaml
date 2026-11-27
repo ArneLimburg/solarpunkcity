@@ -17,7 +17,8 @@
 #   outdated; on a pull request labeled `review:changes`, addresses the latest agent review;
 #   otherwise only brings the branch up to date with main (mode `rebase`). A rebase without
 #   conflicts is done by a script and keeps an approval (`agent-review` status); only conflicts
-#   start the agent. A comment on the pull request announces the rebase when it starts.
+#   start the agent. A comment on the pull request announces the rebase or the review fix when
+#   it starts.
 #   Resolved conflicts of an approved pull request are reviewed again (label `review:rebase`,
 #   not a new review round).
 # Runs as the GitHub App from AGENT_APP_ID so that its pushes and pull requests trigger
@@ -217,22 +218,35 @@ jobs:
             echo "agent=$agent"
           } >> "$GITHUB_OUTPUT"
 
-      - if: steps.ctx.outputs.skip == 'false' && steps.ctx.outputs.mode == 'rebase' && steps.git.outputs.noop != 'true'
-        name: Announce rebase
-        # A rebase takes a while (build, review, conflicts), so say right away that it started.
+      - if: steps.ctx.outputs.skip == 'false' && steps.ctx.outputs.mode != 'issue' && steps.git.outputs.noop != 'true'
+        name: Announce start
+        # A run takes a while (build, review, conflicts), so say right away that it started.
         continue-on-error: true
         env:
           GH_TOKEN: ${{ steps.app.outputs.token }}
           GH_REPO: ${{ github.repository }}
           PR: ${{ steps.ctx.outputs.pr }}
+          MODE: ${{ steps.ctx.outputs.mode }}
           AGENT: ${{ steps.git.outputs.agent }}
+          MAIN: ${{ steps.git.outputs.main }}
         run: |
           run_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
-          if [ "$AGENT" = "true" ]; then
-            printf '🤖 Rebasing onto main; the agent resolves the merge conflicts ([run](%s)).\n' "$run_url"
-          else
-            printf '🤖 Rebasing onto main without conflicts ([run](%s)).\n' "$run_url"
-          fi | gh pr comment "$PR" --body-file -
+          case "$MAIN" in
+            behind) rebase=' after rebasing onto main' ;;
+            conflicts) rebase=' after rebasing onto main and resolving the merge conflicts' ;;
+            *) rebase='' ;;
+          esac
+          case "$MODE" in
+            pr) printf '🤖 The implementation agent addresses the agent review%s ([run](%s)).\n' "$rebase" "$run_url" ;;
+            owner-review) printf "🤖 The implementation agent addresses the owner's review%s ([run](%s)).\n" "$rebase" "$run_url" ;;
+            *)
+              if [ "$AGENT" = "true" ]; then
+                printf '🤖 Rebasing onto main; the agent resolves the merge conflicts ([run](%s)).\n' "$run_url"
+              else
+                printf '🤖 Rebasing onto main without conflicts ([run](%s)).\n' "$run_url"
+              fi
+              ;;
+          esac | gh pr comment "$PR" --body-file -
 
       - if: steps.ctx.outputs.skip == 'false' && steps.git.outputs.noop != 'true' && steps.git.outputs.agent == 'true'
         uses: actions/setup-node@v4
