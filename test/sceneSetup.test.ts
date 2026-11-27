@@ -2,6 +2,7 @@ import { afterEach, expect, test, vi } from "vitest";
 
 const state = vi.hoisted(() => ({
   renderLoop: undefined as undefined | (() => void),
+  beforeRender: undefined as undefined | (() => void),
   engine: undefined as undefined | Record<string, ReturnType<typeof vi.fn>>,
   scene: undefined as undefined | Record<string, ReturnType<typeof vi.fn>>,
   meshes: [] as { name: string; material?: unknown; isPickable: boolean }[],
@@ -32,12 +33,22 @@ vi.mock("@babylonjs/core", () => {
   class Scene {
     render = vi.fn();
     dispose = vi.fn();
+    onBeforeRenderObservable = {
+      add: vi.fn((callback: () => void) => {
+        state.beforeRender = callback;
+      }),
+    };
     constructor() {
       state.scene = this as never;
     }
   }
   class ArcRotateCamera {
     attachControl = vi.fn();
+    target = new Vector3();
+    radius = 30;
+    setTarget = vi.fn((target: Vector3) => {
+      this.target = target;
+    });
     lowerRadiusLimit = 0;
     upperRadiusLimit = 0;
     lowerBetaLimit = 0;
@@ -107,7 +118,7 @@ test("the scene has a skybox, a camera, a background ground and a render loop", 
   const canvas = {} as HTMLCanvasElement;
   const { camera, engine, scene } = setupScene(canvas);
   expect(camera.attachControl).toHaveBeenCalledWith(canvas, true);
-  expect(camera.upperRadiusLimit).toBe(120);
+  expect(camera.upperRadiusLimit).toBe(90);
   expect(state.meshes.map((mesh) => mesh.name)).toEqual(["skyBox", "ground"]);
   expect(state.meshes[1].material).toEqual({
     name: "land",
@@ -119,6 +130,44 @@ test("the scene has a skybox, a camera, a background ground and a render loop", 
   state.renderLoop!();
   expect((scene as never as { render: unknown }).render).toHaveBeenCalled();
   expect(engine).toBe(state.engine);
+  vi.unstubAllGlobals();
+});
+
+test("the camera target is clamped before every render", () => {
+  stubResizeObserver();
+  const { camera } = setupScene({} as HTMLCanvasElement);
+  const mock = camera as unknown as {
+    target: { x: number; y: number; z: number };
+    radius: number;
+    setTarget: ReturnType<typeof vi.fn>;
+  };
+
+  // inside the limit: untouched
+  mock.target = { x: 10, y: 0, z: 0 };
+  state.beforeRender!();
+  expect(mock.setTarget).not.toHaveBeenCalled();
+
+  // far off-center at the maximum zoom: pulled toward the center, angles kept
+  mock.target = { x: 200, y: 0, z: 0 };
+  mock.radius = 90;
+  state.beforeRender!();
+  expect(mock.setTarget).toHaveBeenCalledWith(
+    expect.objectContaining({ x: 5, y: 0, z: 0 }),
+    false,
+    false,
+    true,
+  );
+
+  // off the ground: y is reset
+  mock.setTarget.mockClear();
+  mock.target = { x: 0, y: 3, z: 0 };
+  state.beforeRender!();
+  expect(mock.setTarget).toHaveBeenCalledWith(
+    expect.objectContaining({ x: 0, y: 0, z: 0 }),
+    false,
+    false,
+    true,
+  );
   vi.unstubAllGlobals();
 });
 
