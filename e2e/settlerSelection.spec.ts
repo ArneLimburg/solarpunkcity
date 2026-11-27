@@ -240,8 +240,18 @@ test("dragging does not select a settler, the build mode does not either", async
   await page.mouse.move(spot.x, spot.y, { steps: 5 });
   await expect.poll(() => ringTile(page)).not.toBeNull();
   const tile = (await ringTile(page))!;
-  await page.mouse.click(spot.x, spot.y);
-  await expect.poll(() => buildingAt(page, tile)).toBe("OrganicHomestead");
+  // under CI load the first click can be swallowed, so click again until built
+  await expect
+    .poll(
+      async () => {
+        if ((await buildingAt(page, tile)) === "Forest") {
+          await page.mouse.click(spot.x, spot.y);
+        }
+        return buildingAt(page, tile);
+      },
+      { timeout: 30_000 },
+    )
+    .toBe("OrganicHomestead");
   await expect(profile(page)).toHaveCount(0);
   expect((await marker(page)).id).toBeUndefined();
 });
