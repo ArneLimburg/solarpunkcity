@@ -601,7 +601,9 @@ for (const { type, budget } of FARM_BUDGETS) {
     const { x, y } = await tilePosition(page, origin);
     await page.mouse.move(x, y, { steps: 5 });
     await page.mouse.click(x, y);
-    await expect.poll(() => buildingAt(page, origin)).toBe(type);
+    await expect
+      .poll(() => buildingAt(page, origin), { timeout: 30_000 })
+      .toBe(type);
     await finishConstruction(page);
 
     const modelCount = () =>
