@@ -742,8 +742,18 @@ test("the ring is red over a building, and never without selection", async ({
   await expect.poll(() => buildingAt(page, origin)).toBe("OrganicHomestead");
 
   // the building stays selected, so its own site blocks the ring
-  await page.mouse.move(x, y + 1);
-  await expect.poll(() => ringBlocked(page)).toBe(true);
+  // (move again on every poll: the software-rendered scene can be slow to pick)
+  let offset = 0;
+  await expect
+    .poll(
+      async () => {
+        offset = (offset + 1) % 3;
+        await page.mouse.move(x, y + offset);
+        return ringBlocked(page);
+      },
+      { timeout: 15000 },
+    )
+    .toBe(true);
 
   // without selection the ring is never red
   await page.keyboard.press("Escape");
