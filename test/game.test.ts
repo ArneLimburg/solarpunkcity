@@ -108,7 +108,8 @@ test("newcomers are as old as their starting age in the week they appear", async
   const { residents, week, population } = game.calculateWeek();
   expect(population).toBe(3);
   expect(residents).toHaveLength(3);
-  for (const r of residents) {
+  // the starting residents joined in week 0 and may have had a birthday since
+  for (const r of residents.slice(game.INITIAL_POPULATION)) {
     expect(ageInWeek(r.birthDate, week)).toBe(r.age);
   }
 });
