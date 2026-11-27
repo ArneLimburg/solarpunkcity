@@ -30,6 +30,8 @@ export function placeBuilding(
     farms: FarmRenderer;
     woodStorage: WoodStorageRenderer;
     windTurbines: WindTurbineRenderer;
+    // the rooftop turbines of the apartment buildings
+    apartmentRotors: WindTurbineRenderer;
     tiles: TileRenderer;
     materials: GroundMaterials;
     corners: CornerRenderer;
@@ -45,6 +47,7 @@ export function placeBuilding(
     farms,
     woodStorage,
     windTurbines,
+    apartmentRotors,
     tiles,
     materials,
     corners,
@@ -102,6 +105,9 @@ export function placeBuilding(
   } else if (type === "WindTurbine") {
     // the rotor turns, see WindTurbineRenderer
     models[tileKey(coords)] = windTurbines.create(coords, center);
+  } else if (type === "AppartmentBuilding") {
+    // the rooftop rotor turns, see WindTurbineRenderer
+    models[tileKey(coords)] = apartmentRotors.create(coords, center);
   } else if (isModelType(type)) {
     // models are built from code at scale 1
     models[tileKey(coords)] = farms.create(type, center);

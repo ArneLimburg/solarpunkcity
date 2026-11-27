@@ -122,6 +122,11 @@ test("the rotor matrix turns around the hub axis and moves to the tile", () => {
     const tip = apply(matrix, [hub.x, hub.y + 0.5, hub.z]);
     expect(Math.hypot(tip[1] - 0.1 - hub.y, tip[2] - 7)).toBeCloseTo(0.5);
   }
+  // an axis off the tile center keeps its points on the axis in place
+  const offAxis = getRotorMatrix({ x: 5, z: 7 }, 1.3, 1, { y: 1.5, z: 0.05 });
+  const onAxis = apply(offAxis, [0.3, 1.5, 0.05]);
+  expect(onAxis[1]).toBeCloseTo(0.1 + 1.5);
+  expect(onAxis[2]).toBeCloseTo(7.05);
   // no rotation: only the move
   const rest = apply(getRotorMatrix({ x: 5, z: 7 }, 0, 1), [1, 2, 3]);
   expect(rest).toEqual([6, 2.1, 10]);

@@ -85,11 +85,17 @@ test("glass parts go into a separate transparent mesh", () => {
   expect(meshes[1].instances[0].dispose).toHaveBeenCalled();
 });
 
-test("the apartment building is built from code with one opaque mesh", () => {
+test("the apartment building is built from code with an opaque and a rotor mesh", () => {
   meshes.length = 0;
   const renderer = createFarmRenderer({} as Scene, 1);
   const model = renderer.create("AppartmentBuilding", { x: 0, z: 0 });
-  expect(meshes).toHaveLength(1);
+  renderer.create("AppartmentBuilding", { x: 3, z: 3 });
+  renderer.create("AppartmentBuilding", { x: 6, z: 6 });
+  expect(meshes.map((mesh) => mesh.name)).toEqual([
+    "AppartmentBuilding",
+    "AppartmentBuildingRotor",
+  ]);
+  expect(meshes[0].instances).toHaveLength(3);
   expect(model.triangles).toBeGreaterThan(0);
   expect(model.triangles).toBeLessThanOrEqual(1000);
 });

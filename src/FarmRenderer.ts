@@ -6,7 +6,7 @@ import {
   type Scene,
 } from "@babylonjs/core";
 import { buildGeometry } from "./farmGeometry";
-import { getApartmentLayout } from "./apartment";
+import { getApartmentLayout, getApartmentRotorLayout } from "./apartment";
 import { getHydroPowerPlantLayout } from "./hydroPowerPlant";
 import { getSawmillLayout } from "./sawmill";
 import { getWoodenHouseLayout } from "./woodenHouse";
@@ -135,10 +135,14 @@ export function createFarmRenderer(
       meshes.push(createMesh(`${type}Glass`, glass, GLASS_ALPHA, scene));
     }
     let triangles = (opaque.indices.length + glass.indices.length) / 3;
-    if (type === "WindTurbine") {
+    if (type === "WindTurbine" || type === "AppartmentBuilding") {
       // the rotor is its own mesh (at angle 0, the last template): the
       // WindTurbineRenderer turns it, blueprints and holograms show it at rest
-      const rotor = buildGeometry(getWindTurbineRotorLayout(hexSize));
+      const rotor = buildGeometry(
+        type === "WindTurbine"
+          ? getWindTurbineRotorLayout(hexSize)
+          : getApartmentRotorLayout(hexSize),
+      );
       meshes.push(createMesh(`${type}Rotor`, rotor, 1, scene));
       triangles += rotor.indices.length / 3;
     }
