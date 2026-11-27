@@ -1,5 +1,64 @@
 import { test, expect } from "./fixtures";
 import { GRID_RADIUS, getRiverCourse } from "../src/board";
+import {
+  buildingAt,
+  finishConstruction,
+  grantWood,
+  selectBuilding,
+  tilePosition,
+} from "./helpers";
+
+test("the menu offers the hydro power plant under Energy with its details", async ({
+  page,
+}) => {
+  await page.goto("./");
+  await page.waitForFunction(() => window.__solarpunk !== undefined);
+  await grantWood(page);
+  await selectBuilding(page, "Energy", "Hydro power plant");
+  await expect(page.getByTestId("build-cost-HydroPowerPlant")).toHaveText(
+    /20$/,
+  );
+  const details = page.getByTestId("building-details");
+  await expect(details.getByTestId("details-river-only")).toHaveText(
+    "Can only be built on the river",
+  );
+  await expect(
+    details.getByTestId("details-produces").getByTestId("detail-energy"),
+  ).toHaveText(/10$/);
+  // not buildable on a forest tile
+  const origin = { q: 0, r: 0 };
+  const { x, y } = await tilePosition(page, origin);
+  await page.mouse.move(x, y, { steps: 5 });
+  await page.mouse.click(x, y);
+  await page.waitForTimeout(500);
+  expect(await buildingAt(page, origin)).toBe("Forest");
+});
+
+test("the HUD shows used / produced energy and the error style without power", async ({
+  page,
+}) => {
+  await page.goto("./");
+  await page.waitForFunction(() => window.__solarpunk !== undefined);
+  await grantWood(page);
+  const energy = page.getByTestId("status-energy");
+  await expect(energy).toHaveCount(0);
+  await selectBuilding(page, "Production", "Sawmill");
+  const origin = { q: 0, r: 0 };
+  const { x, y } = await tilePosition(page, origin);
+  await page.mouse.move(x, y, { steps: 5 });
+  await page.mouse.click(x, y);
+  await expect.poll(() => buildingAt(page, origin)).toBe("Sawmill");
+  await finishConstruction(page);
+  const sawmillDetails = page.getByTestId("detail-energy");
+  await expect(sawmillDetails.first()).toHaveText(/2$/);
+  await expect(energy).toHaveText("0 / 0");
+  await expect(energy).toHaveClass(/error/);
+  const river = getRiverCourse(GRID_RADIUS)[10];
+  await page.evaluate((c) => window.__solarpunk?.addHydroPowerPlant(c), river);
+  await finishConstruction(page);
+  await expect(energy).toHaveText("2 / 10");
+  await expect(energy).not.toHaveClass(/error/);
+});
 
 test("a hydro power plant shows its model and keeps the river water", async ({
   page,

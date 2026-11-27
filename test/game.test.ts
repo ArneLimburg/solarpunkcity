@@ -403,6 +403,10 @@ test("homestead, farm and agro-industrial farm with population 3", () => {
   board.setBuilding({ q: -10, r: 0 }, BuildingDefinition.OrganicHomestead);
   board.setBuilding({ q: 0, r: 0 }, BuildingDefinition.Farm);
   board.setBuilding({ q: 10, r: 0 }, BuildingDefinition.AgroIndustrial);
+  board.placeBuilding(
+    board.getRiverCourse(board.GRID_RADIUS).find(({ r }) => r === -10)!,
+    BuildingDefinition.HydroPowerPlant,
+  );
   expect(game.calculateWeek().population).toBe(3);
   const { foodBalance, resources } = game.calculateWeek();
   expect(foodBalance).toBeCloseTo(4.5); // 1 worker on the agro-industrial farm

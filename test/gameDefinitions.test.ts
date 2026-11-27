@@ -44,7 +44,13 @@ test("the sawmill and its category", () => {
     ecology: 0,
   });
   expect(sawmill.cost).toEqual({ ...emptyResources, wood: 15, labor: 10 });
-  expect(sawmill.consumes).toEqual({ ...emptyResources, wood: 4, labor: 2 });
+  expect(sawmill.consumes).toEqual({
+    ...emptyResources,
+    wood: 4,
+    labor: 2,
+    energy: 2,
+  });
+  expect(BuildingDefinition.AgroIndustrial.consumes.energy).toBe(4);
   expect(sawmill.produces).toEqual({ ...emptyResources, planks: 2 });
   expect(sawmill.storage).toEqual({ ...emptyResources, planks: 20 });
   expect(sawmill.recycling).toEqual({ ...emptyResources, wood: 7 });
@@ -95,7 +101,7 @@ test("buildable categories and building types have display labels", () => {
     Object.values(BuildingCategories).flatMap((category) =>
       category.buildable ? [category.label] : [],
     ),
-  ).toEqual(["Farms", "Residential", "Storage", "Production"]);
+  ).toEqual(["Farms", "Residential", "Storage", "Production", "Energy"]);
   expect((Object.keys(BuildingTypes) as BuildingType[]).map(getLabel)).toEqual([
     "Organic homestead",
     "Farm",
@@ -111,11 +117,13 @@ test("buildable categories and building types have display labels", () => {
   ]);
 });
 
-test("the hydro power plant is a not buildable energy building on the river", () => {
+test("the hydro power plant is a buildable energy building on the river", () => {
   const plant = BuildingDefinition.HydroPowerPlant;
   expect(BuildingCategories.ENERGY).toEqual({
     name: "ENERGY",
-    buildable: false,
+    buildable: true,
+    icon: "energy/energy.svg",
+    label: "Energy",
   });
   expect(BuildingTypes.HydroPowerPlant).toEqual({
     category: "ENERGY",
@@ -135,11 +143,14 @@ test("the hydro power plant is a not buildable energy building on the river", ()
   expect(plant.produces).toEqual({ ...emptyResources, energy: 10 });
   expect(plant.consumes).toEqual(emptyResources);
   expect(plant.recycling).toBeUndefined();
-  // all other buildings cover their energy themselves
+  // only sawmills and agro-industrial farms use energy, all others cover it
+  // themselves
   for (const { type, produces, consumes } of Object.values(
     BuildingDefinition,
   )) {
-    expect(consumes.energy).toBe(0);
+    expect(consumes.energy).toBe(
+      type === "Sawmill" ? 2 : type === "AgroIndustrial" ? 4 : 0,
+    );
     expect(produces.energy).toBe(type === "HydroPowerPlant" ? 10 : 0);
   }
 });

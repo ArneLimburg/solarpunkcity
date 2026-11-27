@@ -98,6 +98,11 @@ export const BuildingDetailsPanel: FC<{
           value={formatEcology(building.ecology)}
         />
       </div>
+      {type === "HydroPowerPlant" && (
+        <div className="small-text" data-testid="details-river-only">
+          Can only be built on the river
+        </div>
+      )}
       <Section
         title="Cost"
         resources={building.cost}

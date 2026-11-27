@@ -15,7 +15,18 @@ const SAWMILL = { q: -5, r: 3 };
 const SECOND_SAWMILL = { q: -6, r: 3 };
 const SITE = { q: -8, r: 3 };
 
+// one power plant on the river powers all sawmills of these tests
+function addHydroPowerPlant() {
+  const tile = board
+    .getRiverCourse(board.GRID_RADIUS)
+    .find(({ r }) => r === -10)!;
+  if (board.getBuilding(tile)?.type !== "HydroPowerPlant") {
+    board.placeBuilding(tile, definitions.BuildingDefinition.HydroPowerPlant);
+  }
+}
+
 function addSawmill(coords = SAWMILL) {
+  addHydroPowerPlant();
   board.setBuilding(coords, definitions.BuildingDefinition.Sawmill);
 }
 

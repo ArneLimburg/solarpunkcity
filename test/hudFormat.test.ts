@@ -2,6 +2,7 @@ import { expect, test } from "vitest";
 import type { GameState } from "../src/game";
 import {
   formatConstructionSites,
+  formatEnergy,
   formatFood,
   formatFreeRow,
   formatPercent,
@@ -39,6 +40,12 @@ test("people, food and wood", () => {
   expect(formatFood(state)).toBe("18 / 100 (+2/wk)");
   expect(formatFood({ ...state, foodBalance: -1.5 })).toBe("18 / 100 (−1/wk)");
   expect(formatWood(state)).toBe("38 / 100");
+});
+
+test("energy as used / produced", () => {
+  expect(formatEnergy({ ...state, energyUsed: 6, energyProduced: 10 })).toBe(
+    "6 / 10",
+  );
 });
 
 test("workers", () => {

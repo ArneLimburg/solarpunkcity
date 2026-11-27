@@ -25,6 +25,10 @@ export function formatPlanks(state: GameState): string {
   )}`;
 }
 
+export function formatEnergy(state: GameState): string {
+  return `${Math.floor(state.energyUsed)} / ${Math.floor(state.energyProduced)}`;
+}
+
 export function formatWorkersButton(state: GameState): string {
   return `Workers: ${Math.floor(state.resources.labor)} free`;
 }
