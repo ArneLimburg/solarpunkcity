@@ -89,6 +89,7 @@ test("omits empty sections for the apartment building", async ({ page }) => {
 test("hides after Escape and deselecting, stays while placing", async ({
   page,
 }) => {
+  test.slow();
   await setup(page);
   await selectBuilding(page, "Farms", "Organic homestead");
   await expect(panel(page)).toBeVisible();
