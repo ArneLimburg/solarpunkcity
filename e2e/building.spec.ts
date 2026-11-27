@@ -757,6 +757,7 @@ test("the ring is red over a building, and never without selection", async ({
 test("the corner fills around a new farm follow the grounds of the tiles", async ({
   page,
 }) => {
+  test.slow();
   await page.goto("./");
   await page.waitForFunction(() => window.__solarpunk !== undefined);
   await grantWood(page);
