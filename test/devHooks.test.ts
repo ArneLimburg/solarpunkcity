@@ -203,6 +203,14 @@ test("addWindTurbine builds the turbine and shows it, the rotor matrix is passed
   expect(hooks.getRotorMatrix({ q: 0, r: 0 })).toBeUndefined();
 });
 
+test("addCommunityGarden places a finished garden and shows it", () => {
+  const { hooks, showBuilding } = setup();
+  hooks.addCommunityGarden({ q: 9, r: 9 });
+  expect(showBuilding).toHaveBeenCalledWith({ q: 9, r: 9 }, "CommunityGarden");
+  expect(hooks.getBuildingType({ q: 9, r: 9 })).toBe("CommunityGarden");
+  expect(hooks.isUnderConstruction({ q: 9, r: 9 })).toBe(false);
+});
+
 test("tileToScreen scales projected positions to the canvas size", () => {
   const { hooks, toGlobal } = setup();
   project.mockReturnValue({ x: 100, y: 50, z: 0.5 });

@@ -13,7 +13,7 @@ import {
   isUnderConstruction,
   type HexCoordinates,
 } from "./board";
-import type { BuildingType } from "./gameDefinitions";
+import { BuildingDefinition, type BuildingType } from "./gameDefinitions";
 import { build, finishConstruction, grantResources, toWorkSlot } from "./game";
 import { TILE_TOP, hexToPixel, tileKey } from "./hexGeometry";
 import type { Ring } from "./SelectionRing";
@@ -174,6 +174,14 @@ export function createDevHooks({
       showBuilding(coords, "WindTurbine");
     },
     getRotorMatrix,
+    addCommunityGarden: (coords) => {
+      // the wood pays for the garden, so the stock stays as it was
+      grantResources({ wood: BuildingDefinition.CommunityGarden.cost.wood });
+      build("CommunityGarden", coords);
+      finishConstruction().forEach(({ coords, type }) =>
+        showBuilding(coords, type),
+      );
+    },
     finishConstruction: () =>
       finishConstruction().forEach(({ coords, type }) =>
         showBuilding(coords, type),

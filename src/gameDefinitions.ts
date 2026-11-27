@@ -41,6 +41,11 @@ export const BuildingCategories = {
     icon: "energy/energy.svg",
     label: "Energy",
   },
+  // the model and the menu entry (label, icon) follow
+  LEISURE: {
+    name: "LEISURE",
+    buildable: false,
+  },
   FOREST: {
     name: "FOREST",
     buildable: false,
@@ -110,6 +115,10 @@ export const BuildingTypes = {
     category: "ENERGY",
     icon: "energy/solar-field.svg",
     label: "Solar field",
+  },
+  CommunityGarden: {
+    category: "LEISURE",
+    icon: "leisure/community-garden.svg",
   },
   Forest: {
     category: "FOREST",
@@ -290,6 +299,19 @@ export const BuildingDefinition: Record<BuildingType, Building> = {
     // and 320 labor.
     produces: { ...emptyResources, energy: 2 },
     consumes: { ...emptyResources }, // fully automated
+    recycling: { ...emptyResources, wood: 2 },
+  },
+  CommunityGarden: {
+    name: "Community garden",
+    type: "CommunityGarden",
+    description: "A place where settlers tend raised beds in their free time",
+    size: 1,
+    resident: 0,
+    ecology: 0.5,
+    cost: { ...emptyResources, wood: 4, labor: 12 },
+    maxBuilders: 2,
+    produces: { ...emptyResources },
+    consumes: { ...emptyResources },
     recycling: { ...emptyResources, wood: 2 },
   },
   SettlersCamp: {
