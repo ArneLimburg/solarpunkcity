@@ -2,6 +2,7 @@ import type { Page } from "@playwright/test";
 import { test, expect } from "./fixtures";
 import {
   buildingAt,
+  finishConstruction,
   grantWood,
   installClockWithNativeFrames,
   seedRandom,
@@ -213,6 +214,8 @@ test("dragging does not select a settler, the build mode does not either", async
   test.setTimeout(240_000);
   await start(page);
   await grantWood(page);
+  // the storages are construction sites that keep the settlers busy
+  await finishConstruction(page);
   const id = await waitForPause(page);
   const { x, y } = await settlerPosition(page, id, "body");
 
@@ -245,6 +248,8 @@ test.describe("touch", () => {
     test.setTimeout(240_000);
     await start(page);
     await grantWood(page);
+    // the storages are construction sites that keep the settlers busy
+    await finishConstruction(page);
     const [first] = await getSettlers(page);
     await clickUntilSelected(page, first.id, "head", (x, y) =>
       page.touchscreen.tap(x, y),
