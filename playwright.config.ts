@@ -4,8 +4,9 @@ const baseURL = "http://localhost:5173/solarpunkcity/";
 
 export default defineConfig({
   testDir: "./e2e",
-  // software rendering with V8 coverage is slow on CI runners
-  timeout: 60_000,
+  // software rendering with V8 coverage is slow on CI runners: starting the
+  // fixtures alone can take 20 s and a single pointer action more than 10 s
+  timeout: 120_000,
   // balances the CI shards by test instead of by file (building.spec.ts alone is a third)
   fullyParallel: !!process.env.E2E_COVERAGE_SHARD,
   globalTeardown: "./e2e/global-teardown.ts",

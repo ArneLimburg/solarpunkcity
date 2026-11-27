@@ -14,7 +14,7 @@ Deployed to GitHub Pages at https://arnelimburg.github.io/solarpunkcity/ on ever
 - Playwright (`@playwright/test`, Chromium only) for e2e smoke tests in `e2e/`; specs import
   `test`/`expect` from `e2e/fixtures.ts`, which collects V8 coverage; `npm run test:e2e` enforces
   per file 100 % functions and 95 % statements, branches and lines of `src/**/*.tsx`
-  (monocart-coverage-reports, report in `coverage/e2e/`); CI runs four shards in parallel
+  (monocart-coverage-reports, report in `coverage/e2e/`); CI runs eight shards in parallel
   (`E2E_COVERAGE_SHARD=1`: raw coverage only, blob reporter) and the `build` job merges them
 
 ## Commands
