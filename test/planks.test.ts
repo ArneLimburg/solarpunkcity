@@ -215,14 +215,16 @@ test("planks of a plank building do not go into the wood storage", () => {
   expect(board.getConstructionSites()[0].siteWood).toBe(0);
 });
 
-test("an agro-industrial farm on 19 forest tiles needs 57 free wood capacity", () => {
+test("an agro-industrial farm on 19 forest tiles loses the wood that does not fit", () => {
   const farm = { q: -15, r: 5 };
-  expect(game.canBuild("AgroIndustrial", farm)).toBe(false); // no storage
+  expect(game.canBuild("AgroIndustrial", farm)).toBe(true); // no storage
+  game.build("AgroIndustrial", farm);
+  expect(game.getState().resources.wood).toBe(0);
   addWoodStorage();
   game.grantResources({ wood: 44 });
-  expect(game.canBuild("AgroIndustrial", farm)).toBe(false); // 44 + 57 > 100
-  game.grantResources({ wood: -1 });
-  expect(game.canBuild("AgroIndustrial", farm)).toBe(true);
+  expect(game.canBuild("AgroIndustrial", { q: -15, r: -5 })).toBe(true);
+  game.build("AgroIndustrial", { q: -15, r: -5 });
+  expect(game.getState().resources.wood).toBe(100);
 });
 
 test("canBuild does not check the plank stock", () => {

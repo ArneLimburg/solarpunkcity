@@ -143,13 +143,12 @@ test("canBuild is false when other resources are missing", () => {
   expect(game.canBuild("OrganicHomestead", { q: 0, r: 0 })).toBe(true);
 });
 
-test("a shortfall of recycled wood does not make room in the storage", () => {
+test("a full storage does not stop building", () => {
   game.grantResources({ wood: 990 }); // the storage of 1000 is full
-  // Farm costs 25 wood, 7 forests recycle 21 wood: everything goes to the site
   expect(game.canBuild("Farm", { q: 0, r: 0 })).toBe(true);
   const homestead = definitions.BuildingDefinition.OrganicHomestead;
   homestead.cost = { ...homestead.cost, wood: 1 }; // 2 of the 3 wood are left
-  expect(game.canBuild("OrganicHomestead", { q: 0, r: 0 })).toBe(false);
+  expect(game.canBuild("OrganicHomestead", { q: 0, r: 0 })).toBe(true);
 });
 
 test("canBuild is false if the footprint reaches over the board edge", () => {
