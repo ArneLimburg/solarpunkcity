@@ -76,6 +76,11 @@ export const BuildingTypes = {
     icon: "residential/appartment-building.svg",
     label: "Apartment building",
   },
+  WoodenHouse: {
+    category: "RESIDENTIAL",
+    icon: "residential/wooden-house.svg",
+    label: "Wooden house",
+  },
   WoodStorage: {
     category: "STORAGE",
     icon: "storage/wood-storage.svg",
@@ -297,5 +302,19 @@ export const BuildingDefinition: Record<BuildingType, Building> = {
     maxBuilders: 6,
     produces: emptyResources,
     consumes: { ...emptyResources }, // later water and energy
+  },
+  WoodenHouse: {
+    name: "Wooden house",
+    type: "WoodenHouse",
+    description:
+      "Home for up to 5 people, powered by its own solar panels and wind turbine",
+    size: 1,
+    resident: 5,
+    ecology: 0.3,
+    cost: { ...emptyResources, wood: 10, labor: 100 },
+    maxBuilders: 4,
+    produces: { ...emptyResources },
+    consumes: { ...emptyResources }, // supplies itself with energy
+    recycling: { ...emptyResources, wood: 5 },
   },
 };

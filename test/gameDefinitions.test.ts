@@ -21,6 +21,7 @@ test("construction work and maximum builders of every building", () => {
   expect(work("AgroIndustrial")).toEqual([520, 10]);
   expect(work("Supermarket")).toEqual([39, 3]);
   expect(work("HydroPowerPlant")).toEqual([120, 4]);
+  expect(work("WoodenHouse")).toEqual([100, 4]);
   expect(work("Forest")).toEqual([0, 0]);
   expect(work("WoodStorage")).toEqual([0, 0]);
   expect(work("Sawmill")).toEqual([52, 3]);
@@ -37,6 +38,7 @@ test("construction takes realistic weeks at full staffing", () => {
     HydroPowerPlant: 30,
     AppartmentBuilding: 40,
     WindTurbine: 40,
+    WoodenHouse: 25,
   };
   for (const [type, expected] of Object.entries(weeks)) {
     const { cost, maxBuilders } = BuildingDefinition[type as BuildingType];
@@ -131,6 +133,7 @@ test("buildable categories and building types have display labels", () => {
     "Farm",
     "Agro-industrial Farm",
     "Apartment building",
+    "Wooden house",
     "Wood storage",
     "Supermarket",
     "Sawmill",

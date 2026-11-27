@@ -94,6 +94,20 @@ test("the apartment building is built from code with one opaque mesh", () => {
   expect(model.triangles).toBeLessThanOrEqual(1000);
 });
 
+test("all wooden houses share the opaque and glass meshes within the budget", () => {
+  meshes.length = 0;
+  const renderer = createFarmRenderer({} as Scene, 1);
+  const first = renderer.create("WoodenHouse", { x: 0, z: 0 });
+  const second = renderer.create("WoodenHouse", { x: 5, z: 5 });
+  const third = renderer.create("WoodenHouse", { x: 9, z: 9 });
+  expect(meshes.length).toBeLessThanOrEqual(2);
+  expect(meshes[0].instances).toHaveLength(3);
+  expect(first.triangles).toBeGreaterThan(0);
+  expect(first.triangles).toBeLessThan(1000);
+  expect(second.triangles).toBe(first.triangles);
+  expect(third.triangles).toBe(first.triangles);
+});
+
 test("the settlers' camp is built from code with one opaque mesh", () => {
   meshes.length = 0;
   const renderer = createFarmRenderer({} as Scene, 1);
@@ -155,6 +169,7 @@ test("isModelType accepts the farms, the apartment building, the camp and the sa
   expect(isModelType("Supermarket")).toBe(true);
   expect(isModelType("Farm")).toBe(true);
   expect(isModelType("AppartmentBuilding")).toBe(true);
+  expect(isModelType("WoodenHouse")).toBe(true);
   expect(isModelType("SettlersCamp")).toBe(true);
   expect(isModelType("HydroPowerPlant")).toBe(true);
   expect(isModelType("Forest")).toBe(false);

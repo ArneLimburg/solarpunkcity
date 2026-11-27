@@ -9,6 +9,7 @@ import { buildGeometry } from "./farmGeometry";
 import { getApartmentLayout } from "./apartment";
 import { getHydroPowerPlantLayout } from "./hydroPowerPlant";
 import { getSawmillLayout } from "./sawmill";
+import { getWoodenHouseLayout } from "./woodenHouse";
 import { getSupermarketLayout } from "./supermarket";
 import { getSettlersCampLayout } from "./settlersCamp";
 import { TILE_TOP } from "./hexGeometry";
@@ -24,6 +25,7 @@ import {
 export type ModelType =
   | FarmType
   | "AppartmentBuilding"
+  | "WoodenHouse"
   | "SettlersCamp"
   | "Sawmill"
   | "Supermarket"
@@ -33,6 +35,7 @@ export function isModelType(type: string): type is ModelType {
   return (
     isFarmType(type as FarmType) ||
     type === "AppartmentBuilding" ||
+    type === "WoodenHouse" ||
     type === "SettlersCamp" ||
     type === "Sawmill" ||
     type === "Supermarket" ||
@@ -46,6 +49,9 @@ function getLayout(type: ModelType, hexSize: number): FarmPart[] {
   }
   if (type === "Sawmill") {
     return getSawmillLayout(hexSize);
+  }
+  if (type === "WoodenHouse") {
+    return getWoodenHouseLayout(hexSize);
   }
   if (type === "Supermarket") {
     return getSupermarketLayout(hexSize);
