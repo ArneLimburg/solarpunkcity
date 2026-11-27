@@ -241,6 +241,10 @@ test("the profile shows a settler without a home as unhoused", async ({
   page,
 }) => {
   test.setTimeout(240_000);
+  // no week is calculated: with the camp replaced by a site nothing produces
+  // food, and hunger would let the settlers leave before one is tapped; the
+  // frozen time also keeps the settlers standing still for the taps
+  await installClockWithNativeFrames(page);
   await page.goto("./");
   await page.waitForFunction(() => window.__solarpunk !== undefined);
   await grantWood(page);
