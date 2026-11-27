@@ -39,23 +39,49 @@ test("the capacity is 100 wood per wood storage", () => {
   expect(game.getCapacity().food).toBe(0);
 });
 
-test("clearing is limited by the capacity", () => {
-  placeStorage();
-  const homestead = definitions.BuildingDefinition.OrganicHomestead;
-  homestead.cost = { ...homestead.cost, wood: 1 }; // clearing leaves 2 wood
-  game.grantResources({ wood: 95 }); // 98 wood: 98 + 3 - 1 = 100 fits
-  expect(game.canBuild("OrganicHomestead", { q: 1, r: 0 })).toBe(true);
-  game.grantResources({ wood: 1 }); // 99 + 3 - 1 = 101 does not fit
-  expect(game.canBuild("OrganicHomestead", { q: 1, r: 0 })).toBe(false);
+test("cleared wood that does not fit anywhere is lost", () => {
+  board.setBuilding({ q: -5, r: 3 }, definitions.BuildingDefinition.Sawmill);
+  const sawmill = board.getPlacedBuilding({ q: -5, r: 3 })!;
+  expect(game.canBuild("AgroIndustrial", { q: 0, r: 0 })).toBe(true);
+  game.build("AgroIndustrial", { q: 0, r: 0 });
+  expect(sawmill.sawmillWood).toBe(4);
+  expect(game.getState().resources.wood).toBe(0);
 });
 
-test("a wood storage adds its capacity before the limit is checked", () => {
+test("a full storage does not stop building, the stock is capped", () => {
   placeStorage();
-  game.grantResources({ wood: 97 }); // 100 wood, full
-  expect(game.canBuild("WoodStorage", { q: 1, r: 0 })).toBe(true);
+  game.grantResources({ wood: 47 }); // 50 wood
+  expect(game.canBuild("AgroIndustrial", { q: 0, r: 0 })).toBe(true);
+  game.build("AgroIndustrial", { q: 0, r: 0 });
+  expect(game.getState().resources.wood).toBe(100);
+});
+
+test("cleared wood fills older sites and sawmills before the storage", () => {
+  placeStorage();
+  game.grantResources({ wood: -3 }); // empty stock (the storage site gave 3)
+  board.setBuilding({ q: -5, r: 3 }, definitions.BuildingDefinition.Sawmill);
+  const sawmill = board.getPlacedBuilding({ q: -5, r: 3 })!;
+  const homestead = definitions.BuildingDefinition.OrganicHomestead;
+  board.placeBuilding(
+    { q: -8, r: 3 },
+    { ...homestead, cost: { ...homestead.cost, wood: 10, labor: 10 } },
+    10,
+    0,
+  );
+  const [oldSite] = board.getConstructionSites();
+  game.build("AgroIndustrial", { q: 0, r: 0 }); // the center tile gives none
+  expect(oldSite.siteWood).toBe(10);
+  expect(sawmill.sawmillWood).toBe(4);
+  expect(game.getState().resources.wood).toBe(40);
+});
+
+test("replacing a wood storage caps the wood to the remaining capacity", () => {
   placeStorage({ q: 1, r: 0 });
-  expect(game.getState().resources.wood).toBe(103);
-  expect(game.getState().capacity.wood).toBe(200);
+  placeStorage({ q: 5, r: 0 });
+  game.grantResources({ wood: 197 }); // 200 wood
+  game.build("OrganicHomestead", { q: 1, r: 0 });
+  expect(game.getState().capacity.wood).toBe(100);
+  expect(game.getState().resources.wood).toBe(100);
 });
 
 test("without storage forests produce no wood and keep their labor free", () => {

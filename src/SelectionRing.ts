@@ -13,7 +13,7 @@ import {
   type HexCoordinates,
 } from "./board";
 import { BuildingDefinition, type BuildingType } from "./gameDefinitions";
-import { canPlace, fitsStorage } from "./game";
+import { canPlace } from "./game";
 import { HEX_SIZE, TILE_TOP, hexToPixel, pixelToHex } from "./hexGeometry";
 import { makeMaterial } from "./TileRenderer";
 
@@ -85,9 +85,7 @@ export function createPreview(getType: () => BuildingType | undefined) {
     },
     isBlocked: (coordinates: HexCoordinates) => {
       const type = getType();
-      return type
-        ? !canPlace(type, coordinates) || !fitsStorage(type, coordinates)
-        : false;
+      return type ? !canPlace(type, coordinates) : false;
     },
   };
 }

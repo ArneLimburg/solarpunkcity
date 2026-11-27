@@ -83,7 +83,7 @@ vi.mock("../src/TileRenderer", () => ({
 
 import { PointerEventTypes } from "@babylonjs/core";
 import { HEX_SIZE, hexToPixel } from "../src/hexGeometry";
-import { build, getState, grantResources } from "../src/game";
+import { build, grantResources } from "../src/game";
 import {
   createLeaveHandler,
   createPointerHandler,
@@ -170,14 +170,10 @@ test("the preview follows the selected building type", () => {
   expect(preview.isBlocked({ q: 1, r: 0 })).toBe(true);
 });
 
-test("the preview is blocked when the cleared wood does not fit", () => {
+test("the preview is not blocked when the cleared wood does not fit", () => {
   const preview = createPreview(() => "OrganicHomestead");
-  grantResources({ wood: -getState().resources.wood }); // empty stock
-  expect(preview.isBlocked({ q: 20, r: 0 })).toBe(false); // 0 + 3 - 4
-  grantResources({ wood: 10 }); // no storage: 10 + 3 - 4 > 0
-  expect(preview.isBlocked({ q: 20, r: 0 })).toBe(true);
-  const storage = createPreview(() => "WoodStorage");
-  expect(storage.isBlocked({ q: 20, r: 0 })).toBe(false); // adds 100 capacity
+  grantResources({ wood: 10 }); // no storage: the cleared wood is lost
+  expect(preview.isBlocked({ q: 20, r: 0 })).toBe(false);
 });
 
 test("leaving the canvas hides the ring except for touch pointers", () => {

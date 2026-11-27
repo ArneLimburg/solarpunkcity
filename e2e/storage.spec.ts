@@ -111,7 +111,7 @@ test("a site without wood waits for it and the More dropdown shows it", async ({
   await expect(page.getByTestId("hud-more-button")).toHaveClass(/error/);
 });
 
-test("the ring is red where the cleared wood does not fit", async ({
+test("the ring is not red where the cleared wood does not fit", async ({
   page,
 }) => {
   await start(page);
@@ -120,8 +120,7 @@ test("the ring is red where the cleared wood does not fit", async ({
   const { x, y } = await hoverOrigin(page);
   await expect
     .poll(() => page.evaluate(() => window.__solarpunk?.isRingBlocked()))
-    .toBe(true);
+    .toBe(false);
   await page.mouse.click(x, y);
-  await page.waitForTimeout(500);
-  expect(await buildingAt(page, origin)).toBe("SettlersCamp");
+  await expect.poll(() => buildingAt(page, origin)).toBe("OrganicHomestead");
 });

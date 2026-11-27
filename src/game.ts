@@ -101,11 +101,9 @@ export function canBuild(
     return false;
   }
   const buildingDefinition = BuildingDefinition[buildingType];
-  return (
-    hasEnoughResources(
-      getResourcesAfterClearing(buildingDefinition, coords),
-      getMaterialCost(buildingDefinition),
-    ) && fitsStorage(buildingType, coords)
+  return hasEnoughResources(
+    getResourcesAfterClearing(buildingDefinition, coords),
+    getMaterialCost(buildingDefinition),
   );
 }
 
@@ -119,24 +117,6 @@ function getResourcesAfterClearing(
     resources = addResources(resources, getBuilding(tile)!.recycling!);
   }
   return resources;
-}
-
-// whether the wood that is not used right away fits into the storages (with
-// the storage of the new building); the footprint must be placeable
-export function fitsStorage(
-  buildingType: BuildingType,
-  coords: HexCoordinates,
-): boolean {
-  const building = BuildingDefinition[buildingType];
-  const recycledWood =
-    getResourcesAfterClearing(building, coords).wood - currentResources.wood;
-  const surplus = recycledWood - building.cost.wood;
-  // a construction site takes the wood it needs first and never gives it back
-  return (
-    currentResources.wood +
-      (building.cost.labor > 0 ? Math.max(0, surplus) : surplus) <=
-    getCapacity().wood + (building.storage?.wood ?? 0)
-  );
 }
 
 // the capacity of a resource is the storage of all finished buildings; only
@@ -196,17 +176,39 @@ export function build(buildingType: BuildingType, coords: HexCoordinates) {
           newBuilding.cost.wood,
         )
       : 0;
+  const recycledWood = newResources.wood - currentResources.wood - siteWood;
+  const costWood = getMaterialCost(newBuilding).wood;
+  const paidFromRecycled = Math.min(recycledWood, costWood);
+  // the recycled wood that is neither used for the site nor the cost
+  const surplusWood = recycledWood - paidFromRecycled;
+  const capacityBefore = getCapacity();
   currentResources = subtractResources(
     newResources,
     getMaterialCost(newBuilding),
   );
-  currentResources.wood -= siteWood;
+  currentResources.wood -= surplusWood + siteWood;
   placeBuilding(coords, newBuilding, newBuilding.cost.labor, siteWood);
-  // a replaced sawmill takes its plank storage with it; planks above the new
-  // capacity are lost
-  currentResources.planks = Math.min(
-    currentResources.planks,
-    getCapacity().planks,
+  const capacity = getCapacity();
+  // a replaced storage takes its capacity with it; wood and planks above the
+  // new capacity are lost
+  if (capacity.wood < capacityBefore.wood) {
+    currentResources.wood = Math.min(currentResources.wood, capacity.wood);
+  }
+  currentResources.planks = Math.min(currentResources.planks, capacity.planks);
+  // the surplus wood goes to the other sites, the sawmills and the storage;
+  // the rest is lost
+  const sawmills = getPlacedBuildings()
+    .filter(({ building }) => building.produces.planks > 0)
+    .sort((a, b) => a.sequence - b.sequence);
+  const sites = getConstructionSites().filter(
+    (site) => getMaterial(site.building) === "wood",
+  );
+  deliver(
+    sites,
+    sawmills,
+    "wood",
+    surplusWood,
+    Math.max(capacity.wood, currentResources.wood),
   );
 }
 
