@@ -21,6 +21,7 @@ vi.mock("@babylonjs/core", () => {
   }
   class Engine {
     resize = vi.fn();
+    resetTextureCache = vi.fn();
     dispose = vi.fn();
     runRenderLoop = vi.fn((loop: () => void) => {
       state.renderLoop = loop;
@@ -117,6 +118,7 @@ test("the scene has a skybox, a camera, a background ground and a render loop", 
   expect(state.meshes.map((mesh) => mesh.isPickable)).toEqual([false, false]);
 
   state.renderLoop!();
+  expect(engine.resetTextureCache).toHaveBeenCalledBefore(state.scene!.render);
   expect((scene as never as { render: unknown }).render).toHaveBeenCalled();
   expect(engine).toBe(state.engine);
   vi.unstubAllGlobals();
