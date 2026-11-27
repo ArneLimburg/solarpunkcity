@@ -94,6 +94,41 @@ test("a roster is reproducible from its seed and uses the whole palettes", () =>
   );
 });
 
+test("every resident has a hobby, resident 1 gardens and the hobby never changes", () => {
+  for (const seed of [1, 2, 3, 4, 5, 6, 7, 8]) {
+    const roster = settlers.createRoster(seed);
+    expect(settlers.syncRoster(roster, 1)[0].hobby).toBe("Gardening");
+  }
+  const roster = settlers.createRoster(11);
+  const first = settlers.syncRoster(roster, 50);
+  for (const { hobby } of first) {
+    expect(["Gardening", "Nature watching"]).toContain(hobby);
+  }
+  expect(new Set(first.map((resident) => resident.hobby)).size).toBe(2);
+  settlers.syncRoster(roster, 10);
+  const regrown = settlers.syncRoster(roster, 30);
+  expect(regrown.slice(0, 10)).toEqual(first.slice(0, 10));
+  const again = settlers.syncRoster(settlers.createRoster(11), 50);
+  expect(again.map((resident) => resident.hobby)).toEqual(
+    first.map((resident) => resident.hobby),
+  );
+});
+
+test("a pausing settler follows the hobby", () => {
+  for (const [hobby, activity] of [
+    ["Gardening", "Gardening"],
+    ["Nature watching", "Observing a butterfly"],
+  ] as const) {
+    const walker = settlers.createWalker(1, 3, hobby);
+    for (let segment = 0; segment < 4; segment++) {
+      walker.segment = segment;
+      walker.pause = 1;
+      walker.walking = false;
+      expect(settlers.getActivity(walker)).toBe(activity);
+    }
+  }
+});
+
 test("residents get a name and a starting age once, for good", () => {
   const roster = settlers.createRoster(5);
   const first = settlers.syncRoster(roster, 30);

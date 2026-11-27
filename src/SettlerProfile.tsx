@@ -37,6 +37,9 @@ export const SettlerProfile: FC<{
           <div className="small-text" data-testid="settler-activity">
             {activity}
           </div>
+          <div className="small-text" data-testid="settler-hobby">
+            Hobby: {resident.hobby}
+          </div>
           <div className="small-text" data-testid="settler-home">
             Home:{" "}
             {home ? (
