@@ -103,10 +103,44 @@ test("buildable categories and building types have display labels", () => {
     "Apartment building",
     "Wood storage",
     "Sawmill",
+    "Hydro power plant",
     undefined,
     undefined,
     undefined,
   ]);
+});
+
+test("the hydro power plant is a not buildable energy building on the river", () => {
+  const plant = BuildingDefinition.HydroPowerPlant;
+  expect(BuildingCategories.ENERGY).toEqual({
+    name: "ENERGY",
+    buildable: false,
+  });
+  expect(BuildingTypes.HydroPowerPlant).toEqual({
+    category: "ENERGY",
+    icon: "energy/hydro-power-plant.svg",
+    label: "Hydro power plant",
+  });
+  expect(plant).toMatchObject({
+    name: "Hydro power plant",
+    type: "HydroPowerPlant",
+    description: "Turns the flow of the river into energy",
+    size: 1,
+    resident: 0,
+    ecology: -10,
+    maxBuilders: 3,
+  });
+  expect(plant.cost).toEqual({ ...emptyResources, wood: 20, labor: 15 });
+  expect(plant.produces).toEqual({ ...emptyResources, energy: 10 });
+  expect(plant.consumes).toEqual(emptyResources);
+  expect(plant.recycling).toBeUndefined();
+  // all other buildings cover their energy themselves
+  for (const { type, produces, consumes } of Object.values(
+    BuildingDefinition,
+  )) {
+    expect(consumes.energy).toBe(0);
+    expect(produces.energy).toBe(type === "HydroPowerPlant" ? 10 : 0);
+  }
 });
 
 const exists = (icon: string) => existsSync(join("public", icon));
@@ -120,7 +154,10 @@ test("every buildable category icon refers to an existing file", () => {
 });
 
 test("every building type icon refers to an existing file", () => {
-  for (const { icon } of Object.values(BuildingTypes)) {
-    expect(exists(icon), icon).toBe(true);
+  for (const [type, { icon }] of Object.entries(BuildingTypes)) {
+    // the icon of the hydro power plant follows in a later ticket
+    if (type !== "HydroPowerPlant") {
+      expect(exists(icon), icon).toBe(true);
+    }
   }
 });

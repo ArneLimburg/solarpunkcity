@@ -29,6 +29,9 @@ const state: GameState = {
   sitesWaitingForWood: 0,
   workforce: { food: 4, construction: 3, production: 0, forestry: 2, free: 3 },
   week: 0,
+  energyProduced: 0,
+  energyUsed: 0,
+  buildingsWithoutEnergy: 0,
 };
 
 test("people, food and wood", () => {

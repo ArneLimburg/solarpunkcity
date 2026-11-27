@@ -7,6 +7,11 @@ test("every resource has an icon", () => {
     Object.keys(emptyResources).sort(),
   );
   expect(resourceIcons.water).toBe("water_drop");
+  expect(resourceIcons.energy).toBe("electric_bolt");
+});
+
+test("energy is not a stock", () => {
+  expect(stockResources).not.toContain("energy");
 });
 
 test("stock resources have icons", () => {

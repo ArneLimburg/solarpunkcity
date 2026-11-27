@@ -98,6 +98,9 @@ export type BuildingReport = {
   status?: BuildingStatus;
 };
 
+// consumers that got no energy in the current weekly tick
+let unpoweredBuildings = new Set<PlacedBuilding>();
+
 // reports of the last week by placed building; a replaced or new building has none
 let reports = new Map<PlacedBuilding, BuildingReport>();
 
@@ -113,8 +116,15 @@ export function canPlace(
   buildingType: BuildingType,
   coords: HexCoordinates,
 ): boolean {
+  // a hydro power plant needs the river; all other buildings need tiles with
+  // recycling, which the river and the plant itself do not have
+  const needed = buildingType === "HydroPowerPlant";
   return getFootprintOf(BuildingDefinition[buildingType], coords).every(
-    (tile) => isOnBoard(tile) && getBuilding(tile)?.recycling,
+    (tile) =>
+      isOnBoard(tile) &&
+      (needed
+        ? getBuilding(tile)?.type === "River"
+        : getBuilding(tile)?.recycling),
   );
 }
 
@@ -139,7 +149,10 @@ function getResourcesAfterClearing(
 ): Resources {
   let resources = currentResources;
   for (const tile of getFootprintOf(building, coords)) {
-    resources = addResources(resources, getBuilding(tile)!.recycling!);
+    resources = addResources(
+      resources,
+      getBuilding(tile)!.recycling ?? emptyResources,
+    );
   }
   return resources;
 }
@@ -253,6 +266,9 @@ export type GameState = {
   sitesWaitingForWood: number; // waiting for wood or planks
   workforce: Workforce | undefined; // of the last tick
   week: number; // completed weekly ticks, 0 for a new settlement
+  energyProduced: number; // of the last tick
+  energyUsed: number; // of the last tick
+  buildingsWithoutEnergy: number; // consumers without energy in the last tick
 };
 
 // how the workers were used in the last weekly tick
@@ -265,6 +281,10 @@ export type Workforce = {
 };
 
 let currentWorkforce: Workforce | undefined;
+
+let currentEnergyProduced = 0;
+let currentEnergyUsed = 0;
+let currentBuildingsWithoutEnergy = 0;
 
 // construction sites that got no workers last week only for lack of material
 // (wood or planks)
@@ -317,6 +337,55 @@ export function getState(): GameState {
     sitesWaitingForWood,
     workforce: currentWorkforce && { ...currentWorkforce },
     week: currentWeek,
+    energyProduced: currentEnergyProduced,
+    energyUsed: currentEnergyUsed,
+    buildingsWithoutEnergy: currentBuildingsWithoutEnergy,
+  };
+}
+
+export type EnergyDistribution = {
+  produced: number;
+  used: number;
+  surplus: number; // produced - used
+  deficit: number; // demand of the consumers without energy
+  unpowered: Set<PlacedBuilding>; // consumers that got no energy
+};
+
+// distributes the energy of this week to the finished buildings that consume
+// energy: food producers first, then all others, each group in placement
+// order; a consumer gets its full demand or nothing (no partial supply).
+// Batteries will later charge from the surplus and discharge into the deficit.
+export function distributeEnergy(): EnergyDistribution {
+  const finished = getPlacedBuildings();
+  let produced = 0;
+  for (const { building } of finished) {
+    produced += building.produces.energy;
+  }
+  const isFood = ({ building }: PlacedBuilding) => building.produces.food > 0;
+  const consumers = finished
+    .filter(({ building }) => building.consumes.energy > 0)
+    .sort(
+      (a, b) =>
+        Number(isFood(b)) - Number(isFood(a)) || a.sequence - b.sequence,
+    );
+  let remaining = produced;
+  let deficit = 0;
+  const unpowered = new Set<PlacedBuilding>();
+  for (const consumer of consumers) {
+    const demand = consumer.building.consumes.energy;
+    if (demand <= remaining) {
+      remaining -= demand;
+    } else {
+      deficit += demand;
+      unpowered.add(consumer);
+    }
+  }
+  return {
+    produced,
+    used: produced - remaining,
+    surplus: remaining,
+    deficit,
+    unpowered,
   };
 }
 
@@ -389,6 +458,14 @@ function calculateDevelopment() {
   // labor is not stockpiled: it equals the population
   let labor = startPopulation;
 
+  // energy is a weekly flow: only the surplus of this week is left
+  const energy = distributeEnergy();
+  unpoweredBuildings = energy.unpowered;
+  currentEnergyProduced = energy.produced;
+  currentEnergyUsed = energy.used;
+  currentBuildingsWithoutEnergy = energy.unpowered.size;
+  currentResources.energy = energy.surplus;
+
   // food producers get labor before all other buildings, but only as much
   // as this week's demand and the possible growth need; the food stock
   // stays a buffer
@@ -401,6 +478,15 @@ function calculateDevelopment() {
   for (const placed of getFoodBuildingsByEfficiency()) {
     const { building } = placed;
     const needed = building.consumes.labor;
+    if (unpoweredBuildings.has(placed)) {
+      reports.set(placed, {
+        workers: 0,
+        produced: { ...emptyResources },
+        consumed: { ...emptyResources },
+        status: "missing-resources",
+      });
+      continue;
+    }
     if (needed === 0) {
       const food = building.produces.food * harvestFactor; // no staff needed
       producedFood += food;
@@ -602,9 +688,16 @@ function produce(
   }
   // a sawmill uses its own wood supply before the stock
   const supply = placed.sawmillWood ?? 0;
+  // energy is not a stock: the distribution at the start of the week decided
+  // whether the building has it
   if (
+    unpoweredBuildings.has(placed) ||
     !hasEnoughResources(
-      { ...currentResources, wood: currentResources.wood + supply },
+      {
+        ...currentResources,
+        wood: currentResources.wood + supply,
+        energy: building.consumes.energy,
+      },
       building.consumes,
     )
   ) {
@@ -626,11 +719,13 @@ function produce(
   currentResources = subtractResources(currentResources, {
     ...building.consumes,
     wood: building.consumes.wood - fromSupply,
+    energy: 0,
   });
   currentResources = addResources(currentResources, {
     ...building.produces,
     wood: 0,
     planks: 0,
+    energy: 0,
   });
   if (output) {
     deliver(

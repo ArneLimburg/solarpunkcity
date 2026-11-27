@@ -11,6 +11,7 @@ export const resourceIcons: Record<keyof Resources, string> = {
   glass: "window",
   hydrogen: "bolt",
   electronics: "memory",
+  energy: "electric_bolt",
 };
 
 // resources shown as stock in the status bar, in display order
