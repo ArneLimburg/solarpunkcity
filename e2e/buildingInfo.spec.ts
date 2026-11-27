@@ -3,6 +3,7 @@ import { test, expect } from "./fixtures";
 import {
   finishConstruction,
   grantWood,
+  installClockWithNativeFrames,
   selectBuilding,
   tilePosition,
 } from "./helpers";
@@ -248,6 +249,9 @@ test("the profile shows a settler without a home as unhoused", async ({
 
 test("the info panel reflects a housing change", async ({ page }) => {
   test.setTimeout(180_000);
+  // no week is calculated: with the camp replaced by a site nothing produces
+  // food, and hunger would shrink the population while the test is slow
+  await installClockWithNativeFrames(page);
   await page.goto("./");
   await page.waitForFunction(() => window.__solarpunk !== undefined);
   await grantWood(page);
