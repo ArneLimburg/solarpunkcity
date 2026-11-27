@@ -18,6 +18,10 @@ type FakeMesh = {
   thinInstanceGetWorldMatrices: () => unknown[];
   position: { x: number; y: number; z: number; set: (...a: number[]) => void };
   isEnabled: () => boolean;
+  dispose: ReturnType<typeof vi.fn>;
+  color?: unknown;
+  alpha?: number;
+  points?: unknown[];
 };
 
 const meshes: FakeMesh[] = [];
@@ -51,6 +55,7 @@ function fakeMesh(name: string, indices: number): FakeMesh {
       set: (x, y, z) => Object.assign(mesh.position, { x, y, z }),
     },
     isEnabled: () => mesh.enabled,
+    dispose: vi.fn(),
   };
   meshes.push(mesh);
   return mesh;
@@ -73,11 +78,16 @@ vi.mock("@babylonjs/core", () => {
       CreateSphere: (name: string) =>
         fakeMesh(name, name === "settlerBody" ? 300 : 192),
       CreateCylinder: (name: string) => fakeMesh(name, 60),
+      CreateLines: (name: string, options: { points: unknown[] }) =>
+        Object.assign(fakeMesh(name, 0), { points: options.points }),
     },
   };
 });
 
-import { createSettlerRenderer } from "../src/SettlerRenderer";
+import {
+  ROUTES_PER_FRAME,
+  createSettlerRenderer,
+} from "../src/SettlerRenderer";
 import {
   CLOTHING_COLORS,
   SKIN_TONES,
@@ -100,7 +110,12 @@ function createScene(): Scene {
   } as unknown as Scene;
 }
 
-beforeEach(() => {
+beforeEach(async () => {
+  // an apartment from another test would let settlers start across the river,
+  // where no route leads to the west
+  const { setBuilding } = await import("../src/board");
+  const { BuildingDefinition } = await import("../src/gameDefinitions");
+  setBuilding({ q: 5, r: 5 }, BuildingDefinition.Forest);
   meshes.length = 0;
   frame.seconds = 0.1;
   pick.mockReset();
@@ -372,16 +387,168 @@ test("the marker follows the selected settler and goes with the resident", () =>
   expect(renderer.getMarker()).toEqual({ id: undefined, visible: false });
 });
 
-test("the activity is Walking or Idle, unknown for strangers", () => {
+test("the activity of a settler without a task: Walking or a flavor activity, unknown for strangers", () => {
   const renderer = createSettlerRenderer(createScene(), 1);
   renderer.sync(syncRoster(createRoster(3), 2));
   expect(renderer.getActivity(99)).toBeUndefined();
   const seen = new Set<string | undefined>();
-  for (let i = 0; i < 400; i++) {
+  for (let i = 0; i < 1000; i++) {
     frame.render();
     seen.add(renderer.getActivity(1));
+    seen.add(renderer.getActivity(2));
   }
-  expect(seen).toEqual(new Set(["Walking", "Idle"]));
+  expect(seen.has("Walking")).toBe(true);
+  expect(seen.has("Gardening") || seen.has("Observing a butterfly")).toBe(true);
+  expect(seen.has("Working")).toBe(false);
+});
+
+const WORKPLACE = { q: -8, r: 2 }; // forest, far west of the camp (the river is east)
+const slot = (workers: number, tile = WORKPLACE) => ({
+  key: `${tile.q},${tile.r}`,
+  tiles: [tile],
+  workers,
+});
+
+function runFrames(count: number) {
+  for (let i = 0; i < count; i++) {
+    frame.render();
+  }
+}
+
+test("settlers take the staffed places, walk there, work and go free again", () => {
+  const renderer = createSettlerRenderer(createScene(), 1);
+  renderer.sync(syncRoster(createRoster(3), 3));
+  renderer.select(1);
+  renderer.assignWork([slot(2)]);
+  expect(renderer.getActivity(1)).toBe("Walking"); // the route is still searched
+  expect(renderer.getActivity(3)).not.toBe("Working");
+  frame.render();
+  expect(renderer.getRoute().visible).toBe(true);
+  const route = renderer.getRoute().tiles;
+  expect(route.length).toBeGreaterThan(1);
+  expect(route.at(-1)).toEqual(WORKPLACE);
+  const line = meshes.find((mesh) => mesh.name === "settlerRoute")!;
+  expect(line.points).toHaveLength(route.length);
+  expect(line.isPickable).toBe(false);
+
+  // a new week with the same places changes nothing: the walk goes on
+  renderer.assignWork([slot(2)]);
+  expect(renderer.getActivity(1)).toBe("Walking");
+  runFrames(3);
+  expect(renderer.getRoute().tiles.at(-1)).toEqual(WORKPLACE);
+
+  runFrames(1500);
+  expect(renderer.getActivity(1)).toBe("Working");
+  expect(renderer.getActivity(2)).toBe("Working");
+  expect(renderer.getActivity(3)).not.toBe("Working");
+  expect(renderer.getSettlers()[0].tile).toEqual(WORKPLACE);
+  // arrived: the line is gone
+  expect(renderer.getRoute()).toEqual({ visible: false, tiles: [] });
+  expect(line.dispose).toHaveBeenCalled();
+
+  // fewer places: the one that loses its place goes free
+  renderer.assignWork([slot(1)]);
+  expect(renderer.getActivity(1)).toBe("Working");
+  expect(renderer.getActivity(2)).not.toBe("Working");
+  renderer.assignWork([]);
+  expect(renderer.getActivity(1)).not.toBe("Working");
+  runFrames(5);
+  expect(renderer.getSettlers()[0].walking).toBe(true);
+
+  // deselecting and unknown selections have no line
+  renderer.select(undefined);
+  expect(renderer.getRoute()).toEqual({ visible: false, tiles: [] });
+  renderer.select(99);
+  expect(renderer.getRoute().visible).toBe(false);
+});
+
+test("movement leaves production, construction and the weekly results unchanged", async () => {
+  const game = await import("../src/game");
+  const renderer = createSettlerRenderer(createScene(), 1);
+  renderer.sync(game.getState().residents);
+  const before = game.getState();
+  const slots = game.getWorkSlots();
+  renderer.assignWork([slot(2), ...slots]);
+  runFrames(600);
+  expect(game.getState()).toEqual(before);
+  expect(game.getWorkSlots()).toEqual(slots);
+});
+
+test("route searches are spread across the frames", () => {
+  const renderer = createSettlerRenderer(createScene(), 1);
+  renderer.sync(syncRoster(createRoster(3), 20));
+  renderer.assignWork([slot(20)]);
+  frame.render();
+  const walking = () =>
+    renderer.getSettlers().filter((settler) => settler.walking).length;
+  expect(walking()).toBe(ROUTES_PER_FRAME);
+  frame.render();
+  expect(walking()).toBe(2 * ROUTES_PER_FRAME);
+  runFrames(2);
+  expect(walking()).toBe(20);
+  // a task that is gone before its route was searched needs no search
+  renderer.assignWork([]);
+  renderer.assignWork([slot(20)]);
+  renderer.assignWork([]);
+  frame.render();
+  expect(renderer.getActivity(1)).not.toBe("Working");
+  // leaving residents leave the queue
+  renderer.assignWork([]);
+  renderer.assignWork([slot(20)]);
+  renderer.sync(syncRoster(createRoster(3), 1));
+  frame.render();
+  expect(renderer.getSettlers()).toHaveLength(1);
+});
+
+test("a blocked route is searched again, none at all makes the settler wait", async () => {
+  const board = await import("../src/board");
+  const { BuildingDefinition } = await import("../src/gameDefinitions");
+  const renderer = createSettlerRenderer(createScene(), 1);
+  renderer.sync(syncRoster(createRoster(3), 1));
+  renderer.select(1);
+  renderer.assignWork([slot(1)]);
+  runFrames(2);
+  const first = renderer.getRoute().tiles;
+  const blocked = first[Math.floor(first.length / 2)];
+  expect(blocked).not.toEqual(WORKPLACE);
+  board.setBuilding(blocked, BuildingDefinition.WoodStorage);
+  renderer.boardChanged();
+  runFrames(1);
+  const second = renderer.getRoute().tiles;
+  expect(
+    second.some((tile) => tile.q === blocked.q && tile.r === blocked.r),
+  ).toBe(false);
+  expect(second.at(-1)).toEqual(WORKPLACE);
+
+  // the workplace is walled in: the settler waits where it is
+  const around = [
+    { q: -7, r: 2 },
+    { q: -7, r: 1 },
+    { q: -8, r: 1 },
+    { q: -9, r: 2 },
+    { q: -9, r: 3 },
+    { q: -8, r: 3 },
+  ];
+  for (const tile of around) {
+    board.setBuilding(tile, BuildingDefinition.WoodStorage);
+  }
+  renderer.boardChanged();
+  runFrames(1);
+  expect(renderer.getActivity(1)).toBe("Idle");
+  expect(renderer.getSettlers()[0].walking).toBe(false);
+  renderer.boardChanged(); // still nothing
+  runFrames(1);
+  expect(renderer.getActivity(1)).toBe("Idle");
+  // a gap opens again
+  board.setBuilding(around[3], BuildingDefinition.Forest);
+  renderer.boardChanged();
+  runFrames(1);
+  expect(renderer.getActivity(1)).toBe("Walking");
+  expect(renderer.getRoute().tiles.at(-1)).toEqual(WORKPLACE);
+
+  for (const tile of [blocked, ...around]) {
+    board.setBuilding(tile, BuildingDefinition.Forest);
+  }
 });
 
 test("a changed board moves the affected figures to other ways", async () => {

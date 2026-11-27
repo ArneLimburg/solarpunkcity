@@ -3,6 +3,8 @@ import {
   getBuilding,
   getBuiltTiles,
   getFootprint,
+  getFootprintRadius,
+  getPlacedBuilding,
   isOnBoard,
   type HexCoordinates,
 } from "./board";
@@ -290,7 +292,25 @@ export type Walker = {
   from: HexCoordinates; // tile the approach started on
   goal: HexCoordinates; // tile the approach leads to
   approachLength: number; // scene units of the approach when it started
+  // The task: the workplace the settler walks to and works in (key of the
+  // workplace, its tiles). A settler with a task has no loop.
+  task: string | undefined;
+  destination: HexCoordinates[];
+  path: HexCoordinates[]; // planned route, from the tile it started on
+  step: number; // index of the tile of the path the settler walks to
+  needsRoute: boolean; // the route is searched in one of the next frames
+  blocked: boolean; // no route: the settler waits until the map changes
+  working: boolean; // arrived at the workplace
 };
+
+export type Activity =
+  | "Walking"
+  | "Working"
+  | "Gardening"
+  | "Observing a butterfly"
+  | "Idle";
+
+const FLAVORS: Activity[] = ["Gardening", "Observing a butterfly"];
 
 const SQRT3 = Math.sqrt(3);
 
@@ -348,6 +368,12 @@ function stay(walker: Walker, tile: HexCoordinates) {
 
 // the tile the walker is standing on
 export function getStandingTile(walker: Walker): HexCoordinates {
+  if (walker.path.length > 0) {
+    const next = walker.path[walker.step];
+    const close =
+      Math.hypot(tileX(next) - walker.x, tileZ(next) - walker.z) < SQRT3 / 2;
+    return walker.step === 0 || close ? next : walker.path[walker.step - 1];
+  }
   if (walker.approaching) {
     const left = Math.hypot(
       tileX(walker.goal) - walker.x,
@@ -386,6 +412,13 @@ export function createWalker(id: number, seed: number): Walker {
     from: ORIGIN,
     goal: ORIGIN,
     approachLength: 0,
+    task: undefined,
+    destination: [],
+    path: [],
+    step: 0,
+    needsRoute: false,
+    blocked: false,
+    working: false,
   };
   walker.phase = random(walker) * Math.PI * 2;
   const tiles = getUsableTiles();
@@ -443,25 +476,59 @@ function turn(walker: Walker, target: number, seconds: number) {
   walker.heading += Math.max(-maxTurn, Math.min(maxTurn, delta));
 }
 
-// Walks straight towards the goal tile; returns the seconds that are left
-// after arriving.
-function approach(walker: Walker, seconds: number): number {
-  const dx = tileX(walker.goal) - walker.x;
-  const dz = tileZ(walker.goal) - walker.z;
+// Walks straight towards the center of the goal tile (and stands exactly on it
+// when it arrives); returns the seconds that are left after arriving.
+function walkToward(
+  walker: Walker,
+  goal: HexCoordinates,
+  seconds: number,
+): number {
+  const dx = tileX(goal) - walker.x;
+  const dz = tileZ(goal) - walker.z;
   const distance = Math.hypot(dx, dz);
   const step = Math.min(seconds, distance / WALK_SPEED);
   const fraction = (step * WALK_SPEED) / distance;
-  walker.walking = step > 0;
+  walker.walking ||= step > 0;
   walker.x += dx * fraction;
   walker.z += dz * fraction;
   walker.phase += step * BOB_FREQUENCY;
   turn(walker, Math.atan2(dx, dz), step);
   if (step * WALK_SPEED >= distance - 1e-9) {
-    walker.x = tileX(walker.goal);
-    walker.z = tileZ(walker.goal);
-    walker.approaching = false;
+    walker.x = tileX(goal);
+    walker.z = tileZ(goal);
   }
   return seconds - step;
+}
+
+function isAt(walker: Walker, tile: HexCoordinates): boolean {
+  return walker.x === tileX(tile) && walker.z === tileZ(tile);
+}
+
+function approach(walker: Walker, seconds: number): number {
+  const left = walkToward(walker, walker.goal, seconds);
+  walker.approaching = !isAt(walker, walker.goal);
+  return left;
+}
+
+// Walks along the planned route; arriving at its end means working.
+function advanceTask(walker: Walker, seconds: number) {
+  let remaining = seconds;
+  while (remaining > 0 && walker.step < walker.path.length) {
+    const goal = walker.path[walker.step];
+    remaining = walkToward(walker, goal, remaining);
+    if (isAt(walker, goal)) {
+      walker.step++;
+    }
+  }
+  if (walker.path.length > 0 && walker.step >= walker.path.length) {
+    walker.rest = walker.path[walker.path.length - 1];
+    walker.path = [];
+    walker.step = 0;
+    walker.working = true;
+  }
+  walker.bob = walker.walking
+    ? Math.abs(Math.sin(walker.phase)) * BOB_HEIGHT
+    : 0;
 }
 
 // Moves the walker along its loop by the elapsed seconds. Random numbers are
@@ -470,6 +537,10 @@ function approach(walker: Walker, seconds: number): number {
 export function advanceWalker(walker: Walker, seconds: number) {
   let remaining = seconds;
   walker.walking = false;
+  if (walker.task !== undefined) {
+    advanceTask(walker, remaining);
+    return;
+  }
   if (walker.approaching) {
     remaining = approach(walker, remaining);
   }
@@ -522,7 +593,131 @@ function nearestTile(
 
 // whether the board changed so that the walker has to find another way
 function isAffected(walker: Walker): boolean {
-  return walker.loop.length === 0 || !walker.loop.every(isUsable);
+  return (
+    walker.task === undefined &&
+    (walker.loop.length === 0 || !walker.loop.every(isUsable))
+  );
+}
+
+// ---- tasks and routes ----
+
+// what the settler does now; Gardening and Observing a butterfly are flavor
+// activities during the pauses of a loop (they change nothing in the game)
+export function getActivity(walker: Walker): Activity {
+  if (walker.working) {
+    return "Working";
+  }
+  if (walker.walking || (walker.task !== undefined && !walker.blocked)) {
+    return "Walking";
+  }
+  return walker.pause > 0
+    ? FLAVORS[(walker.id + walker.segment) % FLAVORS.length]
+    : "Idle";
+}
+
+// The shortest route (as tiles, from `from` to the first tile of the
+// destination) over walkable tiles. The destination and the building the
+// settler starts in may be entered, but other buildings may not. Undefined if
+// there is none.
+export function findRoute(
+  from: HexCoordinates,
+  destination: HexCoordinates[],
+): HexCoordinates[] | undefined {
+  const key = (tile: HexCoordinates) => `${tile.q},${tile.r}`;
+  const enterable = new Set(destination.map(key));
+  const start = getPlacedBuilding(from)!;
+  for (const tile of getFootprint(
+    start.center,
+    getFootprintRadius(start.building.size),
+  )) {
+    enterable.add(key(tile));
+  }
+  const parents = new Map<string, HexCoordinates | undefined>();
+  parents.set(key(from), undefined);
+  const queue = [from];
+  const goals = new Set(destination.map(key));
+  for (let head = 0; head < queue.length; head++) {
+    const tile = queue[head];
+    if (goals.has(key(tile))) {
+      const route = [tile];
+      for (let p = parents.get(key(tile)); p; p = parents.get(key(p))) {
+        route.unshift(p);
+      }
+      return route;
+    }
+    for (const direction of DIRECTIONS) {
+      const next = { q: tile.q + direction.q, r: tile.r + direction.r };
+      if (
+        !parents.has(key(next)) &&
+        isOnBoard(next) &&
+        (isWalkable(next) || enterable.has(key(next)))
+      ) {
+        parents.set(key(next), tile);
+        queue.push(next);
+      }
+    }
+  }
+  return undefined;
+}
+
+// Gives the settler a workplace: it leaves its loop and waits for its route.
+export function startTask(
+  walker: Walker,
+  task: string,
+  destination: HexCoordinates[],
+) {
+  stay(walker, getStandingTile(walker));
+  walker.path = [];
+  walker.step = 0;
+  walker.task = task;
+  walker.destination = destination;
+  walker.working = false;
+  walker.blocked = false;
+  walker.needsRoute = true;
+}
+
+// Takes the workplace away; the settler picks another way like after a change
+// of the board (updateWalkers).
+export function clearTask(walker: Walker) {
+  stay(walker, getStandingTile(walker));
+  walker.path = [];
+  walker.step = 0;
+  walker.task = undefined;
+  walker.destination = [];
+  walker.working = false;
+  walker.blocked = false;
+  walker.needsRoute = false;
+}
+
+// Searches the route from the tile the settler is standing on. Without one the
+// settler waits.
+export function planRoute(walker: Walker) {
+  walker.needsRoute = false;
+  const route = findRoute(getStandingTile(walker), walker.destination);
+  walker.blocked = route === undefined;
+  walker.path = route ?? [];
+  walker.step = 0;
+}
+
+// whether the rest of the planned route got blocked by the board
+export function isRouteBlocked(walker: Walker): boolean {
+  return walker.path
+    .slice(walker.step)
+    .some(
+      (tile) =>
+        !isWalkable(tile) &&
+        !walker.destination.some((goal) => isSame(goal, tile)) &&
+        !(getPlacedBuilding(tile) === getPlacedBuilding(walker.path[0])),
+    );
+}
+
+// Stops where it is and asks for a new route from there.
+export function replanRoute(walker: Walker) {
+  stay(walker, getStandingTile(walker));
+  walker.path = [];
+  walker.step = 0;
+  walker.working = false;
+  walker.needsRoute = true;
 }
 
 export type Route = {

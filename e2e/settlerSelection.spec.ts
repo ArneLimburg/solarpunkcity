@@ -101,7 +101,7 @@ test("a click on a settler opens the profile, marks them and follows them", asyn
     /^Age \d+$/,
   );
   await expect(page.getByTestId("settler-activity")).toHaveText(
-    /^(Walking|Idle)$/,
+    /^(Walking|Working|Idle|Gardening|Observing a butterfly)$/,
   );
 
   // the marker stays on the settler while the settler moves
@@ -131,9 +131,10 @@ test("a click on a settler opens the profile, marks them and follows them", asyn
   await expect(page.getByTestId("settler-born")).toHaveText(born);
 
   // the activity changes with the pauses
-  await expect(page.getByTestId("settler-activity")).toHaveText("Idle", {
-    timeout: 120_000,
-  });
+  await expect(page.getByTestId("settler-activity")).toHaveText(
+    /^(Gardening|Observing a butterfly)$/,
+    { timeout: 120_000 },
+  );
   await expect(page.getByTestId("settler-activity")).toHaveText("Walking", {
     timeout: 120_000,
   });

@@ -3,6 +3,8 @@ import {
   Matrix,
   MeshBuilder,
   StandardMaterial,
+  Vector3,
+  type LinesMesh,
   type Mesh,
   type Scene,
 } from "@babylonjs/core";
@@ -10,12 +12,22 @@ import type { HexCoordinates } from "./board";
 import { TILE_TOP } from "./hexGeometry";
 import {
   advanceWalker,
+  clearTask,
   createWalker,
+  getActivity,
   getStandingTile,
+  isRouteBlocked,
+  planRoute,
+  replanRoute,
+  startTask,
+  tileX,
+  tileZ,
   updateWalkers,
+  type Activity,
   type Resident,
   type Walker,
 } from "./settlers";
+import { assignTasks, type WorkSlot } from "./tasks";
 
 const BODY_HEIGHT = 0.2;
 const HEAD_DIAMETER = 0.09;
@@ -24,6 +36,9 @@ const HEAD_HEIGHT = BODY_HEIGHT + HEAD_DIAMETER / 2 - 0.01;
 const MAX_FRAME_SECONDS = 0.25; // a long pause (hidden tab) must not teleport anyone
 const MIN_CAPACITY = 16;
 const MARKER_SIZE = 0.1;
+// route searches per frame: many new destinations at once are spread out
+export const ROUTES_PER_FRAME = 8;
+const ROUTE_HEIGHT = TILE_TOP + 0.02;
 
 export type SettlerInfo = {
   id: number;
@@ -50,7 +65,12 @@ export type SettlerRenderer = {
   select: (id: number | undefined) => void;
   getMarker: () => { id: number | undefined; visible: boolean };
   // what the resident does now, undefined for an unknown ID
-  getActivity: (id: number) => "Walking" | "Idle" | undefined;
+  getActivity: (id: number) => Activity | undefined;
+  // The settlers take the places that the weekly simulation staffed (those
+  // with an unchanged workplace keep walking), the others have no task.
+  assignWork: (slots: WorkSlot[]) => void;
+  // the line along the remaining route of the selected settler
+  getRoute: () => { visible: boolean; tiles: HexCoordinates[] };
   // triangles of one figure
   getTriangleCount: () => number;
   // base meshes (one draw call each)
@@ -155,6 +175,41 @@ export function createSettlerRenderer(
   let walkers: Walker[] = [];
   let capacity = 0;
   let selectedId: number | undefined;
+  let tasks = new Map<number, string>();
+  let routeQueue: Walker[] = [];
+
+  // the route line of the selected settler: a thin line mesh that is built
+  // again when the remaining route changes (a step, a new route)
+  let routeLine: LinesMesh | undefined;
+  let linePath: HexCoordinates[] | undefined;
+  let lineStep = -1;
+  const updateRouteLine = () => {
+    const walker = walkers.find(({ id }) => id === selectedId);
+    const path = walker?.path;
+    const step = walker?.step ?? -1;
+    if (path === linePath && step === lineStep) {
+      return;
+    }
+    routeLine?.dispose();
+    routeLine = undefined;
+    linePath = path;
+    lineStep = step;
+    const tiles = path?.slice(Math.max(step, 0)) ?? [];
+    if (tiles.length >= 2) {
+      routeLine = MeshBuilder.CreateLines(
+        "settlerRoute",
+        {
+          points: tiles.map(
+            (tile) => new Vector3(tileX(tile), ROUTE_HEIGHT, tileZ(tile)),
+          ),
+        },
+        scene,
+      );
+      routeLine.color = new Color3(1, 0.85, 0.1);
+      routeLine.alpha = 0.6;
+      routeLine.isPickable = false;
+    }
+  };
 
   const moveMarker = () => {
     const walker = walkers.find(({ id }) => id === selectedId);
@@ -200,7 +255,22 @@ export function createSettlerRenderer(
     }
     if (selectedId !== undefined) {
       moveMarker();
+      updateRouteLine();
     }
+  };
+
+  // searches the routes of the next few settlers that wait for one
+  const planRoutes = () => {
+    for (const walker of routeQueue.splice(0, ROUTES_PER_FRAME)) {
+      if (walker.needsRoute) {
+        planRoute(walker);
+      }
+    }
+  };
+
+  const requestRoute = (walker: Walker) => {
+    replanRoute(walker);
+    routeQueue.push(walker);
   };
 
   scene.onBeforeRenderObservable.add(() => {
@@ -208,6 +278,7 @@ export function createSettlerRenderer(
       scene.getEngine().getDeltaTime() / 1000,
       MAX_FRAME_SECONDS,
     );
+    planRoutes();
     for (let i = 0; i < walkers.length; i++) {
       advanceWalker(walkers[i], seconds);
     }
@@ -235,6 +306,8 @@ export function createSettlerRenderer(
           part.colors = new Float32Array(capacity * 4);
         }
       }
+      const present = new Set(walkers);
+      routeQueue = routeQueue.filter((walker) => present.has(walker));
       residents.forEach((resident, i) => {
         writeColor(body.colors, i, resident.clothing);
         writeColor(head.colors, i, resident.skin);
@@ -250,8 +323,47 @@ export function createSettlerRenderer(
       write();
     },
     boardChanged: () => {
+      for (const walker of walkers) {
+        // a blocked route is searched again from where the settler stands, and
+        // so is the wait without any route
+        if (
+          walker.blocked ||
+          (walker.path.length > 0 && isRouteBlocked(walker))
+        ) {
+          requestRoute(walker);
+        }
+      }
       updateWalkers(walkers);
       write();
+    },
+    assignWork: (slots) => {
+      tasks = assignTasks(
+        tasks,
+        walkers.map(({ id }) => id),
+        slots,
+      );
+      const tiles = new Map(slots.map(({ key, tiles }) => [key, tiles]));
+      for (const walker of walkers) {
+        const task = tasks.get(walker.id);
+        if (task === walker.task) {
+          continue;
+        }
+        if (task === undefined) {
+          clearTask(walker);
+        } else {
+          startTask(walker, task, tiles.get(task)!);
+          routeQueue.push(walker);
+        }
+      }
+      updateWalkers(walkers); // the settlers without a task go back to a loop
+      write();
+    },
+    getRoute: () => {
+      const walker = walkers.find(({ id }) => id === selectedId);
+      return {
+        visible: routeLine !== undefined,
+        tiles: walker ? walker.path.slice(walker.step) : [],
+      };
     },
     getSettlers: () =>
       walkers.map((walker) => ({
@@ -287,11 +399,12 @@ export function createSettlerRenderer(
     select: (id) => {
       selectedId = id;
       moveMarker();
+      updateRouteLine();
     },
     getMarker: () => ({ id: selectedId, visible: marker.isEnabled() }),
     getActivity: (id) => {
       const walker = walkers.find((w) => w.id === id);
-      return walker && (walker.walking ? "Walking" : "Idle");
+      return walker && getActivity(walker);
     },
     getTriangleCount: () =>
       parts.reduce((sum, part) => sum + part.mesh.getTotalIndices() / 3, 0),

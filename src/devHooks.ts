@@ -7,9 +7,14 @@ import {
   type Engine,
   type Scene,
 } from "@babylonjs/core";
-import { getBuilding, isUnderConstruction, type HexCoordinates } from "./board";
+import {
+  getBuilding,
+  getPlacedBuilding,
+  isUnderConstruction,
+  type HexCoordinates,
+} from "./board";
 import type { BuildingType } from "./gameDefinitions";
-import { build, finishConstruction, grantResources } from "./game";
+import { build, finishConstruction, grantResources, toWorkSlot } from "./game";
 import { TILE_TOP, hexToPixel, tileKey } from "./hexGeometry";
 import type { Ring } from "./SelectionRing";
 import type { SeaRenderer } from "./SeaRenderer";
@@ -104,6 +109,13 @@ export function createDevHooks({
       drawCalls,
     }),
     showSettlers,
+    // all settlers walk to the building at the tile (benchmark); undefined
+    // sends them back to their loops
+    sendSettlers: (coords) => {
+      const placed = coords && getPlacedBuilding(coords);
+      settlers.assignWork(placed ? [toWorkSlot(placed, Infinity)] : []);
+    },
+    getSettlerRoute: settlers.getRoute,
     getBackdropStats: () => ({
       meshes: backdrop.meshes.map((mesh) => mesh.name),
       pickable: backdrop.meshes.filter((mesh) => mesh.isPickable).length,

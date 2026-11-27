@@ -29,11 +29,18 @@ type Measurement = {
   figures: number;
 };
 
-async function measure(page: Page, count: number): Promise<Measurement> {
+// `target`: all settlers get a new destination (the building there) right after
+// the settlers are shown, and the route searches fall into the measured frames
+async function measure(
+  page: Page,
+  count: number,
+  target?: { q: number; r: number },
+): Promise<Measurement> {
   return page.evaluate(
-    async ({ count, warmUp, frames }) => {
+    async ({ count, target, warmUp, frames }) => {
       const hooks = window.__solarpunk!;
       hooks.showSettlers(count);
+      hooks.sendSettlers(target);
       const nextFrame = () =>
         new Promise<number>((resolve) => requestAnimationFrame(resolve));
       for (let i = 0; i < warmUp; i++) {
@@ -55,7 +62,12 @@ async function measure(page: Page, count: number): Promise<Measurement> {
         figures: stats.count,
       };
     },
-    { count, warmUp: WARM_UP_FRAMES, frames: MEASURED_FRAMES },
+    {
+      count,
+      target,
+      warmUp: target ? 0 : WARM_UP_FRAMES,
+      frames: MEASURED_FRAMES,
+    },
   );
 }
 
@@ -72,11 +84,23 @@ test("1,000 moving settlers cost at most two draw calls and no stale figures rem
 
   const baseline = await measure(page, 0);
   const crowd = await measure(page, 1000);
+  // normal movement towards a workplace, and 1,000 new destinations at once
+  const redirected = await measure(page, 1000, { q: 0, r: 0 });
+  const walking = await measure(page, 1000, { q: 0, r: 0 });
+  await page.evaluate(() => window.__solarpunk!.sendSettlers(undefined));
   const dropped = await measure(page, 10);
   const empty = await measure(page, 0);
   const regrown = await measure(page, 1000);
 
-  const report = { baseline, crowd, dropped, empty, regrown };
+  const report = {
+    baseline,
+    crowd,
+    redirected,
+    walking,
+    dropped,
+    empty,
+    regrown,
+  };
   console.log(`settler benchmark ${JSON.stringify(report, null, 2)}`);
   await testInfo.attach("settler-benchmark.json", {
     body: JSON.stringify(report, null, 2),
@@ -89,12 +113,17 @@ test("1,000 moving settlers cost at most two draw calls and no stale figures rem
   expect(empty.figures).toBe(0);
   expect(regrown.figures).toBe(1000);
   expect(crowd.drawCalls - baseline.drawCalls).toBeLessThanOrEqual(2);
+  expect(redirected.drawCalls - baseline.drawCalls).toBeLessThanOrEqual(2);
+  expect(walking.drawCalls - baseline.drawCalls).toBeLessThanOrEqual(2);
   expect(regrown.drawCalls - baseline.drawCalls).toBeLessThanOrEqual(2);
   expect(empty.drawCalls).toBe(baseline.drawCalls);
 
   if (process.env.SETTLER_BENCHMARK_STRICT) {
     expect(crowd.p95 - baseline.p95).toBeLessThanOrEqual(MAX_P95_INCREASE_MS);
     expect(regrown.p95 - baseline.p95).toBeLessThanOrEqual(MAX_P95_INCREASE_MS);
+    expect(redirected.p95 - baseline.p95).toBeLessThanOrEqual(
+      MAX_P95_INCREASE_MS,
+    );
   }
 
   // the real roster is shown again afterwards
