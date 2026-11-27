@@ -10,10 +10,10 @@ import {
   BEACH_Y,
   SEA_Y,
   getBeachPolygons,
-  getCoastZ,
+  SEA_CENTER,
+  SEA_RADIUS,
   getMouthChannel,
-  getOuterZ,
-  getSeaPolygon,
+  getSeaRings,
   type Polygon,
 } from "./sea";
 import { WATER_COLOR } from "./TileRenderer";
@@ -30,8 +30,11 @@ export type SeaRenderer = {
 // builds one mesh from convex polygons at the given height; each polygon is a triangle fan
 function createMesh(
   name: string,
-  polygons: { points: Polygon; y: number }[],
-  colorAt: ((z: number) => [number, number, number]) | undefined,
+  polygons: {
+    points: Polygon;
+    y: number;
+    color?: (x: number, z: number) => [number, number, number];
+  }[],
   material: StandardMaterial,
   scene: Scene,
 ): Mesh {
@@ -39,12 +42,12 @@ function createMesh(
   const normals: number[] = [];
   const colors: number[] = [];
   const indices: number[] = [];
-  for (const { points, y } of polygons) {
+  for (const { points, y, color } of polygons) {
     const first = positions.length / 3;
     for (const { x, z } of points) {
       positions.push(x, y, z);
       normals.push(0, 1, 0);
-      if (colorAt) colors.push(...colorAt(z), 1);
+      if (color) colors.push(...color(x, z), 1);
     }
     for (let i = 1; i < points.length - 1; i++) {
       indices.push(first, first + i, first + i + 1);
@@ -55,7 +58,7 @@ function createMesh(
   data.positions = positions;
   data.normals = normals;
   data.indices = indices;
-  if (colorAt) data.colors = colors;
+  if (colors.length > 0) data.colors = colors;
   data.applyToMesh(mesh);
   mesh.material = material;
   mesh.isPickable = false;
@@ -66,8 +69,6 @@ function createMesh(
 // two meshes (two draw calls), created once.
 export function createSeaRenderer(scene: Scene): SeaRenderer {
   const course = getRiverCourse(GRID_RADIUS);
-  const coast = getCoastZ(GRID_RADIUS);
-  const outer = getOuterZ(GRID_RADIUS);
   const river: [number, number, number] = [
     WATER_COLOR.r,
     WATER_COLOR.g,
@@ -78,15 +79,19 @@ export function createSeaRenderer(scene: Scene): SeaRenderer {
     DEEP_COLOR.g,
     DEEP_COLOR.b,
   ];
-  // turquoise at the coast, deep blue at the outer end
-  const gradient = (z: number) => {
-    const t = Math.min(Math.max((z - coast) / (outer - coast), 0), 1);
-    return river.map((c, i) => c + (deep[i] - c) * t) as [
+  // turquoise at the round shore, deep blue at the centre of the semicircle
+  const gradient = (x: number, z: number) => {
+    const t = Math.min(
+      Math.hypot(x - SEA_CENTER.x, z - SEA_CENTER.z) / SEA_RADIUS,
+      1,
+    );
+    return river.map((c, i) => c + (deep[i] - c) * (1 - t)) as [
       number,
       number,
       number,
     ];
   };
+  const plain = () => river;
 
   const water = new StandardMaterial("seaMaterial", scene);
   water.specularColor = new Color3(0.25, 0.25, 0.25); // slight highlight
@@ -99,10 +104,13 @@ export function createSeaRenderer(scene: Scene): SeaRenderer {
   const sea = createMesh(
     "sea",
     [
-      { points: getSeaPolygon(GRID_RADIUS), y: SEA_Y },
-      { points: getMouthChannel(GRID_RADIUS, course), y: SEA_Y },
+      ...getSeaRings().map((points) => ({ points, y: SEA_Y, color: gradient })),
+      ...getMouthChannel(GRID_RADIUS, course).map((points) => ({
+        points,
+        y: SEA_Y,
+        color: plain,
+      })),
     ],
-    gradient,
     water,
     scene,
   );
@@ -112,7 +120,6 @@ export function createSeaRenderer(scene: Scene): SeaRenderer {
       points,
       y: BEACH_Y,
     })),
-    undefined,
     sand,
     scene,
   );
