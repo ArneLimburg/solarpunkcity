@@ -3,6 +3,7 @@ import { test, expect } from "./fixtures";
 import {
   finishConstruction,
   grantWood,
+  installClockWithNativeFrames,
   selectBuilding,
   tilePosition,
 } from "./helpers";
@@ -40,6 +41,9 @@ test("a single-hex and a multi-hex site fill up and give way to the model", asyn
   page,
 }) => {
   test.setTimeout(180_000); // software rendering makes every pointer move slow
+  // no week passes while the sites are placed (the slow pointer moves would
+  // finish the homestead); the weeks are advanced by hand below
+  await installClockWithNativeFrames(page);
   await page.goto("./");
   await page.waitForFunction(() => window.__solarpunk !== undefined);
   await grantWood(page);
@@ -55,6 +59,7 @@ test("a single-hex and a multi-hex site fill up and give way to the model", asyn
   ).toBe(0);
 
   // the workers fill the homestead from the ground up
+  await page.clock.runFor(1000);
   await expect
     .poll(async () => (await fill(page, home)) ?? 1, { timeout: 30_000 })
     .toBeGreaterThan(0);
