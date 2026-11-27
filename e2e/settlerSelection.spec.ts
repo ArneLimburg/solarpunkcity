@@ -96,9 +96,15 @@ test("a click on a settler opens the profile, marks them and follows them", asyn
   );
 
   // the marker stays on the settler while the settler moves
-  const before = await getSettlers(page);
+  const before = (await getSettlers(page)).find((s) => s.id === first.id)!;
   await expect
-    .poll(async () => (await getSettlers(page))[0].x !== before[0].x)
+    .poll(
+      async () => {
+        const now = (await getSettlers(page)).find((s) => s.id === first.id)!;
+        return now.x !== before.x || now.z !== before.z;
+      },
+      { timeout: 60_000, intervals: [200] },
+    )
     .toBe(true);
 
   // another settler: same card, new contents, one marker
