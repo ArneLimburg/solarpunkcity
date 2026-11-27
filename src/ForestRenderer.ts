@@ -9,10 +9,16 @@ import {
   type Scene,
 } from "@babylonjs/core";
 import type { HexCoordinates } from "./board";
-import { getTreePlacements, type TreeKind } from "./forest";
+import {
+  CONIFER_HEIGHT,
+  DECIDUOUS_RADIUS,
+  TRUNK_HEIGHT,
+  getCrownCenterHeight,
+  getTreePlacements,
+  type TreeKind,
+} from "./forest";
 import { TILE_TOP } from "./hexGeometry";
 
-const TRUNK_HEIGHT = 0.3;
 const HIDDEN = Matrix.Compose(
   Vector3.Zero(),
   Quaternion.Identity(),
@@ -67,31 +73,30 @@ export function createForest(
     TRUNK_COLOR,
     scene,
   );
-  const crowns: Record<TreeKind, Buffer & { height: number }> = {
-    conifer: {
-      ...createBaseMesh(
-        MeshBuilder.CreateCylinder(
-          "treeConifer",
-          { height: 0.5, diameterTop: 0, diameterBottom: 0.4, tessellation: 6 },
-          scene,
-        ),
-        CONIFER_COLOR,
+  const crowns: Record<TreeKind, Buffer> = {
+    conifer: createBaseMesh(
+      MeshBuilder.CreateCylinder(
+        "treeConifer",
+        {
+          height: CONIFER_HEIGHT,
+          diameterTop: 0,
+          diameterBottom: 0.4,
+          tessellation: 6,
+        },
         scene,
       ),
-      height: 0.5,
-    },
-    deciduous: {
-      ...createBaseMesh(
-        MeshBuilder.CreateIcoSphere(
-          "treeDeciduous",
-          { radius: 0.22, subdivisions: 1, flat: true },
-          scene,
-        ),
-        DECIDUOUS_COLOR,
+      CONIFER_COLOR,
+      scene,
+    ),
+    deciduous: createBaseMesh(
+      MeshBuilder.CreateIcoSphere(
+        "treeDeciduous",
+        { radius: DECIDUOUS_RADIUS, subdivisions: 1, flat: true },
         scene,
       ),
-      height: 0.44,
-    },
+      DECIDUOUS_COLOR,
+      scene,
+    ),
   };
 
   const trees: Record<string, Instance[]> = {};
@@ -129,7 +134,7 @@ export function createForest(
         crown,
         tile,
         center,
-        TRUNK_HEIGHT + crown.height / 2,
+        getCrownCenterHeight(placement.kind),
         placement,
       );
     }

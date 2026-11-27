@@ -1,9 +1,14 @@
 import { expect, test } from "vitest";
 import { GRID_RADIUS, isOnBoard } from "../src/board";
 import {
+  CONIFER_HEIGHT,
+  DECIDUOUS_DOWN_SHARE,
+  DECIDUOUS_RADIUS,
   MIN_TREE_DISTANCE_FACTOR,
   TREES_PER_TILE,
   TREE_RADIUS_FACTOR,
+  TRUNK_HEIGHT,
+  getCrownCenterHeight,
   getTileRotation,
   getTreePlacements,
   pickTreePosition,
@@ -114,4 +119,17 @@ test("the placements scale with the hex radius", () => {
   const small = getTreePlacements({ q: 1, r: 1 }, 1);
   const large = getTreePlacements({ q: 1, r: 1 }, 2);
   expect(large[0].x).toBeCloseTo(small[0].x * 2);
+});
+
+test("the deciduous crown reaches at least a third of its radius into the trunk", () => {
+  const lowest =
+    getCrownCenterHeight("deciduous") - DECIDUOUS_DOWN_SHARE * DECIDUOUS_RADIUS;
+  expect(lowest).toBeLessThanOrEqual(
+    TRUNK_HEIGHT - DECIDUOUS_RADIUS / 3 + 1e-9,
+  );
+});
+
+test("the conifer cone base sits on the trunk top", () => {
+  const base = getCrownCenterHeight("conifer") - CONIFER_HEIGHT / 2;
+  expect(base).toBeCloseTo(TRUNK_HEIGHT);
 });
