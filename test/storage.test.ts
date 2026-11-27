@@ -18,7 +18,7 @@ function placeStorage(coords = { q: 10, r: 0 }) {
 test("a new game has 0 wood and no capacity", () => {
   const state = game.getState();
   expect(state.resources.wood).toBe(0);
-  expect(state.resources.food).toBe(10);
+  expect(state.resources.food).toBe(0);
   expect(state.capacity.wood).toBe(0);
 });
 

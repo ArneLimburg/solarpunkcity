@@ -27,7 +27,8 @@ beforeEach(async () => {
       },
     }),
   );
-  game.grantResources({ wood: 10 });
+  // a game also starts without food; most of these tests assume 10 food
+  game.grantResources({ wood: 10, food: 10 });
 });
 
 function testBuilding(overrides: Partial<Building>): Building {
@@ -265,10 +266,38 @@ test("population does not grow when no food remains after eating", () => {
   expect(resources.food).toBe(0);
 });
 
-test("a fresh game starts with 10 food and a balance of 0", () => {
-  expect(game.INITIAL_RESOURCES.food).toBe(10);
-  expect(game.getState().resources.food).toBe(10);
+test("a fresh game starts with 0 food and a balance of 0", () => {
+  expect(game.INITIAL_RESOURCES.food).toBe(0);
+  game.grantResources({ food: -10 });
+  expect(game.getState().resources.food).toBe(0);
   expect(game.getState().foodBalance).toBe(0);
+});
+
+test("food buildings are staffed for the possible growth without stock", () => {
+  game.grantResources({ food: -10 });
+  board.setBuilding({ q: 0, r: 0 }, { ...farm(20, 4), resident: 5 });
+  // demand 2 + possible growth 1 = 3 food, 5 per worker -> 1 worker;
+  // the farm produces 5, 3 are left after eating: growth 1, stock 3
+  const { resources, population, foodBalance } = game.calculateWeek();
+  expect(foodBalance).toBeCloseTo(3);
+  expect(population).toBe(3);
+  expect(resources.food).toBeCloseTo(3);
+});
+
+test("a stock that covers the possible growth needs no extra workers", () => {
+  game.grantResources({ food: -9 }); // 1 food covers the growth of 1
+  board.setBuilding({ q: 0, r: 0 }, { ...farm(4, 4), resident: 5 });
+  // target: demand 2 -> 2 workers (1 food each)
+  const { foodBalance, population } = game.calculateWeek();
+  expect(foodBalance).toBeCloseTo(0);
+  expect(population).toBe(3);
+});
+
+test("growth uses the food left after eating, not the stock", () => {
+  game.grantResources({ food: -10 });
+  board.setBuilding({ q: 0, r: 0 }, { ...farm(2, 0), resident: 5 });
+  // no stock, 2 produced, 2 eaten: nothing is left, so nobody moves in
+  expect(game.calculateWeek().population).toBe(2);
 });
 
 function farm(food: number, labor: number) {
