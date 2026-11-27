@@ -13,6 +13,8 @@ import {
   calculateWeek,
   canBuild,
   getBuildingReport,
+  getHome,
+  getOccupants,
   getState,
   takeCompletedBuildings,
 } from "./game";
@@ -71,6 +73,14 @@ export const App: FC = () => {
     [showInfo],
   );
   const closeSettler = useCallback(() => setSettlerId(undefined), []);
+  // the profile's home link: switches back to the info panel of the building
+  const openHome = useCallback(
+    (center: HexCoordinates) => {
+      setSettlerId(undefined);
+      showInfo(center);
+    },
+    [showInfo],
+  );
   const getSettlerActivity = useCallback(
     (id: number) => mapRef.current!.getSettlerActivity(id),
     [],
@@ -180,7 +190,9 @@ export const App: FC = () => {
             {settler && (
               <SettlerProfile
                 resident={settler}
+                home={getHome(settler.id)}
                 getActivity={getSettlerActivity}
+                onOpenHome={openHome}
                 onClose={closeSettler}
               />
             )}
@@ -189,8 +201,8 @@ export const App: FC = () => {
                 building={infoPlaced.building}
                 center={infoPlaced.center}
                 report={getBuildingReport(infoPlaced.center)}
-                population={state.population}
-                housing={state.housing}
+                occupants={getOccupants(infoPlaced)}
+                onSelectResident={selectSettler}
                 onClose={closeInfo}
               />
             )}

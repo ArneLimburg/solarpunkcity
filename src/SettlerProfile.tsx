@@ -1,13 +1,16 @@
 import { useEffect, useState, type FC } from "react";
+import type { HexCoordinates, PlacedBuilding } from "./board";
 import type { Resident } from "./settlers";
 
 const REFRESH_MS = 200;
 
 export const SettlerProfile: FC<{
   resident: Resident;
+  home: PlacedBuilding | undefined;
   getActivity: (id: number) => "Walking" | "Idle" | undefined;
+  onOpenHome: (center: HexCoordinates) => void;
   onClose: () => void;
-}> = ({ resident, getActivity, onClose }) => {
+}> = ({ resident, home, getActivity, onOpenHome, onClose }) => {
   // the activity changes with the animation, not with the game state
   const [activity, setActivity] = useState(() => getActivity(resident.id));
   useEffect(() => {
@@ -28,6 +31,23 @@ export const SettlerProfile: FC<{
           </div>
           <div className="small-text" data-testid="settler-activity">
             {activity}
+          </div>
+          <div className="small-text" data-testid="settler-home">
+            Home:{" "}
+            {home ? (
+              <a
+                href="#"
+                data-testid="settler-home-link"
+                onClick={(event) => {
+                  event.preventDefault();
+                  onOpenHome(home.center);
+                }}
+              >
+                {home.building.name}
+              </a>
+            ) : (
+              "Unhoused"
+            )}
           </div>
         </div>
         <button

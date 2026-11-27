@@ -80,9 +80,10 @@ test("opens, updates, switches and closes the building info", async ({
   await finishConstruction(page);
   await expect(info(page).getByTestId("info-last-week")).toBeVisible();
   await expect(info(page).getByTestId("info-no-data")).toHaveCount(0);
-  await expect(info(page).getByTestId("info-residents")).toHaveText(
-    /Residents \d+ \/ 15 \(\d+ %\)/,
+  await expect(info(page).getByTestId("info-residents-count")).toHaveText(
+    "0 / 15",
   );
+  await expect(info(page).getByTestId("info-no-residents")).toBeVisible();
 
   // the farm is more efficient, so the homestead is not needed
   await click(page, origin);
@@ -161,4 +162,71 @@ test("the close button closes the building info on the right", async ({
   expect(box.x + box.width / 2).toBeGreaterThan(400);
   await page.getByRole("button", { name: "Close building info" }).click();
   await expect(info(page)).toHaveCount(0);
+});
+
+for (const size of [
+  { width: 800, height: 600 },
+  { width: 375, height: 812 },
+]) {
+  test(`building, profile and home link are connected at ${size.width} x ${size.height}`, async ({
+    page,
+  }) => {
+    test.setTimeout(180_000);
+    await page.setViewportSize(size);
+    await page.goto("./");
+    await page.waitForFunction(() => window.__solarpunk !== undefined);
+    await click(page, origin);
+    await expect(info(page).getByTestId("info-residents-count")).toHaveText(
+      "2 / 2",
+    );
+    const links = info(page).getByTestId("info-resident-list").locator("a");
+    await expect(links).toHaveCount(2);
+    const name = (await links.first().textContent())!;
+
+    // a name opens the profile instead of the building
+    await links.first().click();
+    await expect(page.getByTestId("settler-name")).toHaveText(name);
+    await expect(info(page)).toHaveCount(0);
+    await expect(page.getByTestId("settler-home-link")).toHaveText(
+      "Settlers' camp",
+    );
+
+    // the home link switches back
+    await page.getByTestId("settler-home-link").click();
+    await expect(page.getByTestId("settler-profile")).toHaveCount(0);
+    await expect(info(page).getByTestId("info-center")).toHaveText("0, 0");
+  });
+}
+
+test("the info panel reflects a housing change", async ({ page }) => {
+  test.setTimeout(180_000);
+  await page.goto("./");
+  await page.waitForFunction(() => window.__solarpunk !== undefined);
+  await grantWood(page);
+  await page.evaluate(() => window.__solarpunk?.addResources({ wood: 100 }));
+  await place(
+    page,
+    "Residential",
+    "AppartmentBuilding",
+    "Apartment building",
+    house,
+  );
+  await finishConstruction(page);
+  await click(page, house);
+  const count = info(page).getByTestId("info-residents-count");
+  await expect(count).toHaveText("0 / 15");
+  await page.keyboard.press("Escape");
+
+  // building over the camp moves both settlers into the apartment building
+  await place(page, "Farms", "OrganicHomestead", "Organic homestead", origin);
+  await click(page, house);
+  await expect(count).toHaveText("2 / 15");
+  const links = info(page).getByTestId("info-resident-list").locator("a");
+  await expect(links).toHaveCount(2);
+
+  // the profile links to the apartment building
+  await links.first().click();
+  await expect(page.getByTestId("settler-home-link")).toHaveText(
+    "Appartment Building",
+  );
 });
