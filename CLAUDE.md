@@ -109,9 +109,10 @@ Tickets become pull requests without manual steps; the repository owner reviews 
    `pr`) after every push to `main` and every 30 minutes: for an open "changes requested" review
    of the owner on the current commit, for `review:changes` on a conflicting pull request, and
    for every agent pull request behind `main`. A rebase without conflicts is done by a script and
-   keeps the `agent-review` approval; conflicts are resolved by the agent. After that, an approved
-   pull request gets `review:rebase` and is reviewed again by Opus (not a new round), and one
-   under owner review goes back to the owner once the build passes. A failed build of a pull
+   keeps the `agent-review` approval; conflicts are resolved by the agent. A comment on the pull
+   request announces the rebase as soon as it starts. After that, an approved pull request gets
+   `review:rebase` and is reviewed again by Opus (not a new round), and one under owner review
+   goes back to the owner once the build passes. A failed build of a pull
    request labeled `review:owner`, `review:rebase` or `review:approved` is sent back to
    `implement.yaml` without counting a round; after 3 failed builds in a row it gets
    `agent-blocked`. To start it by hand:

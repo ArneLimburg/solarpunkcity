@@ -17,8 +17,9 @@
 #   outdated; on a pull request labeled `review:changes`, addresses the latest agent review;
 #   otherwise only brings the branch up to date with main (mode `rebase`). A rebase without
 #   conflicts is done by a script and keeps an approval (`agent-review` status); only conflicts
-#   start the agent. Resolved conflicts of an approved pull request are reviewed again
-#   (label `review:rebase`, not a new review round).
+#   start the agent. A comment on the pull request announces the rebase when it starts.
+#   Resolved conflicts of an approved pull request are reviewed again (label `review:rebase`,
+#   not a new review round).
 # Runs as the GitHub App from AGENT_APP_ID so that its pushes and pull requests trigger
 # Build and Agent Review.
 # The agent's full transcript is kept as the run artifact `agent-transcript`. Background tasks
@@ -215,6 +216,23 @@ jobs:
             echo "before=$before"
             echo "agent=$agent"
           } >> "$GITHUB_OUTPUT"
+
+      - if: steps.ctx.outputs.skip == 'false' && steps.ctx.outputs.mode == 'rebase' && steps.git.outputs.noop != 'true'
+        name: Announce rebase
+        # A rebase takes a while (build, review, conflicts), so say right away that it started.
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          GH_REPO: ${{ github.repository }}
+          PR: ${{ steps.ctx.outputs.pr }}
+          AGENT: ${{ steps.git.outputs.agent }}
+        run: |
+          run_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          if [ "$AGENT" = "true" ]; then
+            printf '🤖 Rebasing onto main; the agent resolves the merge conflicts ([run](%s)).\n' "$run_url"
+          else
+            printf '🤖 Rebasing onto main without conflicts ([run](%s)).\n' "$run_url"
+          fi | gh pr comment "$PR" --body-file -
 
       - if: steps.ctx.outputs.skip == 'false' && steps.git.outputs.noop != 'true' && steps.git.outputs.agent == 'true'
         uses: actions/setup-node@v4
