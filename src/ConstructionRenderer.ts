@@ -68,8 +68,9 @@ export function createConstructionRenderer(
         blueprint.isPickable = false;
         blueprint.material = ghost;
       }
-      let fill = 0;
+      let fill = Number.NaN;
       const setProgress = (percent: number) => {
+        if (percent / 100 === fill) return;
         fill = percent / 100;
         const level = TILE_TOP + fill * height;
         // Babylon discards what lies on the positive side of a plane
