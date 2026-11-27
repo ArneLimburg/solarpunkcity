@@ -276,6 +276,28 @@ test("the profile shows a settler without a home as unhoused", async ({
   await expect(page.getByTestId("settler-home-link")).toHaveCount(0);
 });
 
+test("the info shows the wood stock and the weeks left of a construction", async ({
+  page,
+}) => {
+  test.setTimeout(180_000);
+  await page.goto("./");
+  await page.waitForFunction(() => window.__solarpunk !== undefined);
+  await grantWood(page);
+  await place(page, "Storage", "WoodStorage", "Wood storage", forest);
+  await click(page, forest);
+  await expect(info(page).getByTestId("info-wood-stock")).toContainText(
+    "Wood stock",
+  );
+  await page.keyboard.press("Escape");
+
+  // the settlers work on the sawmill, so the estimate appears
+  await place(page, "Production", "Sawmill", "Sawmill", farm);
+  await click(page, farm);
+  await expect(info(page).getByTestId("info-weeks")).toContainText("left", {
+    timeout: 60_000,
+  });
+});
+
 test("the info panel reflects a housing change", async ({ page }) => {
   test.setTimeout(180_000);
   // no week is calculated: with the camp replaced by a site nothing produces
