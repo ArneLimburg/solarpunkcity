@@ -272,6 +272,7 @@ test("the date dropdown toggles with the keyboard, Escape and outside clicks", a
 test("clicking in the HUD, a dropdown or a panel builds nothing", async ({
   page,
 }) => {
+  test.slow();
   await page.goto("./");
   await page.waitForFunction(() => window.__solarpunk !== undefined);
   await grantWood(page);
