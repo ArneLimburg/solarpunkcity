@@ -106,6 +106,11 @@ export const BuildingTypes = {
     icon: "energy/wind-turbine.svg",
     label: "Wind turbine",
   },
+  SolarField: {
+    category: "ENERGY",
+    icon: "energy/solar-field.svg",
+    label: "Solar field",
+  },
   Forest: {
     category: "FOREST",
     icon: "forest/forest.svg",
@@ -265,6 +270,27 @@ export const BuildingDefinition: Record<BuildingType, Building> = {
     produces: { ...emptyResources, energy: 4 },
     consumes: { ...emptyResources }, // fully automated
     recycling: { ...emptyResources, wood: 5 },
+  },
+  SolarField: {
+    name: "Solar field",
+    type: "SolarField",
+    description: "Turns sunlight into energy above a flower meadow",
+    size: 1,
+    resident: 0,
+    ecology: 0.5, // extensive meadow below the panels
+    // wood is the timber mounting; the panels count as bought in (glass and
+    // electronics have no producer yet)
+    cost: { ...emptyResources, wood: 4, labor: 8 },
+    maxBuilders: 2,
+    // a tile has about 840 m2 (hex side about 18 m), which holds about
+    // 85-125 kWp of ground-mounted panels; at about 1,000 kWh per kWp and
+    // year that is about 2 MWh per week, i.e. 2 energy. Per 10 energy, hydro
+    // needs 1 river tile and changes the ecology by -11; wind 2.5 tiles and
+    // about -5; solar 5 tiles and about -2.5 (compared to forest), for 20 wood
+    // and 40 labor.
+    produces: { ...emptyResources, energy: 2 },
+    consumes: { ...emptyResources }, // fully automated
+    recycling: { ...emptyResources, wood: 2 },
   },
   SettlersCamp: {
     name: "Settlers' camp",

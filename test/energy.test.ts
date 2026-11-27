@@ -127,6 +127,44 @@ test("a sawmill is powered by one finished wind turbine", () => {
   expect(state.resources.planks).toBe(2);
 });
 
+test("a solar field can be placed on land but not on the river", () => {
+  expect(game.canPlace("SolarField", { q: 1, r: 1 })).toBe(true);
+  expect(game.canPlace("SolarField", riverTile())).toBe(false);
+  expect(game.canPlace("SolarField", { q: 31, r: 0 })).toBe(false);
+  const tile = placeHydro();
+  expect(game.canPlace("SolarField", tile)).toBe(false);
+});
+
+test("a finished solar field yields 2 energy, a site nothing", () => {
+  const tile = { q: 1, r: 1 };
+  game.grantResources({ wood: 100, labor: 100 });
+  game.build("SolarField", tile);
+  expect(game.calculateWeek().energyProduced).toBe(0);
+  board.placeBuilding(tile, definitions.BuildingDefinition.SolarField);
+  expect(game.calculateWeek().energyProduced).toBe(2);
+});
+
+test("a sawmill is powered by one finished solar field", () => {
+  board.placeBuilding(
+    { q: 1, r: 1 },
+    definitions.BuildingDefinition.SolarField,
+  );
+  place(1, definitions.BuildingDefinition.Sawmill);
+  const state = game.calculateWeek();
+  expect(state.energyProduced).toBe(2);
+  expect(state.buildingsWithoutEnergy).toBe(0);
+  expect(state.resources.planks).toBe(2);
+});
+
+test("building over a finished solar field gives back 2 wood", () => {
+  const tile = { q: 1, r: 1 };
+  board.placeBuilding(tile, definitions.BuildingDefinition.SolarField);
+  const before = game.getState().resources.wood;
+  // a wood storage is finished at once, so the recycled wood stays in stock
+  game.build("WoodStorage", tile);
+  expect(game.getState().resources.wood).toBe(before + 2);
+});
+
 test("a new settlement has no energy", () => {
   const state = game.getState();
   expect(state).toMatchObject({
