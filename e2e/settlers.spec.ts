@@ -123,6 +123,7 @@ test("generated settlers cost at most two draw calls and the roster comes back",
 test("figures do not take part in picking: hovering and building work beneath them", async ({
   page,
 }) => {
+  // several software-rendered mouse moves, slow on the CI runners
   test.slow();
   await start(page);
   await grantWood(page);
