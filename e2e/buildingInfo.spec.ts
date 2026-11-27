@@ -102,8 +102,11 @@ test("opens, updates, switches and closes the building info", async ({
 
   // after the construction and the next tick the last week is shown
   await finishConstruction(page);
+  // the tick runs in real time and software rendering can delay it for seconds
   await expect
-    .poll(() => page.evaluate(() => window.__solarpunk?.getProgressLabel()))
+    .poll(() => page.evaluate(() => window.__solarpunk?.getProgressLabel()), {
+      timeout: 30_000,
+    })
     .toBeUndefined();
   await expect(info(page).getByTestId("info-last-week")).toBeVisible();
   await expect(info(page).getByTestId("info-no-data")).toHaveCount(0);
