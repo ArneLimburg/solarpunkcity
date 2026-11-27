@@ -1,5 +1,13 @@
 import { useRef, useEffect, forwardRef, useImperativeHandle } from "react";
-import type { Observer, PointerInfo } from "@babylonjs/core";
+import {
+  Color3,
+  DynamicTexture,
+  Mesh,
+  MeshBuilder,
+  StandardMaterial,
+  type Observer,
+  type PointerInfo,
+} from "@babylonjs/core";
 import type { HexCoordinates } from "./board";
 import type { BuildingType } from "./gameDefinitions";
 import { createCornerRenderer, type CornerRenderer } from "./CornerRenderer";
@@ -36,6 +44,8 @@ import { placeBuilding, type PlacedModel } from "./placeBuilding";
 
 const ignore = () => {};
 
+type Progress = { center: HexCoordinates; percent: number };
+
 export const Map = forwardRef<
   {
     addBuilding: (
@@ -52,10 +62,19 @@ export const Map = forwardRef<
     // a tap on a settler outside the build mode
     onSettlerSelected: (id: number) => void;
     selectedSettler?: number;
+    // the selected construction site and how far it is
+    progress?: Progress;
   }
 >(
   (
-    { onSelected, previewType, residents, onSettlerSelected, selectedSettler },
+    {
+      onSelected,
+      previewType,
+      residents,
+      onSettlerSelected,
+      selectedSettler,
+      progress,
+    },
     ref,
   ) => {
     const onSettlerSelectedRef = useRef(onSettlerSelected);
@@ -74,6 +93,11 @@ export const Map = forwardRef<
     // what a change of the residents does: nothing before the scene exists and
     // while generated settlers are shown, otherwise it syncs the settlers
     const applyResidentsRef = useRef<(residents: Resident[]) => void>(ignore);
+    // the progress label above a construction site
+    const showProgressRef =
+      useRef<(progress: Progress | undefined) => void>(ignore);
+    const progressRef = useRef(progress);
+    progressRef.current = progress;
 
     // the tile renderer and the ground materials
     const tilesRef = useRef<TileRenderer | null>(null);
@@ -156,6 +180,46 @@ export const Map = forwardRef<
       place({ q: 0, r: 0 }, "SettlersCamp");
       follow(residentsRef.current);
 
+      // the percentage above the selected construction site
+      const labelTexture = new DynamicTexture(
+        "progress-label",
+        { width: 256, height: 128 },
+        scene,
+        false,
+      );
+      labelTexture.hasAlpha = true;
+      const labelMaterial = new StandardMaterial("progress-label", scene);
+      labelMaterial.diffuseTexture = labelTexture;
+      labelMaterial.emissiveColor = Color3.White();
+      labelMaterial.disableLighting = true;
+      const labelMesh = MeshBuilder.CreatePlane(
+        "progress-label",
+        { width: 1.2, height: 0.6 },
+        scene,
+      );
+      labelMesh.material = labelMaterial;
+      labelMesh.billboardMode = Mesh.BILLBOARDMODE_ALL;
+      labelMesh.isPickable = false;
+      labelMesh.setEnabled(false);
+      let labelText: string | undefined;
+      showProgressRef.current = (progress) => {
+        labelText = progress && `${progress.percent}%`;
+        labelMesh.setEnabled(progress !== undefined);
+        if (progress) {
+          const position = hexToPixel(progress.center.q, progress.center.r);
+          labelMesh.position.set(position.x, 2, position.z);
+          labelTexture.drawText(
+            labelText!,
+            null,
+            90,
+            "bold 70px sans-serif",
+            "#ffffff",
+            "#2e7d32",
+          );
+        }
+      };
+      showProgressRef.current(progressRef.current);
+
       const ring = createRing(scene);
       const preview = createPreview(() => previewTypeRef.current);
       const groundHandler = createPointerHandler(
@@ -206,6 +270,7 @@ export const Map = forwardRef<
           getCornerMaterial: (coords, corner) =>
             cornersRef.current!.getMaterialName({ tile: coords, corner }),
           showBuilding: (coords, type) => place(coords, type, false),
+          getProgressLabel: () => labelText,
           settlers,
           backdrop,
           // shows generated residents instead of the roster; undefined goes back
@@ -233,6 +298,9 @@ export const Map = forwardRef<
     useEffect(() => {
       settlersRef.current!.select(selectedSettler);
     }, [selectedSettler]);
+    useEffect(() => {
+      showProgressRef.current(progress);
+    }, [progress]);
 
     return <canvas ref={canvasRef} />;
   },

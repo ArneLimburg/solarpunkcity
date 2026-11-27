@@ -99,6 +99,7 @@ function setup() {
     getCornerMaterial: (_coords, corner) =>
       corner === 2 ? "meadow" : undefined,
     showBuilding,
+    getProgressLabel: () => "40%",
   });
   return { hooks, toGlobal, showBuilding, showSettlers, frame, backdrop };
 }
