@@ -1,9 +1,9 @@
 import { isOnBoard, type HexCoordinates } from "./board";
 
 // share of the hex size that is used as the radius of the rounded corners
-export const CORNER_RADIUS_FACTOR = 0.15;
+export const CORNER_RADIUS_FACTOR = 0.5;
 // line segments per rounded corner
-export const CORNER_SEGMENTS = 4;
+export const CORNER_SEGMENTS = 8;
 
 export type Point = { x: number; z: number };
 

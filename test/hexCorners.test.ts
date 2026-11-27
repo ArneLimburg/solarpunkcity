@@ -17,7 +17,7 @@ const center = ({ q, r }: { q: number; r: number }) => ({
   z: 1.5 * r,
 });
 
-test("the rounded outline has 4 segments per corner and stays inside the hexagon", () => {
+test(`the rounded outline has ${CORNER_SEGMENTS} segments per corner and stays inside the hexagon`, () => {
   const outline = createRoundedHexOutline(1);
   expect(outline).toHaveLength(6 * (CORNER_SEGMENTS + 1));
   for (const point of outline) {
@@ -66,7 +66,9 @@ test("the corner piece reaches from the sharp to the rounded corner", () => {
   const sharp = piece[piece.length - 1];
   expect(sharp.x).toBeCloseTo(Math.cos(Math.PI / 6));
   expect(sharp.z).toBeCloseTo(Math.sin(Math.PI / 6));
-  expect(piece.slice(0, -1)).toEqual(createRoundedHexOutline(1).slice(0, 5));
+  expect(piece.slice(0, -1)).toEqual(
+    createRoundedHexOutline(1).slice(0, CORNER_SEGMENTS + 1),
+  );
 });
 
 test("the corner rotation turns corner 0 clockwise in Babylon's convention", () => {
