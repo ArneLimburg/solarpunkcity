@@ -65,6 +65,31 @@ export function createDevHooks({
   scene.onAfterRenderObservable.add(() => {
     drawCalls = engine._drawCalls.current - before;
   });
+  // canvas position of a scene point, null outside the view
+  const toScreen = (world: Vector3) => {
+    const width = engine.getRenderWidth();
+    const height = engine.getRenderHeight();
+    const projected = Vector3.Project(
+      world,
+      Matrix.IdentityReadOnly,
+      scene.getTransformMatrix(),
+      camera.viewport.toGlobal(width, height),
+    );
+    if (
+      projected.z < 0 ||
+      projected.z > 1 ||
+      projected.x < 0 ||
+      projected.x > width ||
+      projected.y < 0 ||
+      projected.y > height
+    ) {
+      return null;
+    }
+    return {
+      x: (projected.x * canvas.clientWidth) / width,
+      y: (projected.y * canvas.clientHeight) / height,
+    };
+  };
   return {
     getSettlers: settlers.getSettlers,
     getSettlerStats: () => ({
@@ -80,31 +105,23 @@ export function createDevHooks({
       drawCalls,
     }),
     setBackdropVisible: backdrop.setVisible,
+    getSettlerMarker: settlers.getMarker,
+    // page position (relative to the canvas) of the body (height 0.1) or head
+    // (height 0.24) of a settler
+    settlerToScreen: (id, part) => {
+      const settler = settlers.getSettlers().find((s) => s.id === id)!;
+      return toScreen(
+        new Vector3(
+          settler.x,
+          TILE_TOP + (part === "head" ? 0.24 : 0.1),
+          settler.z,
+        ),
+      );
+    },
     tileToScreen: (coords) => {
       const world = hexToPixel(coords.q, coords.r);
       world.y = TILE_TOP;
-      const width = engine.getRenderWidth();
-      const height = engine.getRenderHeight();
-      const projected = Vector3.Project(
-        world,
-        Matrix.IdentityReadOnly,
-        scene.getTransformMatrix(),
-        camera.viewport.toGlobal(width, height),
-      );
-      if (
-        projected.z < 0 ||
-        projected.z > 1 ||
-        projected.x < 0 ||
-        projected.x > width ||
-        projected.y < 0 ||
-        projected.y > height
-      ) {
-        return null;
-      }
-      return {
-        x: (projected.x * canvas.clientWidth) / width,
-        y: (projected.y * canvas.clientHeight) / height,
-      };
+      return toScreen(world);
     },
     getBuildingType: (coords) => getBuilding(coords)?.type,
     isUnderConstruction,

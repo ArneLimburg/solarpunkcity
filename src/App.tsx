@@ -18,6 +18,7 @@ import {
 } from "./game";
 import { BuildingDetailsPanel } from "./BuildingDetailsPanel";
 import { BuildingInfo } from "./BuildingInfo";
+import { SettlerProfile } from "./SettlerProfile";
 import { StatusBar } from "./StatusBar";
 
 export const App: FC = () => {
@@ -31,6 +32,7 @@ export const App: FC = () => {
       type: BuildingType,
       underConstruction?: boolean,
     ) => void;
+    getSettlerActivity: (id: number) => "Walking" | "Idle" | undefined;
   } | null>(null);
 
   useEffect(() => {
@@ -59,11 +61,28 @@ export const App: FC = () => {
     infoCenterRef.current = center;
     setInfoCenter(center);
   }, []);
+  // the selected settler (resident ID)
+  const [settlerId, setSettlerId] = useState<number | undefined>();
+  const selectSettler = useCallback(
+    (id: number) => {
+      setSettlerId(id);
+      showInfo(undefined);
+    },
+    [showInfo],
+  );
+  const closeSettler = useCallback(() => setSettlerId(undefined), []);
+  const getSettlerActivity = useCallback(
+    (id: number) => mapRef.current!.getSettlerActivity(id),
+    [],
+  );
   const selectBuildingType = useCallback(
     (type: BuildingType | undefined) => {
       selectedBuildingTypeRef.current = type;
       setSelectedBuildingType(type);
-      if (type) setDetailsHidden(false);
+      if (type) {
+        setDetailsHidden(false);
+        setSettlerId(undefined);
+      }
       showInfo(undefined);
     },
     [showInfo],
@@ -92,13 +111,13 @@ export const App: FC = () => {
         current &&
         placed.center.q === current.q &&
         placed.center.r === current.r;
-      showInfo(
-        placed && placed.building.type !== "Forest" && !isSame
-          ? placed.center
-          : undefined,
-      );
+      const opens = placed && placed.building.type !== "Forest" && !isSame;
+      showInfo(opens ? placed.center : undefined);
+      if (opens) {
+        setSettlerId(undefined); // one panel at a time
+      }
     },
-    [selectBuildingType, showInfo],
+    [showInfo],
   );
   const [buildOpen, setBuildOpen] = useState(false);
   const [category, setCategory] = useState<BuildingCategory>("FARM");
@@ -107,6 +126,7 @@ export const App: FC = () => {
       if (event.key === "Escape") {
         setBuildOpen(false);
         selectBuildingType(undefined);
+        setSettlerId(undefined);
       }
     };
     window.addEventListener("keydown", onKeyDown);
@@ -114,6 +134,8 @@ export const App: FC = () => {
   }, [selectBuildingType]);
   const closeInfo = useCallback(() => showInfo(undefined), [showInfo]);
   const infoPlaced = infoCenter && getPlacedBuilding(infoCenter);
+  // a resident who left the population has no profile and no marker
+  const settler = state.residents.find(({ id }) => id === settlerId);
   return (
     <>
       <main className="no-padding py-1">
@@ -122,6 +144,8 @@ export const App: FC = () => {
           onSelected={mapSelectionListener}
           previewType={selectedBuildingType}
           residents={state.residents}
+          onSettlerSelected={selectSettler}
+          selectedSettler={settler?.id}
         />
       </main>
       <div className="hud-root">
@@ -152,7 +176,14 @@ export const App: FC = () => {
               />
             )}
           </div>
-          <div className="hud-right">
+          <div className={settler ? "hud-right hud-right-top" : "hud-right"}>
+            {settler && (
+              <SettlerProfile
+                resident={settler}
+                getActivity={getSettlerActivity}
+                onClose={closeSettler}
+              />
+            )}
             {infoPlaced && (
               <BuildingInfo
                 building={infoPlaced.building}

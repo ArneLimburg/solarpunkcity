@@ -63,7 +63,15 @@ function setup() {
     settlers: {
       sync: vi.fn(),
       boardChanged: vi.fn(),
-      getSettlers: () => [{ id: 1 }, { id: 2 }] as never,
+      getSettlers: () =>
+        [
+          { id: 1, x: 0, z: 0 },
+          { id: 2, x: 1, z: 1 },
+        ] as never,
+      pick: vi.fn(),
+      select: vi.fn(),
+      getMarker: () => ({ id: 2, visible: true }),
+      getActivity: () => "Idle",
       getTriangleCount: () => 164,
       getMeshCount: () => 2,
     },
@@ -154,6 +162,26 @@ test("tileToScreen scales projected positions to the canvas size", () => {
     "viewport",
   );
   expect(toGlobal).toHaveBeenCalledWith(200, 100);
+});
+
+test("settlerToScreen projects the head or the body and the marker is reported", () => {
+  const { hooks } = setup();
+  project.mockReturnValue({ x: 100, y: 50, z: 0.5 });
+  expect(hooks.settlerToScreen(2, "head")).toEqual({ x: 50, y: 25 });
+  expect(project).toHaveBeenLastCalledWith(
+    expect.objectContaining({ x: 1, y: 0.1 + 0.24, z: 1 }),
+    {},
+    "matrix",
+    "viewport",
+  );
+  hooks.settlerToScreen(1, "body");
+  expect(project).toHaveBeenLastCalledWith(
+    expect.objectContaining({ x: 0, y: 0.1 + 0.1, z: 0 }),
+    {},
+    "matrix",
+    "viewport",
+  );
+  expect(hooks.getSettlerMarker()).toEqual({ id: 2, visible: true });
 });
 
 test("tileToScreen returns null for tiles outside the view", () => {
