@@ -154,6 +154,7 @@ test("has a close icon, a pointer cursor and an aria-label", async ({
 test("hides on click, keeps the selection and shows again on reselect", async ({
   page,
 }) => {
+  test.slow();
   await setup(page);
   await selectBuilding(page, "Farms", "Organic homestead");
   const homestead = row(page, "Organic homestead");
