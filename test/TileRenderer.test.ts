@@ -239,6 +239,12 @@ test("getRiverTiles returns the tiles that hold the river", () => {
   expect(getRiverTiles(tiles)).toEqual([tiles[1]]);
 });
 
+test("getRiverTiles keeps the water below a hydro power plant", () => {
+  const tile = getRiverCourse(GRID_RADIUS)[3];
+  setBuilding(tile, BuildingDefinition.HydroPowerPlant);
+  expect(getRiverTiles([{ q: 0, r: 0 }, tile])).toEqual([tile]);
+});
+
 test("exactly one base mesh per ground material holds the tiles as thin instances", () => {
   const { materials, renderer, meshes, mesh } = setup();
   expect(renderer.tiles).toHaveLength(TILE_COUNT);

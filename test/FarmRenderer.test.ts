@@ -3,6 +3,7 @@ import type { Scene } from "@babylonjs/core";
 
 type FakeInstance = {
   position: { set: ReturnType<typeof vi.fn> };
+  rotation: { y: number };
   isPickable: boolean;
   dispose: ReturnType<typeof vi.fn>;
 };
@@ -30,6 +31,7 @@ vi.mock("@babylonjs/core", () => {
     createInstance() {
       const instance = {
         position: { set: vi.fn() },
+        rotation: { y: 0 },
         isPickable: true,
         dispose: vi.fn(),
       };
@@ -125,6 +127,20 @@ test("all supermarkets share an opaque and a glass mesh", () => {
   expect(second.triangles).toBe(first.triangles);
 });
 
+test("all hydro power plants share one opaque mesh and are turned to the river", () => {
+  meshes.length = 0;
+  const renderer = createFarmRenderer({} as Scene, 1);
+  const first = renderer.create("HydroPowerPlant", { x: 0, z: 0 }, 0.5);
+  const second = renderer.create("HydroPowerPlant", { x: 5, z: 5 });
+  expect(meshes).toHaveLength(1);
+  expect(meshes[0].instances).toHaveLength(2);
+  expect(meshes[0].instances[0].rotation.y).toBe(0.5);
+  expect(meshes[0].instances[1].rotation.y).toBe(0);
+  expect(first.triangles).toBeGreaterThan(0);
+  expect(first.triangles).toBeLessThan(1000);
+  expect(second.triangles).toBe(first.triangles);
+});
+
 test("the template meshes of a type are exposed and built once", () => {
   meshes.length = 0;
   const renderer = createFarmRenderer({} as Scene, 1);
@@ -140,5 +156,6 @@ test("isModelType accepts the farms, the apartment building, the camp and the sa
   expect(isModelType("Farm")).toBe(true);
   expect(isModelType("AppartmentBuilding")).toBe(true);
   expect(isModelType("SettlersCamp")).toBe(true);
+  expect(isModelType("HydroPowerPlant")).toBe(true);
   expect(isModelType("Forest")).toBe(false);
 });

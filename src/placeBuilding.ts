@@ -8,6 +8,7 @@ import type { CornerRenderer } from "./CornerRenderer";
 import { isModelType, type FarmRenderer } from "./FarmRenderer";
 import type { ForestRenderer } from "./ForestRenderer";
 import { hexToPixel, tileKey } from "./hexGeometry";
+import { getHydroPowerPlantRotation } from "./hydroPowerPlant";
 import type { WoodStorageRenderer } from "./WoodStorageRenderer";
 import type { GroundMaterials, TileRenderer } from "./TileRenderer";
 
@@ -37,15 +38,19 @@ export function placeBuilding(
   // the wood storage, compacted earth below production buildings, meadow below
   // everything else
   const category = BuildingTypes[type].category;
-  const ground = underConstruction
-    ? materials.soil
-    : category === "FARM"
-      ? materials.farmland
-      : type === "WoodStorage"
-        ? materials.gravel
-        : category === "PRODUCTION"
-          ? materials.earth
-          : materials.meadow;
+  // the river keeps its water below a hydro power plant, also on its site
+  const ground =
+    type === "HydroPowerPlant"
+      ? materials.water
+      : underConstruction
+        ? materials.soil
+        : category === "FARM"
+          ? materials.farmland
+          : type === "WoodStorage"
+            ? materials.gravel
+            : category === "PRODUCTION"
+              ? materials.earth
+              : materials.meadow;
   // the building replaces trees, previous models and ground on its whole footprint
   for (const tile of getFootprint(coords, radius)) {
     forest.clearTile(tile);
@@ -57,6 +62,13 @@ export function placeBuilding(
   const center = hexToPixel(coords.q, coords.r);
   if (!underConstruction && type === "WoodStorage") {
     models[tileKey(coords)] = woodStorage.create(center);
+  } else if (!underConstruction && type === "HydroPowerPlant") {
+    // the weir lies across the river
+    models[tileKey(coords)] = farms.create(
+      type,
+      center,
+      getHydroPowerPlantRotation(coords),
+    );
   } else if (!underConstruction && isModelType(type)) {
     // models are built from code at scale 1
     models[tileKey(coords)] = farms.create(type, center);

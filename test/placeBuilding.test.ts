@@ -4,7 +4,9 @@ import type { FarmRenderer } from "../src/FarmRenderer";
 import type { ForestRenderer } from "../src/ForestRenderer";
 import type { WoodStorageRenderer } from "../src/WoodStorageRenderer";
 import type { GroundMaterials, TileRenderer } from "../src/TileRenderer";
+import { GRID_RADIUS, getRiverCourse } from "../src/board";
 import { hexToPixel } from "../src/hexGeometry";
+import { getHydroPowerPlantRotation } from "../src/hydroPowerPlant";
 
 vi.mock("@babylonjs/core", () => ({
   Vector3: class {
@@ -34,6 +36,7 @@ function setup() {
     soil: { name: "soil" },
     gravel: { name: "gravel" },
     earth: { name: "earth" },
+    water: { name: "water" },
   } as GroundMaterials;
   const update = vi.fn();
   const createLogYard = vi.fn(() => model);
@@ -82,6 +85,28 @@ test("a supermarket shows its model on a meadow, the gravel is part of the model
   expect(setGrounds.mock.calls[0][1]).toBe(parts.materials.meadow);
   expect(create).toHaveBeenCalledWith("Supermarket", hexToPixel(0, 0));
   expect(models["0,0"]).toBe(model);
+});
+
+test("a hydro power plant keeps the water and is turned to the river", () => {
+  const { parts, create, models, model, setGrounds } = setup();
+  const tile = getRiverCourse(GRID_RADIUS)[3];
+  placeBuilding(tile, "HydroPowerPlant", parts);
+  expect(setGrounds).toHaveBeenCalledWith([tile], parts.materials.water);
+  expect(create).toHaveBeenCalledWith(
+    "HydroPowerPlant",
+    hexToPixel(tile.q, tile.r),
+    getHydroPowerPlantRotation(tile),
+  );
+  expect(models[`${tile.q},${tile.r}`]).toBe(model);
+});
+
+test("a hydro power plant site keeps the water and shows no model", () => {
+  const { parts, create, models, setGrounds } = setup();
+  const tile = getRiverCourse(GRID_RADIUS)[3];
+  placeBuilding(tile, "HydroPowerPlant", parts, true);
+  expect(setGrounds).toHaveBeenCalledWith([tile], parts.materials.water);
+  expect(create).not.toHaveBeenCalled();
+  expect(models).toEqual({});
 });
 
 test("a wood storage under construction shows no model", () => {

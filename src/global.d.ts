@@ -73,6 +73,8 @@ declare global {
       addResources(resources: Partial<Resources>): void;
       // places a finished wood storage (free) without any checks
       addWoodStorage(coords: HexCoordinates): void;
+      // shows the model of a hydro power plant on a river tile without any checks
+      addHydroPowerPlant(coords: HexCoordinates): void;
       // finishes all construction sites at once
       finishConstruction(): void;
     };

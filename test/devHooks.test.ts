@@ -18,6 +18,7 @@ vi.mock("@babylonjs/core", () => {
   return { Vector3, Matrix: { IdentityReadOnly: {} } };
 });
 
+import { GRID_RADIUS, getRiverCourse } from "../src/board";
 import { build } from "../src/game";
 import { createDevHooks } from "../src/devHooks";
 
@@ -150,6 +151,14 @@ test("addWoodStorage builds a finished wood storage and shows it", () => {
   expect(showBuilding).toHaveBeenCalledWith({ q: 8, r: 8 }, "WoodStorage");
   expect(hooks.getBuildingType({ q: 8, r: 8 })).toBe("WoodStorage");
   expect(hooks.isUnderConstruction({ q: 8, r: 8 })).toBe(false);
+});
+
+test("addHydroPowerPlant builds the plant on a river tile and shows it", () => {
+  const { hooks, showBuilding } = setup();
+  const tile = getRiverCourse(GRID_RADIUS)[3];
+  hooks.addHydroPowerPlant(tile);
+  expect(showBuilding).toHaveBeenCalledWith(tile, "HydroPowerPlant");
+  expect(hooks.getBuildingType(tile)).toBe("HydroPowerPlant");
 });
 
 test("tileToScreen scales projected positions to the canvas size", () => {
