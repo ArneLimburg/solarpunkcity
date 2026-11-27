@@ -98,6 +98,35 @@ test("a finished plant yields energy without labor", () => {
   });
 });
 
+test("a wind turbine can be placed on land but not on the river", () => {
+  expect(game.canPlace("WindTurbine", { q: 1, r: 1 })).toBe(true);
+  expect(game.canPlace("WindTurbine", riverTile())).toBe(false);
+  expect(game.canPlace("WindTurbine", { q: 31, r: 0 })).toBe(false);
+  const tile = placeHydro();
+  expect(game.canPlace("WindTurbine", tile)).toBe(false);
+});
+
+test("a finished wind turbine yields 4 energy, a site nothing", () => {
+  const tile = { q: 1, r: 1 };
+  game.grantResources({ wood: 100, labor: 100 });
+  game.build("WindTurbine", tile);
+  expect(game.calculateWeek().energyProduced).toBe(0);
+  board.placeBuilding(tile, definitions.BuildingDefinition.WindTurbine);
+  expect(game.calculateWeek().energyProduced).toBe(4);
+});
+
+test("a sawmill is powered by one finished wind turbine", () => {
+  board.placeBuilding(
+    { q: 1, r: 1 },
+    definitions.BuildingDefinition.WindTurbine,
+  );
+  place(1, definitions.BuildingDefinition.Sawmill);
+  const state = game.calculateWeek();
+  expect(state.energyProduced).toBe(4);
+  expect(state.buildingsWithoutEnergy).toBe(0);
+  expect(state.resources.planks).toBe(2);
+});
+
 test("a new settlement has no energy", () => {
   const state = game.getState();
   expect(state).toMatchObject({

@@ -96,6 +96,11 @@ export const BuildingTypes = {
     icon: "energy/hydro-power-plant.svg",
     label: "Hydro power plant",
   },
+  WindTurbine: {
+    category: "ENERGY",
+    icon: "energy/wind-turbine.svg",
+    label: "Wind turbine",
+  },
   Forest: {
     category: "FOREST",
     icon: "forest/forest.svg",
@@ -237,6 +242,24 @@ export const BuildingDefinition: Record<BuildingType, Building> = {
     maxBuilders: 4,
     produces: { ...emptyResources, energy: 10 },
     consumes: { ...emptyResources }, // fully automated
+  },
+  WindTurbine: {
+    name: "Wind turbine",
+    type: "WindTurbine",
+    description: "Turns the wind into energy",
+    size: 1,
+    resident: 0,
+    ecology: -1, // bird strikes
+    // wood, not planks: planks come from sawmills, which need energy
+    cost: { ...emptyResources, wood: 10, labor: 10 },
+    maxBuilders: 2,
+    // 4 energy is about 24 kW continuous: a small turbine of about 100 kW
+    // with a capacity factor of 20-30 %. Per 10 energy, hydro needs 20 wood,
+    // 15 labor, 1 river tile and changes the ecology by -11; wind needs
+    // 25 wood, 25 labor, 2.5 tiles of land and changes it by about -5.
+    produces: { ...emptyResources, energy: 4 },
+    consumes: { ...emptyResources }, // fully automated
+    recycling: { ...emptyResources, wood: 5 },
   },
   SettlersCamp: {
     name: "Settlers' camp",
