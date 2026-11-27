@@ -82,10 +82,13 @@ export const LAST_NAMES = [
 export const MIN_AGE = 18;
 export const MAX_AGE = 65;
 
+export type Hobby = "Gardening" | "Nature watching";
+
 export type Resident = {
   id: number; // unique within a game, never reused
   clothing: string; // "#rrggbb"
   skin: string; // "#rrggbb"
+  hobby: Hobby; // drawn once when the resident joins
   name: string; // generated once
   age: number; // age in whole years when the resident arrived
   birthDate: number; // UTC time of the birth, generated once
@@ -123,6 +126,9 @@ export function syncRoster(
     const clothing =
       CLOTHING_COLORS[Math.floor(random(roster) * CLOTHING_COLORS.length)];
     const skin = SKIN_TONES[Math.floor(random(roster) * SKIN_TONES.length)];
+    const drawn: Hobby = random(roster) < 0.5 ? "Gardening" : "Nature watching";
+    // the first resident always gardens, so every game has a gardener
+    const hobby: Hobby = id === 1 ? "Gardening" : drawn;
     // name and age use their own numbers: the colors above do not depend on them
     const own = { seed: roster.seed ^ Math.imul(id, 0x9e3779b1) };
     const first = FIRST_NAMES[Math.floor(random(own) * FIRST_NAMES.length)];
@@ -133,6 +139,7 @@ export function syncRoster(
       id,
       clothing,
       skin,
+      hobby,
       name: `${first} ${last}`,
       age,
       birthDate: birthTime(week, age, dayOffset),
@@ -272,6 +279,7 @@ export const PAUSE_MAX = 3; // seconds
 
 export type Walker = {
   id: number;
+  hobby: Hobby; // decides what the settler does during pauses
   seed: number; // own random numbers: movement does not depend on the frame rate
   loop: HexCoordinates[]; // empty: the walker stays where it is
   loopX: number[]; // scene coordinates of the loop's tiles
@@ -309,8 +317,6 @@ export type Activity =
   | "Gardening"
   | "Observing a butterfly"
   | "Idle";
-
-const FLAVORS: Activity[] = ["Gardening", "Observing a butterfly"];
 
 const SQRT3 = Math.sqrt(3);
 
@@ -391,9 +397,14 @@ export function getStandingTile(walker: Walker): HexCoordinates {
 
 // a settler on a random tile of the settlement area (uniformly), on a random
 // spot of its loop
-export function createWalker(id: number, seed: number): Walker {
+export function createWalker(
+  id: number,
+  seed: number,
+  hobby: Hobby = "Gardening",
+): Walker {
   const walker: Walker = {
     id,
+    hobby,
     seed,
     loop: [],
     loopX: [],
@@ -610,9 +621,10 @@ export function getActivity(walker: Walker): Activity {
   if (walker.walking || (walker.task !== undefined && !walker.blocked)) {
     return "Walking";
   }
-  return walker.pause > 0
-    ? FLAVORS[(walker.id + walker.segment) % FLAVORS.length]
-    : "Idle";
+  if (walker.pause > 0) {
+    return walker.hobby === "Gardening" ? "Gardening" : "Observing a butterfly";
+  }
+  return "Idle";
 }
 
 // The shortest route (as tiles, from `from` to the first tile of the

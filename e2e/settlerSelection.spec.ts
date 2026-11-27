@@ -104,6 +104,9 @@ test("a click on a settler opens the profile, marks them and follows them", asyn
   expect(await page.getByTestId("settler-age").textContent()).toMatch(
     /^Age \d+$/,
   );
+  await expect(page.getByTestId("settler-hobby")).toHaveText(
+    "Hobby: Gardening",
+  );
   await expect(page.getByTestId("settler-activity")).toHaveText(
     /^(Walking|Working|Idle|Gardening|Observing a butterfly)$/,
   );
@@ -133,6 +136,9 @@ test("a click on a settler opens the profile, marks them and follows them", asyn
   await clickUntilSelected(page, first.id, "body", click);
   await expect(page.getByTestId("settler-name")).toHaveText(name);
   await expect(page.getByTestId("settler-born")).toHaveText(born);
+  await expect(page.getByTestId("settler-hobby")).toHaveText(
+    "Hobby: Gardening",
+  );
 
   // the activity changes with the pauses
   await expect(page.getByTestId("settler-activity")).toHaveText(

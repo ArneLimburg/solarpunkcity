@@ -297,7 +297,11 @@ export function createSettlerRenderer(
       walkers = residents.map(
         (resident) =>
           known.get(resident.id) ??
-          createWalker(resident.id, seed ^ Math.imul(resident.id, 0x9e3779b1)),
+          createWalker(
+            resident.id,
+            seed ^ Math.imul(resident.id, 0x9e3779b1),
+            resident.hobby,
+          ),
       );
       if (walkers.length > capacity) {
         capacity = Math.max(walkers.length, capacity * 2, MIN_CAPACITY);
