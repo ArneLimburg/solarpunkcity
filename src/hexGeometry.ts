@@ -47,7 +47,8 @@ export function pixelToHex(position: { x: number; z: number }): HexCoordinates {
     rz = -rx - ry;
   }
 
-  return { q: rx, r: rz };
+  // "+ 0" turns -0 into 0
+  return { q: rx + 0, r: rz + 0 };
 }
 
 export function hexToPixel(q: number, r: number): Vector3 {
