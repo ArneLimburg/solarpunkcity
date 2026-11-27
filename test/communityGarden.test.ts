@@ -65,6 +65,13 @@ test("a garden is built on a forest tile in 6 weeks with at most 2 builders", ()
   expect(board.isUnderConstruction(tile)).toBe(false);
 });
 
+test("the construction site needs 4 wood", () => {
+  game.build("CommunityGarden", tile);
+  const [site] = board.getConstructionSites();
+  expect(site.remainingWood).toBe(4);
+  expect(site.remainingWork).toBe(12);
+});
+
 test("a finished garden changes no resource, labor or residents apart from the ecology", async () => {
   // the reference is a week on the untouched board
   const week = () => {
@@ -78,10 +85,12 @@ test("a finished garden changes no resource, labor or residents apart from the e
   game.build("CommunityGarden", tile);
   game.finishConstruction();
   const withGarden = week();
-  const garden = BuildingDefinition.CommunityGarden;
-  // the garden itself neither produces nor consumes anything
-  expect(garden.produces).toEqual(emptyResources);
-  expect(garden.consumes).toEqual(emptyResources);
+  // the garden takes no workers; food is not compared because it depends on
+  // the ecology through the harvest
+  expect(withGarden.workforce).toEqual(reference.workforce);
+  expect(withGarden.freeLaborShare).toBe(reference.freeLaborShare);
+  expect(withGarden.laborFactor).toBe(reference.laborFactor);
+  expect(withGarden.resources.labor).toBe(reference.resources.labor);
   expect(withGarden.population).toBe(reference.population);
   expect(withGarden.residents).toHaveLength(reference.residents.length);
   expect(withGarden.housing).toBe(reference.housing);
