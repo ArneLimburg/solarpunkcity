@@ -20,6 +20,8 @@ import {
   createWindTurbineRenderer,
   type WindTurbineRenderer,
 } from "./WindTurbineRenderer";
+import { APARTMENT_ROTOR_RPM, getApartmentHubPosition } from "./apartment";
+import { ROTOR_RPM, getHubPosition } from "./windTurbine";
 import { createMountainRenderer } from "./MountainRenderer";
 import { createForest, type ForestRenderer } from "./ForestRenderer";
 import {
@@ -107,6 +109,7 @@ export const Map = forwardRef<
     const farmsRef = useRef<FarmRenderer | null>(null);
     const woodStorageRef = useRef<WoodStorageRenderer | null>(null);
     const windTurbinesRef = useRef<WindTurbineRenderer | null>(null);
+    const apartmentRotorsRef = useRef<WindTurbineRenderer | null>(null);
     const cornersRef = useRef<CornerRenderer | null>(null);
     const settlersRef = useRef<SettlerRenderer | null>(null);
     // the residents to show; DEV benchmarks replace them with generated ones
@@ -141,6 +144,7 @@ export const Map = forwardRef<
           farms: farmsRef.current!,
           woodStorage: woodStorageRef.current!,
           windTurbines: windTurbinesRef.current!,
+          apartmentRotors: apartmentRotorsRef.current!,
           tiles: tilesRef.current!,
           materials: materialsRef.current!,
           corners: cornersRef.current!,
@@ -196,6 +200,22 @@ export const Map = forwardRef<
         farmsRef.current,
         HEX_SIZE,
         () => performance.now() / 1000,
+        {
+          type: "WindTurbine",
+          rpm: ROTOR_RPM,
+          hub: getHubPosition(HEX_SIZE),
+        },
+      );
+      apartmentRotorsRef.current = createWindTurbineRenderer(
+        scene,
+        farmsRef.current,
+        HEX_SIZE,
+        () => performance.now() / 1000,
+        {
+          type: "AppartmentBuilding",
+          rpm: APARTMENT_ROTOR_RPM,
+          hub: getApartmentHubPosition(HEX_SIZE),
+        },
       );
       constructionRef.current = createConstructionRenderer(
         scene,
@@ -312,7 +332,8 @@ export const Map = forwardRef<
           showBuilding: (coords, type) => place(coords, type, false),
           getProgressLabel: () => labelText,
           getRotorMatrix: (coords) =>
-            windTurbinesRef.current!.getRotorMatrix(coords),
+            windTurbinesRef.current!.getRotorMatrix(coords) ??
+            apartmentRotorsRef.current!.getRotorMatrix(coords),
           settlers,
           backdrop,
           // shows generated residents instead of the roster; undefined goes back

@@ -1,5 +1,10 @@
 import { expect, test } from "vitest";
-import { getApartmentLayout } from "../src/apartment";
+import {
+  APARTMENT_ROTOR_RPM,
+  getApartmentHubPosition,
+  getApartmentLayout,
+  getApartmentRotorLayout,
+} from "../src/apartment";
 import { buildGeometry } from "../src/farmGeometry";
 import { FarmPalette, rotateY } from "../src/farms";
 
@@ -43,6 +48,30 @@ test("the building is about 1.5 tall with a roof above and within budget", () =>
   for (const color of ["ochre", "darkGlass", "solar", "plant", "wood"]) {
     expect(colors.has(color as never)).toBe(true);
   }
+});
+
+test("the rotor parts at angle 0 complete the previous layout", () => {
+  const rotor = getApartmentRotorLayout(1);
+  expect(rotor).toHaveLength(3);
+  const hub = getApartmentHubPosition(1);
+  const layout = getApartmentLayout(1);
+  // the mast stays in the static layout, the blades are only in the rotor
+  expect(layout[layout.length - 1].shape).toBe("cylinder");
+  expect(layout.some((p) => p.color === "concrete" && p.width === 0.01)).toBe(
+    false,
+  );
+  // blade 0 points up from the hub, 0.03 in front of the mast
+  expect(rotor[0].x).toBeCloseTo(0.33);
+  expect(rotor[0].y).toBeCloseTo(hub.y + 0.14);
+  expect(rotor[0].z).toBeCloseTo(hub.z);
+  expect(getApartmentRotorLayout(2)[0].y).toBeCloseTo(rotor[0].y * 2);
+  expect(getApartmentHubPosition(2).y).toBeCloseTo(hub.y * 2);
+  expect(APARTMENT_ROTOR_RPM).toBe(60);
+});
+
+test("the building with its rotor stays below 1,000 triangles", () => {
+  const all = [...getApartmentLayout(1), ...getApartmentRotorLayout(1)];
+  expect(buildGeometry(all).indices.length / 3).toBeLessThan(1000);
 });
 
 test("the layout scales with the hex size", () => {

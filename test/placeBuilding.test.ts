@@ -54,12 +54,16 @@ function setup() {
   const sites: Record<string, ConstructionSite> = {};
   const createLogYard = vi.fn(() => model);
   const createTurbine = vi.fn(() => model);
+  const createApartment = vi.fn(() => model);
   const parts = {
     corners: { update } as unknown as CornerRenderer,
     forest: { clearTile } as unknown as ForestRenderer,
     farms: { create } as unknown as FarmRenderer,
     woodStorage: { create: createLogYard } as unknown as WoodStorageRenderer,
     windTurbines: { create: createTurbine } as unknown as WindTurbineRenderer,
+    apartmentRotors: {
+      create: createApartment,
+    } as unknown as WindTurbineRenderer,
     tiles: { setGrounds } as unknown as TileRenderer,
     materials,
     models,
@@ -78,6 +82,7 @@ function setup() {
     create,
     createLogYard,
     createTurbine,
+    createApartment,
     models,
     update,
     setGrounds,
@@ -116,6 +121,24 @@ test("a wind turbine is shown by the wind turbine renderer on a meadow", () => {
   expect(createTurbine).toHaveBeenCalledWith({ q: 1, r: 2 }, hexToPixel(1, 2));
   expect(create).not.toHaveBeenCalled();
   expect(models["1,2"]).toBe(model);
+});
+
+test("a finished apartment building has a turning rooftop rotor, a site does not", () => {
+  const { parts, create, createApartment, createSite, models, model } = setup();
+  placeBuilding({ q: 1, r: 2 }, "AppartmentBuilding", parts);
+  expect(createApartment).toHaveBeenCalledWith(
+    { q: 1, r: 2 },
+    hexToPixel(1, 2),
+  );
+  expect(create).not.toHaveBeenCalled();
+  expect(models["1,2"]).toBe(model);
+  placeBuilding({ q: 3, r: 2 }, "AppartmentBuilding", parts, true);
+  expect(createApartment).toHaveBeenCalledTimes(1);
+  expect(createSite).toHaveBeenCalledWith(
+    "AppartmentBuilding",
+    hexToPixel(3, 2),
+    0,
+  );
 });
 
 test("a wind turbine site shows a blueprint, no turbine", () => {

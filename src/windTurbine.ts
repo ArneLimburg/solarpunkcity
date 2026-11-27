@@ -118,8 +118,9 @@ export function getRotorMatrix(
   center: { x: number; z: number },
   angle: number,
   hexSize: number,
+  // the axis (parallel to X) through the hub: its height and Z offset
+  hub: { y: number; z: number } = getHubPosition(hexSize),
 ): number[] {
-  const hub = getHubPosition(hexSize);
   const cos = Math.cos(angle);
   const sin = Math.sin(angle);
   // rotation around the axis through the hub, then the move to the tile
@@ -137,8 +138,8 @@ export function getRotorMatrix(
     cos,
     0,
     center.x,
-    TILE_TOP + hub.y - hub.y * cos,
-    center.z - hub.y * sin,
+    TILE_TOP + hub.y - (hub.y * cos - hub.z * sin),
+    center.z + hub.z - (hub.y * sin + hub.z * cos),
     1,
   ];
 }

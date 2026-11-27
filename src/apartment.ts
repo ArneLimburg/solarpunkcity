@@ -74,38 +74,67 @@ function roof(): FarmPart[] {
   ];
 }
 
-function windTurbine(): FarmPart[] {
-  const hub: [number, number, number] = [0.3, HEIGHT + ROOF_HEIGHT + 0.5, 0.05];
-  const length = 0.28;
-  const blades = [0, 1, 2].map((i) => {
-    const angle = (i * 2 * Math.PI) / 3;
-    return part(
-      "box",
-      "concrete",
-      [
-        hub[0] + 0.03,
-        hub[1] + (Math.cos(angle) * length) / 2,
-        hub[2] + (Math.sin(angle) * length) / 2,
-      ],
-      [0.01, length, 0.04],
-      0,
-      angle,
-    );
-  });
+const HUB: [number, number, number] = [0.3, HEIGHT + ROOF_HEIGHT + 0.5, 0.05];
+
+// small rooftop turbines spin faster than the wind turbines
+export const APARTMENT_ROTOR_RPM = 60;
+
+// The axis of the rooftop rotor (parallel to X): its height and Z offset
+// relative to the tile top and center.
+export function getApartmentHubPosition(hexSize: number) {
+  return { y: HUB[1] * hexSize, z: HUB[2] * hexSize };
+}
+
+// the mast of the rooftop turbine
+function mast(): FarmPart[] {
   return [
     part(
       "cylinder",
       "concrete",
-      [hub[0], HEIGHT + ROOF_HEIGHT + 0.25, hub[2]],
+      [HUB[0], HEIGHT + ROOF_HEIGHT + 0.25, HUB[2]],
       [0.04, 0.5, 0.04],
     ),
-    ...blades,
   ];
 }
 
-// Parts of the apartment building relative to its tile. Pure and
-// deterministic. hexSize is the side length of a hex; the parts are designed
-// for 1.
+const scale = (parts: FarmPart[], hexSize: number): FarmPart[] =>
+  parts.map((p) => ({
+    ...p,
+    x: p.x * hexSize,
+    y: p.y * hexSize,
+    z: p.z * hexSize,
+    width: p.width * hexSize,
+    height: p.height * hexSize,
+    depth: p.depth * hexSize,
+  }));
+
+// The three blades of the rooftop turbine at angle 0. Pure and deterministic.
+// The apartment renderer turns them around the axis through the hub.
+export function getApartmentRotorLayout(hexSize: number): FarmPart[] {
+  const length = 0.28;
+  return scale(
+    [0, 1, 2].map((i) => {
+      const angle = (i * 2 * Math.PI) / 3;
+      return part(
+        "box",
+        "concrete",
+        [
+          HUB[0] + 0.03,
+          HUB[1] + (Math.cos(angle) * length) / 2,
+          HUB[2] + (Math.sin(angle) * length) / 2,
+        ],
+        [0.01, length, 0.04],
+        0,
+        angle,
+      );
+    }),
+    hexSize,
+  );
+}
+
+// Static parts of the apartment building (without the rotor) relative to its
+// tile. Pure and deterministic. hexSize is the side length of a hex; the parts
+// are designed for 1.
 export function getApartmentLayout(hexSize: number): FarmPart[] {
   const parts = [
     part("box", "ochre", [0, HEIGHT / 2, 0], [TOWER, HEIGHT, TOWER]),
@@ -117,15 +146,7 @@ export function getApartmentLayout(hexSize: number): FarmPart[] {
     ...roof(),
     ...deciduousTree(-0.25, HEIGHT + 0.06, -0.28),
     ...deciduousTree(0.05, HEIGHT + 0.06, -0.28),
-    ...windTurbine(),
+    ...mast(),
   ];
-  return parts.map((p) => ({
-    ...p,
-    x: p.x * hexSize,
-    y: p.y * hexSize,
-    z: p.z * hexSize,
-    width: p.width * hexSize,
-    height: p.height * hexSize,
-    depth: p.depth * hexSize,
-  }));
+  return scale(parts, hexSize);
 }

@@ -1,10 +1,19 @@
 import { expect, test, vi } from "vitest";
 import type { Scene } from "@babylonjs/core";
 import type { FarmRenderer } from "../src/FarmRenderer";
-import { createWindTurbineRenderer } from "../src/WindTurbineRenderer";
+import {
+  createWindTurbineRenderer,
+  type RotorOptions,
+} from "../src/WindTurbineRenderer";
 import { getRotorAngle, getRotorMatrix } from "../src/windTurbine";
 
-function setup() {
+const TURBINE: RotorOptions = {
+  type: "WindTurbine",
+  rpm: 30,
+  hub: { y: 1.7, z: 0 },
+};
+
+function setup(options: RotorOptions = TURBINE) {
   const instances: {
     position: { set: ReturnType<typeof vi.fn> };
     isPickable: boolean;
@@ -41,7 +50,13 @@ function setup() {
     },
   } as unknown as Scene;
   let time = 0;
-  const renderer = createWindTurbineRenderer(scene, farms, 1, () => time);
+  const renderer = createWindTurbineRenderer(
+    scene,
+    farms,
+    1,
+    () => time,
+    options,
+  );
   return {
     renderer,
     tower,
@@ -101,7 +116,9 @@ test("the rotors turn with the time and every frame updates the buffer", () => {
   const before = renderer.getRotorMatrix(a);
   expect(before).toEqual(
     Array.from(
-      new Float32Array(getRotorMatrix({ x: 1, z: 2 }, getRotorAngle(a, 0), 1)),
+      new Float32Array(
+        getRotorMatrix({ x: 1, z: 2 }, getRotorAngle(a, 0, 30), 1, TURBINE.hub),
+      ),
     ),
   );
   const updates = rotor.thinInstanceBufferUpdated.mock.calls.length;
@@ -110,6 +127,30 @@ test("the rotors turn with the time and every frame updates the buffer", () => {
   expect(renderer.getRotorMatrix(a)).not.toEqual(before);
   expect(renderer.getRotorMatrix(b)).toHaveLength(16);
   expect(renderer.getRotorMatrix(a)).not.toEqual(renderer.getRotorMatrix(b));
+});
+
+test("rooftop rotors turn with their own speed around their own axis", () => {
+  const options: RotorOptions = {
+    type: "AppartmentBuilding",
+    rpm: 60,
+    hub: { y: 1.5, z: 0.05 },
+  };
+  const { renderer, frame } = setup(options);
+  const a = { q: 0, r: 0 };
+  renderer.create(a, { x: 1, z: 2 });
+  frame(0.25);
+  expect(renderer.getRotorMatrix(a)).toEqual(
+    Array.from(
+      new Float32Array(
+        getRotorMatrix(
+          { x: 1, z: 2 },
+          getRotorAngle(a, 0.25, 60),
+          1,
+          options.hub,
+        ),
+      ),
+    ),
+  );
 });
 
 test("without turbines a frame changes nothing and there is no rotor matrix", () => {
