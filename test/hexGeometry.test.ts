@@ -37,6 +37,10 @@ test("the hex corners form a flat-top hexagon", () => {
   expect(corners[0].x).toBeCloseTo(Math.cos(Math.PI / 6));
 });
 
+test("pixelToHex never returns negative zero", () => {
+  expect(pixelToHex({ x: -0.001, z: -0.001 })).toEqual({ q: 0, r: 0 });
+});
+
 test("pixelToHex inverts hexToPixel for all board tiles", () => {
   let count = 0;
   for (let q = -GRID_RADIUS; q <= GRID_RADIUS; q++) {
