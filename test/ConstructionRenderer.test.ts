@@ -116,6 +116,15 @@ test("the progress line rises with the percentage of the highest mesh", () => {
   expect(blueprint.material!.clipPlane).toMatchObject({ b: -1, d: level });
 });
 
+test("an unchanged progress keeps the clip planes", () => {
+  const { farm, renderer } = setup();
+  const site = renderer.create("Farm", { x: 0, z: 0 }, 0);
+  site.setProgress(50);
+  const plane = farm.clones[0].material!.clipPlane;
+  site.setProgress(50);
+  expect(farm.clones[0].material!.clipPlane).toBe(plane);
+});
+
 test("sites have their own materials and progress", () => {
   const { farm, renderer } = setup();
   const first = renderer.create("Farm", { x: 0, z: 0 }, 0);
