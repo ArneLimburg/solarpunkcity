@@ -157,8 +157,8 @@ function getResourcesAfterClearing(
   return resources;
 }
 
-// the capacity of a resource is the storage of all finished buildings; only
-// wood and planks are capped so far, everything else is unlimited
+// the capacity of a resource is the storage of all finished buildings; wood,
+// planks and food are capped, everything else is unlimited
 export function getCapacity(): Resources {
   return getBuildings().reduce(
     (capacity, building) =>
@@ -234,6 +234,7 @@ export function build(buildingType: BuildingType, coords: HexCoordinates) {
     currentResources.wood = Math.min(currentResources.wood, capacity.wood);
   }
   currentResources.planks = Math.min(currentResources.planks, capacity.planks);
+  currentResources.food = Math.min(currentResources.food, capacity.food);
   // the surplus wood goes to the other sites, the sawmills and the storage;
   // the rest is lost
   const sawmills = getPlacedBuildings()
@@ -471,10 +472,13 @@ function calculateDevelopment() {
   // stays a buffer
   const harvestFactor = getHarvestFactor();
   let producedFood = 0;
-  // demand plus the growth that the food stock does not cover
+  // demand plus the growth or the free storage space (whichever is more) that
+  // the food stock does not cover
   const possibleGrowth = getPossibleGrowth();
+  const foodCapacity = getCapacity().food;
   const foodTarget =
-    startPopulation + Math.max(0, possibleGrowth - currentResources.food);
+    startPopulation +
+    Math.max(0, Math.max(possibleGrowth, foodCapacity) - currentResources.food);
   for (const placed of getFoodBuildingsByEfficiency()) {
     const { building } = placed;
     const needed = building.consumes.labor;
@@ -524,7 +528,7 @@ function calculateDevelopment() {
       ...(workers === 0 && { status: "no-workers" as const }),
     });
   }
-  // TODO food should spoil later; storage buildings (storage capacity) may be needed
+  // TODO food should spoil later
   const foodWorkers = startPopulation - labor;
   const availableFood = currentResources.food + producedFood;
   currentFoodBalance = producedFood - startPopulation;
@@ -536,9 +540,10 @@ function calculateDevelopment() {
     labor = Math.min(labor, currentPopulation);
   } else {
     const leftFood = availableFood - startPopulation;
-    currentResources.food = leftFood;
-    // new residents work from next week on
+    // new residents work from next week on; growth looks at the food before
+    // capping, the food above the capacity is lost
     currentPopulation += Math.min(possibleGrowth, Math.floor(leftFood));
+    currentResources.food = Math.min(leftFood, foodCapacity);
   }
   syncRoster(roster, currentPopulation); // newcomers are added, the newest leave first
   updateHomes();

@@ -102,6 +102,7 @@ test("buildable categories and building types have display labels", () => {
     "Agro-industrial Farm",
     "Apartment building",
     "Wood storage",
+    "Supermarket",
     "Sawmill",
     "Hydro power plant",
     undefined,

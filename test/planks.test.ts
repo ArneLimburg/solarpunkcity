@@ -260,6 +260,11 @@ test("the workforce counts sawmill workers as production, not forestry", () => {
   );
   addSawmill();
   addWoodStorage();
+  // the food stock for the growth needs a supermarket
+  board.setBuilding(
+    { q: -10, r: 0 },
+    definitions.BuildingDefinition.Supermarket,
+  );
   game.grantResources({ food: 1000 });
   while (game.getState().population < 5) {
     game.calculateWeek();

@@ -13,6 +13,12 @@ beforeEach(async () => {
   // a game starts without food; these tests are about wood and need the
   // residents to survive without the camp
   game.grantResources({ food: 10 });
+  // food is only kept up to the capacity: a forest with room for it
+  const forest = definitions.BuildingDefinition.Forest;
+  board.setBuilding(
+    { q: 0, r: -30 },
+    { ...forest, storage: { ...forest.produces, wood: 0, food: 10 } },
+  );
 });
 
 // a construction site that gets no builders, so only its wood supply changes

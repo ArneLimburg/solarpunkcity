@@ -34,14 +34,14 @@ export function placeBuilding(
     parts;
   const radius = getFootprintRadius(BuildingDefinition[type].size);
   // bare soil below construction sites, farmland below farms, gravel below
-  // storages, compacted earth below production buildings, meadow below
+  // the wood storage, compacted earth below production buildings, meadow below
   // everything else
   const category = BuildingTypes[type].category;
   const ground = underConstruction
     ? materials.soil
     : category === "FARM"
       ? materials.farmland
-      : category === "STORAGE"
+      : type === "WoodStorage"
         ? materials.gravel
         : category === "PRODUCTION"
           ? materials.earth

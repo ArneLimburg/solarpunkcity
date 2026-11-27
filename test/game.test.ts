@@ -43,6 +43,22 @@ function testBuilding(overrides: Partial<Building>): Building {
   };
 }
 
+// replaces the storage of the setup by one that also holds the given food;
+// food is only kept up to the capacity, a game starts without any
+function storeFood(food: number, ecology = 1) {
+  board.setBuilding(
+    { q: 0, r: -30 },
+    testBuilding({
+      ecology,
+      storage: {
+        ...definitions.BuildingDefinition.Forest.produces,
+        wood: 1000,
+        food,
+      },
+    }),
+  );
+}
+
 function expectNoNegative(resources: Resources) {
   for (const value of Object.values(resources)) {
     expect(value).toBeGreaterThanOrEqual(0);
@@ -237,6 +253,7 @@ test("ecology counts every footprint tile", () => {
 });
 
 test("build without recycling only pays the cost", () => {
+  storeFood(10);
   board.setBuilding({ q: 1, r: 0 }, testBuilding({}));
   game.grantResources({ wood: 10 });
   game.build("OrganicHomestead", { q: 1, r: 0 });
@@ -248,6 +265,7 @@ test("build without recycling only pays the cost", () => {
 });
 
 test("build recycles the old building", () => {
+  storeFood(10);
   game.grantResources({ wood: 10 });
   game.build("OrganicHomestead", { q: 1, r: 0 });
   // the recycled 3 wood are in the site; the 2 builders use 2 of them
@@ -275,6 +293,7 @@ test("a fresh game starts with 0 food and a balance of 0", () => {
 
 test("food buildings are staffed for the possible growth without stock", () => {
   game.grantResources({ food: -10 });
+  storeFood(3);
   board.setBuilding({ q: 0, r: 0 }, { ...farm(20, 4), resident: 5 });
   // demand 2 + possible growth 1 = 3 food, 5 per worker -> 1 worker;
   // the farm produces 5, 3 are left after eating: growth 1, stock 3
@@ -309,12 +328,14 @@ function farm(food: number, labor: number) {
 }
 
 test("residents eat population x 1 food per week", () => {
+  storeFood(10);
   const { resources, foodBalance } = game.calculateWeek();
   expect(resources.food).toBe(8);
   expect(foodBalance).toBe(-2);
 });
 
 test("farms produce at full capacity into the stock", () => {
+  storeFood(13);
   board.setBuilding({ q: 0, r: 0 }, farm(5, 1));
   const { resources, foodBalance } = game.calculateWeek();
   expect(resources.food).toBe(13); // 10 + 5 - 2
@@ -323,6 +344,7 @@ test("farms produce at full capacity into the stock", () => {
 
 test("farm output depends on the harvest factor", () => {
   replaceTiles(board.getBuildings().length, testBuilding({ ecology: 0.5 }));
+  storeFood(10, 0.5);
   board.setBuilding({ q: 0, r: 0 }, { ...farm(4, 1), ecology: 0.5 });
   const { resources, foodBalance } = game.calculateWeek();
   expect(resources.food).toBe(10); // 10 + 4 * 0.5 - 2
@@ -330,6 +352,7 @@ test("farm output depends on the harvest factor", () => {
 });
 
 test("a farm only takes the workers needed for the demand", () => {
+  storeFood(13);
   board.setBuilding({ q: 0, r: 0 }, farm(20, 4));
   // demand 2, 5 food per worker -> 1 worker; the other one works in a forest
   const { resources, foodBalance } = game.calculateWeek();
@@ -347,6 +370,7 @@ test("a farm with 3 of 4 workers produces 3 of 4 of its food", () => {
 });
 
 test("food buildings are staffed by efficiency", () => {
+  storeFood(15.5);
   board.setBuilding({ q: -1, r: 0 }, farm(3, 2));
   board.setBuilding({ q: 1, r: 0 }, farm(7.5, 1));
   // the efficient building needs 1 worker and covers the demand alone
@@ -366,6 +390,7 @@ test("the harvest factor is taken into account for the worker count", () => {
 });
 
 test("food buildings that cannot cover the demand take all labor they use", () => {
+  storeFood(10);
   board.setBuilding({ q: 0, r: 0 }, farm(1, 4));
   const { foodBalance, resources } = game.calculateWeek();
   expect(foodBalance).toBeCloseTo(-1.5); // 2 of 4 workers: 0.5 food
@@ -430,6 +455,7 @@ test("growth is limited by housing", () => {
 
 test("growth is limited by satisfaction", () => {
   replaceTiles(board.getBuildings().length, testBuilding({ ecology: 0 }));
+  storeFood(10, 0);
   board.setBuilding(
     { q: 0, r: 0 },
     testBuilding({ resident: 100, ecology: 0 }),
@@ -691,6 +717,7 @@ test("a construction site gives no housing, no ecology and cannot be built over"
 });
 
 test("an organic homestead is finished after 2 weeks and produces from week 3", () => {
+  storeFood(10);
   game.build("OrganicHomestead", { q: 0, r: 0 });
   const week1 = game.calculateWeek();
   expect(week1.constructionSites).toBe(1);
