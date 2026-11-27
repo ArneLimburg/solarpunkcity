@@ -137,6 +137,28 @@ test("energy goes to food producers first, then in placement order", () => {
   expect(state.resources.energy).toBe(0);
 });
 
+test("a food producer is supplied before an earlier sawmill", () => {
+  const { Sawmill } = definitions.BuildingDefinition;
+  placeHydro();
+  const sawmill = place(1, {
+    ...Sawmill,
+    consumes: { ...Sawmill.consumes, energy: 8 },
+  });
+  const food = place(
+    2,
+    consumer(5, { produces: { ...consumer(0).produces, food: 1 } }),
+  );
+  const result = game.distributeEnergy();
+  expect(result).toMatchObject({
+    produced: 10,
+    used: 5,
+    surplus: 5,
+    deficit: 8,
+  });
+  expect([...result.unpowered]).toEqual([sawmill]);
+  expect(result.unpowered.has(food)).toBe(false);
+});
+
 test("energy does not carry over", () => {
   placeHydro();
   place(1, consumer(4));
