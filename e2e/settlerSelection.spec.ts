@@ -1,6 +1,12 @@
 import type { Page } from "@playwright/test";
 import { test, expect } from "./fixtures";
-import { buildingAt, grantWood, seedRandom, selectBuilding } from "./helpers";
+import {
+  buildingAt,
+  grantWood,
+  installClockWithNativeFrames,
+  seedRandom,
+  selectBuilding,
+} from "./helpers";
 
 const profile = (page: Page) => page.getByTestId("settler-profile");
 const marker = (page: Page) =>
@@ -89,8 +95,11 @@ test("a click on a settler opens the profile, marks them and follows them", asyn
   await expect(profile(page)).toBeVisible();
   expect(await marker(page)).toEqual({ id: first.id, visible: true });
   const name = (await page.getByTestId("settler-name").textContent())!;
-  const age = (await page.getByTestId("settler-age").textContent())!;
-  expect(age).toMatch(/^\d+ years$/);
+  const born = (await page.getByTestId("settler-born").textContent())!;
+  expect(born).toMatch(/^Born \d{1,2} [A-Z][a-z]{2} \d{4}$/);
+  expect(await page.getByTestId("settler-age").textContent()).toMatch(
+    /^Age \d+$/,
+  );
   await expect(page.getByTestId("settler-activity")).toHaveText(
     /^(Walking|Idle)$/,
   );
@@ -119,7 +128,7 @@ test("a click on a settler opens the profile, marks them and follows them", asyn
   expect(await marker(page)).toEqual({ id: undefined, visible: false });
   await clickUntilSelected(page, first.id, "body", click);
   await expect(page.getByTestId("settler-name")).toHaveText(name);
-  await expect(page.getByTestId("settler-age")).toHaveText(age);
+  await expect(page.getByTestId("settler-born")).toHaveText(born);
 
   // the activity changes with the pauses
   await expect(page.getByTestId("settler-activity")).toHaveText("Idle", {
@@ -153,6 +162,48 @@ test("the profile and the marker go when the resident leaves", async ({
   await page.evaluate(() => window.__solarpunk!.addResources({ food: -10000 }));
   await expect(profile(page)).toHaveCount(0);
   expect((await marker(page)).visible).toBe(false);
+});
+
+test("an open profile shows the new age on the birthday", async ({ page }) => {
+  test.setTimeout(240_000);
+  await installClockWithNativeFrames(page); // the weekly ticks are run by hand
+  await start(page);
+  const [first] = await getSettlers(page);
+  await clickUntilSelected(page, first.id, "body", (x, y) =>
+    mouseClick(page, x, y),
+  );
+  const age = page.getByTestId("settler-age");
+  await expect(age).toHaveText(/^Age \d+$/);
+  const years = Number((await age.textContent())!.slice(4));
+  const born = (await page.getByTestId("settler-born").textContent())!.slice(5);
+  const today = (await page.getByTestId("hud-date-button").textContent())!;
+  const day = 24 * 60 * 60 * 1000;
+  const birth = new Date(`${born} UTC`);
+  // the next birthday (29 February counts as 28 February in other years)
+  const year = new Date(`${today} UTC`).getUTCFullYear();
+  let birthday = Date.UTC(year, birth.getUTCMonth(), birth.getUTCDate());
+  if (new Date(birthday).getUTCMonth() !== birth.getUTCMonth()) {
+    birthday -= day;
+  }
+  const ticks = (from: string, to: number) =>
+    Math.ceil((to - new Date(`${from} UTC`).getTime()) / (7 * day));
+  let weeks = ticks(today, birthday);
+  if (weeks <= 0) {
+    // the birthday of this year has passed: the next one is in the next year
+    const next = new Date(birthday);
+    birthday = Date.UTC(year + 1, next.getUTCMonth(), next.getUTCDate());
+    weeks = ticks(today, birthday);
+  }
+  expect(weeks).toBeGreaterThan(0);
+
+  // the tick before the birthday keeps the age, the next one is older
+  if (weeks > 1) {
+    await page.clock.runFor((weeks - 1) * 1000);
+  }
+  await expect(age).toHaveText(`Age ${years}`);
+  await page.clock.runFor(1000);
+  await expect(age).toHaveText(`Age ${years + 1}`);
+  await expect(profile(page)).toBeVisible();
 });
 
 test("dragging does not select a settler, the build mode does not either", async ({

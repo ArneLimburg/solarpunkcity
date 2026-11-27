@@ -1,6 +1,7 @@
 import { beforeEach, expect, test, vi } from "vitest";
 import type { HexCoordinates } from "../src/board";
 import type { Walker } from "../src/settlers";
+import { ageInWeek } from "../src/calendar";
 import { hexToPixel, pixelToHex } from "../src/hexGeometry";
 
 let board: typeof import("../src/board");
@@ -112,6 +113,31 @@ test("residents get a name and a starting age once, for good", () => {
   expect(settlers.syncRoster(roster, 30).slice(0, 10)).toEqual(
     first.slice(0, 10),
   );
+});
+
+test("residents are as old as generated on the day of joining, starting settlers and newcomers", () => {
+  const roster = settlers.createRoster(11);
+  const starters = settlers.syncRoster(roster, 20, 0);
+  for (const { age, birthDate } of starters) {
+    expect(ageInWeek(birthDate, 0)).toBe(age);
+  }
+  const all = settlers.syncRoster(roster, 40, 37);
+  for (const { age, birthDate } of all.slice(20)) {
+    expect(ageInWeek(birthDate, 37)).toBe(age);
+  }
+});
+
+test("birth dates are deterministic for a seed and do not change over ticks", () => {
+  const a = settlers.syncRoster(settlers.createRoster(9), 30, 5);
+  const b = settlers.syncRoster(settlers.createRoster(9), 30, 5);
+  expect(a.map(({ birthDate }) => birthDate)).toEqual(
+    b.map(({ birthDate }) => birthDate),
+  );
+  expect(new Set(a.map(({ birthDate }) => birthDate)).size).toBeGreaterThan(20);
+  const roster = settlers.createRoster(9);
+  const first = settlers.syncRoster(roster, 10, 0);
+  const later = settlers.syncRoster(roster, 10, 99);
+  expect(later).toEqual(first);
 });
 
 test("random numbers are in [0, 1) and differ per seed", () => {

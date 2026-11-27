@@ -1,16 +1,18 @@
 import { useEffect, useState, type FC } from "react";
 import type { HexCoordinates, PlacedBuilding } from "./board";
+import { ageInWeek, formatShortTime } from "./calendar";
 import type { Resident } from "./settlers";
 
 const REFRESH_MS = 200;
 
 export const SettlerProfile: FC<{
   resident: Resident;
+  week: number; // the current in-game week
   home: PlacedBuilding | undefined;
   getActivity: (id: number) => "Walking" | "Idle" | undefined;
   onOpenHome: (center: HexCoordinates) => void;
   onClose: () => void;
-}> = ({ resident, home, getActivity, onOpenHome, onClose }) => {
+}> = ({ resident, week, home, getActivity, onOpenHome, onClose }) => {
   // the activity changes with the animation, not with the game state
   const [activity, setActivity] = useState(() => getActivity(resident.id));
   useEffect(() => {
@@ -27,7 +29,10 @@ export const SettlerProfile: FC<{
             {resident.name}
           </h6>
           <div className="small-text" data-testid="settler-age">
-            {resident.age} years
+            Age {ageInWeek(resident.birthDate, week)}
+          </div>
+          <div className="small-text" data-testid="settler-born">
+            Born {formatShortTime(resident.birthDate)}
           </div>
           <div className="small-text" data-testid="settler-activity">
             {activity}
