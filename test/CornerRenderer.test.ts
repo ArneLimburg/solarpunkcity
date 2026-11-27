@@ -73,6 +73,7 @@ vi.mock("../src/TileRenderer", () => ({
 }));
 
 import { createCornerRenderer } from "../src/CornerRenderer";
+import { CORNER_SEGMENTS } from "../src/hexCorners";
 import { GRID_RADIUS, isOnBoard, type HexCoordinates } from "../src/board";
 
 const scene = {} as Scene;
@@ -122,7 +123,9 @@ test("one non-pickable corner mesh per material shares the corner piece shape", 
   // only the water corners lie below the land
   expect(meshes.map((m) => m.position.y)).toEqual([0, 0, 0, -0.05, 0]);
   expect(meshes.every((m) => !m.isPickable)).toBe(true);
-  expect(meshes.every((m) => m.shape.length === 6)).toBe(true);
+  expect(meshes.every((m) => m.shape.length === CORNER_SEGMENTS + 2)).toBe(
+    true,
+  );
 });
 
 test("on the all-forest board the corners are filled except the outermost", () => {

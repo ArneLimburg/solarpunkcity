@@ -148,6 +148,7 @@ import {
 } from "../src/board";
 import { BuildingDefinition } from "../src/gameDefinitions";
 import { getTileRotation } from "../src/forest";
+import { CORNER_SEGMENTS } from "../src/hexCorners";
 import { TILE_TOP, hexToPixel } from "../src/hexGeometry";
 import {
   createGroundMaterials,
@@ -246,14 +247,20 @@ test("exactly one base mesh per ground material holds the tiles as thin instance
   const template = meshes.find((m) => m.name === "tileTemplate")!;
   expect(template.isPickable).toBe(false);
   expect(template.isVisible).toBe(false);
-  // 6 rounded corners with 4 segments, i.e. 5 points each
-  expect(template.shape).toHaveLength(30);
-  // the bottom cap (the second 28 triangles) is dropped
-  expect(template.indices).toHaveLength((116 - 28) * 3);
-  expect(template.indices.slice(0, 84)).toEqual(
-    Array.from({ length: 84 }, (_, i) => i),
+  // 6 rounded corners with CORNER_SEGMENTS + 1 points each
+  const points = 6 * (CORNER_SEGMENTS + 1);
+  expect(template.shape).toHaveLength(points);
+  // the bottom cap (the second points - 2 triangles) is dropped
+  const cap = (points - 2) * 3;
+  expect(template.indices).toHaveLength(116 * 3 - cap);
+  expect(template.indices.slice(0, cap)).toEqual(
+    Array.from({ length: cap }, (_, i) => i),
   );
-  expect(template.indices.slice(84, 87)).toEqual([168, 169, 170]);
+  expect(template.indices.slice(cap, cap + 3)).toEqual([
+    2 * cap,
+    2 * cap + 1,
+    2 * cap + 2,
+  ]);
 
   const tileMeshes = meshes.filter((m) => m.name.startsWith("tile_"));
   for (const material of Object.values(materials)) {
