@@ -31,7 +31,7 @@ import { createRoster, syncRoster, type Resident } from "./settlers";
 export const INITIAL_RESOURCES: Resources = {
   ...emptyResources,
   wood: 0,
-  food: 10,
+  food: 0,
 };
 let currentResources: Resources = { ...INITIAL_RESOURCES };
 export const INITIAL_POPULATION = 2;
@@ -336,11 +336,11 @@ function getAvailableHousing(): number {
   return availableHousing;
 }
 
-function getGrowth(): number {
+// growth that satisfaction and housing allow, regardless of food
+function getPossibleGrowth(): number {
   const growth = Math.min(
     Math.ceil((currentPopulation * 0.1 * getSatisfaction()) / 100),
     getAvailableHousing() - currentPopulation,
-    Math.floor(currentResources.food),
   );
   return Math.max(growth, 0);
 }
@@ -366,6 +366,10 @@ function calculateDevelopment() {
   // as this week's demand needs; the food stock stays a buffer
   const harvestFactor = getHarvestFactor();
   let producedFood = 0;
+  // demand plus the growth that the food stock does not cover
+  const possibleGrowth = getPossibleGrowth();
+  const foodTarget =
+    startPopulation + Math.max(0, possibleGrowth - currentResources.food);
   for (const placed of getFoodBuildingsByEfficiency()) {
     const { building } = placed;
     const needed = building.consumes.labor;
@@ -379,7 +383,7 @@ function calculateDevelopment() {
       });
       continue;
     }
-    const missingFood = startPopulation - producedFood;
+    const missingFood = foodTarget - producedFood;
     if (missingFood <= 0) {
       // the demand is covered, the remaining buildings get no workers
       reports.set(placed, {
@@ -417,8 +421,10 @@ function calculateDevelopment() {
     currentPopulation = Math.max(1, Math.floor(availableFood));
     labor = Math.min(labor, currentPopulation);
   } else {
-    currentResources.food = availableFood - startPopulation;
-    currentPopulation += getGrowth(); // new residents work from next week on
+    const leftFood = availableFood - startPopulation;
+    currentResources.food = leftFood;
+    // new residents work from next week on
+    currentPopulation += Math.min(possibleGrowth, Math.floor(leftFood));
   }
   syncRoster(roster, currentPopulation); // newcomers are added, the newest leave first
   const constructionWorkers = construct(labor);

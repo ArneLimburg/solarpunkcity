@@ -99,7 +99,7 @@ test("the HUD shows population, food and wood and no status bar remains", async 
   await expect(page.getByTestId("status-bar")).toHaveCount(0);
   await expect(page.getByTestId("status-population")).toContainText("2");
   const food = page.getByTestId("status-food");
-  await expect(food).toHaveText(/^restaurant10 \(\+0\/wk\)$/);
+  await expect(food).toHaveText(/^restaurant0 \(\+0\/wk\)$/);
   await expect(food).not.toHaveClass(/error/);
   const wood = page.getByTestId("status-wood");
   await expect(wood).toContainText("0 / 0");
@@ -113,6 +113,8 @@ test("food entry is marked as error when the balance is negative", async ({
   await page.goto("./");
   await page.waitForFunction(() => window.__solarpunk !== undefined);
   await grantWood(page);
+  // a food stock keeps the residents alive after the camp is gone
+  await page.evaluate(() => window.__solarpunk?.addResources({ food: 10 }));
   const food = page.getByTestId("status-food");
   // the settlers' camp feeds the 2 residents
   await expect(food).not.toHaveClass(/error/);
@@ -165,7 +167,7 @@ test("the Workers dropdown shows no report before the first week", async ({
   await expect(panel).toContainText("Last week");
   await expect(panel).toContainText("No weekly report yet");
   // opening a dropdown does not advance the week
-  await expect(page.getByTestId("status-food")).toContainText("10 (+0/wk)");
+  await expect(page.getByTestId("status-food")).toContainText("0 (+0/wk)");
 });
 
 test("the Workers dropdown lists the workforce of the last week", async ({

@@ -10,6 +10,9 @@ beforeEach(async () => {
   board = await import("../src/board");
   game = await import("../src/game");
   definitions = await import("../src/gameDefinitions");
+  // a game starts without food; these tests are about wood and need the
+  // residents to survive without the camp
+  game.grantResources({ food: 10 });
 });
 
 // a construction site that gets no builders, so only its wood supply changes

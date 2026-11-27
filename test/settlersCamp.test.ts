@@ -51,8 +51,19 @@ test("the first weeks: housing 2, food balance 0, no growth", () => {
     const state = game.calculateWeek();
     expect(state.population).toBe(2);
     expect(state.foodBalance).toBe(0);
-    expect(state.resources.food).toBe(10);
+    expect(state.resources.food).toBe(0);
   }
+});
+
+test("a finished homestead is staffed for the possible growth", () => {
+  board.setBuilding(
+    { q: 1, r: 0 },
+    definitions.BuildingDefinition.OrganicHomestead,
+  );
+  const state = game.calculateWeek();
+  expect(state.foodBalance).toBeCloseTo(1.5); // camp 2 + 1 worker 1.5 - 2
+  expect(state.population).toBe(3);
+  expect(state.resources.food).toBeCloseTo(1.5);
 });
 
 test("the camp needs no labor, so both settlers can build from week 1", () => {

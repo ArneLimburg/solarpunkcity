@@ -14,7 +14,7 @@ week passes every second. Everything below happens once per week unless stated o
   few tiles to the east. River tiles cannot be built on or over, so you have to plan around the
   river. Like forest it has an ecology value of +1, so it does not change the ecology at the
   start. It produces and needs nothing.
-- The settlement starts with **2 residents**, **0 wood** and **10 food**. It has no wood storage
+- The settlement starts with **2 residents**, **0 wood** and **0 food**. It has no wood storage
   yet, so the wood capacity is 0 (see section 2).
 - The camp houses the 2 first settlers and feeds them on its own: it produces 2 food per week
   (reduced by the harvest factor, section 5) and needs no labor, so both settlers are free to
@@ -141,7 +141,8 @@ storage it is still built: forestry delivers the missing wood to the site, it ju
 1. **Food production and staffing.**
    - Farms need workers. Farms that produce more food per worker are staffed first.
    - Only as many workers are assigned as are needed to produce the food that this week's
-     residents will eat. Farms that need no workers always produce at full capacity.
+     residents will eat, plus the food for the possible growth (see step 5) that the food stock
+     does not already cover. Farms that need no workers always produce at full capacity.
    - A farm with only part of its staff produces the same part of its food.
    - The **harvest factor** reduces all harvests when the ecology is low (section 6): at 90 %
      ecology or more the harvest is 100 %, at 50 % or less it is 50 %, in between it falls in a
@@ -181,7 +182,8 @@ storage it is still built: forestry delivers the missing wood to the site, it ju
    - 10 % of the population, multiplied by the satisfaction (a satisfaction of 50 % halves it)
      and rounded up,
    - the free housing (housing minus population), and
-   - the whole portions of food left in the stock after eating.
+   - the whole portions of food left after eating (the stock plus this week's production minus
+     what the residents ate), so a small surplus is enough for the city to grow.
 
    New residents start to work in the following week.
 
@@ -246,12 +248,12 @@ built over.
 
 ## 8. Example: the first weeks
 
-- **Start (week 0):** 2 residents in the settlers' camp, 0 wood, 10 food, no wood storage. An
+- **Start (week 0):** 2 residents in the settlers' camp, 0 wood, 0 food, no wood storage. An
   organic homestead costs 4 wood and 4 worker-weeks, so it needs 1 wood per builder-week. You
   place it on a forest tile next to the camp. Nothing is paid; the 3 wood of the cleared forest
   go into the supply of the construction site, the wood stock stays at 0. The tile shows bare
   soil.
-- **Week 1:** The camp produces 2 food and the 2 residents eat 2 food (10 left). The camp needs
+- **Week 1:** The camp produces 2 food and the 2 residents eat 2 food (nothing left). The camp needs
   no labor, so both residents work on the homestead (2 of its 4 worker-weeks) and use 2 of the 3
   wood in its supply. Nobody is free for forestry. Housing is 2, so the population cannot grow.
 - **Week 2:** Same food balance. The supply holds only 1 wood, so only 1 resident can build (3 of
@@ -262,11 +264,13 @@ built over.
   forest has no room for its wood (there is no wood storage) and does not work.
 - **Week 4:** One resident finishes the homestead with the last wood. The soil is replaced by
   the homestead, but it does not take part yet.
-- **Week 5:** The camp already covers the 2 residents, so the homestead needs no workers.
-  Housing is now 2 + 3 = 5, so one more resident can move in: the population grows to 3.
-- **Week 6:** There are 3 residents who need 3 food. The camp produces 2, so the homestead is
-  staffed with 1 worker (1.5 food). The city is in balance: for further growth it needs more
-  housing and more farms. For further buildings, a wood storage keeps the wood from forestry
+- **Week 5:** The 2 residents eat 2 food and one more resident could move in (housing is now
+  2 + 3 = 5), so the food target is 3. The camp produces 2, so the homestead is staffed with 1
+  worker (1.5 food). 1.5 food are left after eating, so the population grows to 3 and the
+  stock holds 1.5 food.
+- **Week 6:** There are 3 residents who need 3 food. The camp and the homestead with 1 worker
+  produce 3.5, and the stock holds enough for the possible growth of 1. The city is in
+  balance: for further growth it needs more housing and more farms. For further buildings, a wood storage keeps the wood from forestry
   that no construction site needs.
 - **Later:** An apartment building needs 6 planks, which only a sawmill makes. With a wood
   storage in place, the sawmill is built from 15 wood and 10 worker-weeks. Once it is finished
