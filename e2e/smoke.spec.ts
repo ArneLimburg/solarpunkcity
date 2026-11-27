@@ -297,6 +297,9 @@ test("the HUD and the panels have a translucent background and fit the viewport"
   page,
 }) => {
   test.setTimeout(180_000); // loads the page twice with software rendering
+  // freeze timers: every tick changes the width of the centered HUD and moves its buttons, so a
+  // click on a slow runner never finds them stable
+  await installClockWithNativeFrames(page);
   for (const size of [
     { width: 1280, height: 800 },
     { width: 375, height: 812 },
