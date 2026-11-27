@@ -36,12 +36,18 @@ async function place(
   await page.mouse.move(x, y, { steps: 5 });
   // the click builds on the hovered footprint, so wait until the ring covers it
   await expect
-    .poll(() => page.evaluate(() => window.__solarpunk?.getRingTiles().length))
+    .poll(
+      () => page.evaluate(() => window.__solarpunk?.getRingTiles().length),
+      { timeout: 30_000 },
+    )
     .toBe(size);
   await page.mouse.click(x, y);
+  // software rendering can delay the click handling for seconds
   await expect
-    .poll(() =>
-      page.evaluate((c) => window.__solarpunk?.getBuildingType(c), coords),
+    .poll(
+      () =>
+        page.evaluate((c) => window.__solarpunk?.getBuildingType(c), coords),
+      { timeout: 30_000 },
     )
     .toBe(type);
   // the type stays selected after placing, Escape ends the build mode
