@@ -26,6 +26,7 @@ test("construction work and maximum builders of every building", () => {
   expect(work("WoodStorage")).toEqual([0, 0]);
   expect(work("Sawmill")).toEqual([52, 3]);
   expect(work("WindTurbine")).toEqual([80, 2]);
+  expect(work("SolarField")).toEqual([8, 2]);
 });
 
 test("construction takes realistic weeks at full staffing", () => {
@@ -38,6 +39,7 @@ test("construction takes realistic weeks at full staffing", () => {
     HydroPowerPlant: 30,
     AppartmentBuilding: 40,
     WindTurbine: 40,
+    SolarField: 4,
     WoodenHouse: 25,
   };
   for (const [type, expected] of Object.entries(weeks)) {
@@ -139,6 +141,7 @@ test("buildable categories and building types have display labels", () => {
     "Sawmill",
     "Hydro power plant",
     "Wind turbine",
+    "Solar field",
     undefined,
     undefined,
     undefined,
@@ -180,7 +183,13 @@ test("the hydro power plant is a buildable energy building on the river", () => 
       type === "Sawmill" ? 2 : type === "AgroIndustrial" ? 4 : 0,
     );
     expect(produces.energy).toBe(
-      type === "HydroPowerPlant" ? 10 : type === "WindTurbine" ? 4 : 0,
+      type === "HydroPowerPlant"
+        ? 10
+        : type === "WindTurbine"
+          ? 4
+          : type === "SolarField"
+            ? 2
+            : 0,
     );
   }
 });
@@ -203,6 +212,27 @@ test("the wind turbine is a small automated energy building", () => {
     produces: { ...emptyResources, energy: 4 },
     consumes: emptyResources,
     recycling: { ...emptyResources, wood: 5 },
+  });
+});
+
+test("the solar field is a small automated energy building", () => {
+  expect(BuildingTypes.SolarField).toEqual({
+    category: "ENERGY",
+    icon: "energy/solar-field.svg",
+    label: "Solar field",
+  });
+  expect(BuildingDefinition.SolarField).toEqual({
+    name: "Solar field",
+    type: "SolarField",
+    description: "Turns sunlight into energy above a flower meadow",
+    size: 1,
+    resident: 0,
+    ecology: 0.5,
+    cost: { ...emptyResources, wood: 4, labor: 8 },
+    maxBuilders: 2,
+    produces: { ...emptyResources, energy: 2 },
+    consumes: emptyResources,
+    recycling: { ...emptyResources, wood: 2 },
   });
 });
 

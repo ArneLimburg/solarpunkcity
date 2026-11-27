@@ -63,6 +63,8 @@ export const BuildList: FC<{
     <div className="hud-list" role="tabpanel">
       {(Object.keys(BuildingTypes) as BuildingType[])
         .filter((type) => BuildingTypes[type].category === category)
+        // temporary: the model and menu entry of the solar field follow
+        .filter((type) => type !== "SolarField")
         .map((type) => {
           // the construction material: planks or wood
           const { wood, planks } = BuildingDefinition[type].cost;

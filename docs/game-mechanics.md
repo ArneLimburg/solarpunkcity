@@ -210,6 +210,10 @@ storage it is still built: forestry delivers the missing wood to the site, it ju
   It can only be built on a river tile (the details panel says "Can only be built on the river"),
   costs 20 wood (and 15 worker-weeks of work), and has an ecology value of −10: the weir blocks the
   whole river. The river stays visible below it, and the plant cannot be built over.
+- **Solar field.** A finished solar field produces 2 energy per week without workers. It costs
+  4 wood and 8 worker-weeks, has an ecology value of +0.5 (a flower meadow grows below the
+  panels), gives back 2 wood when built over and cannot be placed on the river. The output is
+  constant. It is not offered in the build menu yet.
 - **Consuming.** A finished sawmill needs 2 energy per week, a finished agro-industrial farm 4.
   All other buildings are energy neutral and do not appear in the energy balance.
 - **Distribution.** At the start of every week the energy of all finished plants is distributed
@@ -226,6 +230,11 @@ storage it is still built: forestry delivers the missing wood to the site, it ju
 - **Unit.** 1 energy = 1 MWh per week, which is about 6 kW of continuous power.
 - **Hydro power plant, 10.** A micro run-of-river plant of 30–100 kW fits on one tile and runs
   almost continuously, i.e. 5–17 MWh per week.
+- **Solar field, 2.** A tile has about 840 m² (hex side ≈ 18 m), which holds about 85–125 kWp of
+  ground-mounted panels; at about 1,000 kWh per kWp and year that is about 2 MWh per week. The
+  wood is the timber mounting; the panels count as bought in. Per 10 energy, hydro needs 1 river
+  tile and changes the ecology by −11, wind 2.5 tiles and about −5, solar 5 tiles and about −2.5
+  (compared to forest), for 20 wood and 40 labor.
 - **Sawmill, 2.** About 20 m³ of sawn timber per week at 30–50 kWh per m³ for sawing, planing and
   conveying is about 1 MWh. Electric (heat pump) kiln drying brings it to 2–3 MWh.
 - **Agro-industrial farm, 4.** On-farm energy for machines, irrigation, drying and cooling is
@@ -284,6 +293,7 @@ storage it is still built: forestry delivers the missing wood to the site, it ju
 | Supermarket          | 1     | 10 wood   | 6                    | 1.7                       | 3                 | –                 | –                           | 0         | 0                |
 | Sawmill              | 1     | 15 wood   | 10                   | 1.5                       | 3                 | 2 planks          | 4 wood, 2 workers, 2 energy | 0         | 0                |
 | Hydro power plant    | 1     | 20 wood   | 15                   | 1.3                       | 3                 | 10 energy         | –                           | 0         | −10              |
+| Solar field          | 1     | 4 wood    | 8                    | 0.5                       | 2                 | 2 energy          | –                           | 0         | +0.5             |
 | Forest               | 1     | –         | –                    | –                         | –                 | 0.5 wood          | 1 worker                    | 0         | +1               |
 | Settlers' camp       | 1     | –         | –                    | –                         | –                 | 2 food            | –                           | 2         | 0                |
 | River                | 1     | –         | –                    | –                         | –                 | –                 | –                           | 0         | +1               |

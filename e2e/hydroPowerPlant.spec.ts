@@ -15,6 +15,10 @@ test("the menu offers the hydro power plant under Energy with its details", asyn
   await page.waitForFunction(() => window.__solarpunk !== undefined);
   await grantWood(page);
   await selectBuilding(page, "Energy", "Hydro power plant");
+  // the solar field is not offered yet
+  await expect(page.getByRole("button", { name: "Solar field" })).toHaveCount(
+    0,
+  );
   await expect(page.getByTestId("build-cost-HydroPowerPlant")).toHaveText(
     /20$/,
   );
