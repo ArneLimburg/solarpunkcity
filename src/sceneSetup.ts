@@ -9,7 +9,11 @@ import {
   Texture,
   Vector3,
 } from "@babylonjs/core";
-import { clampCameraTarget } from "./cameraLimits";
+import {
+  clampCameraTarget,
+  MAX_CAMERA_BETA,
+  maxCameraBeta,
+} from "./cameraLimits";
 import { FOREST_FLOOR_COLOR, makeMaterial } from "./TileRenderer";
 
 const SKYBOX_FILES = [
@@ -56,10 +60,15 @@ export function setupScene(canvas: HTMLCanvasElement) {
   camera.lowerRadiusLimit = 2;
   camera.upperRadiusLimit = 90;
   camera.lowerBetaLimit = 0;
-  camera.upperBetaLimit = 1.5;
+  camera.upperBetaLimit = MAX_CAMERA_BETA;
+  camera.minZ = 0.1;
 
-  // keep the camera inside the skybox: clamp the pan target after every camera change
+  // keep the camera inside the skybox and above the ground: clamp the pan target and beta
   scene.onBeforeRenderObservable.add(() => {
+    const maxBeta = maxCameraBeta(camera.radius);
+    if (camera.beta > maxBeta) {
+      camera.beta = maxBeta;
+    }
     const { target, radius } = camera;
     const clamped = clampCameraTarget(target, radius);
     if (

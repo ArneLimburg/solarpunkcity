@@ -54,6 +54,8 @@ vi.mock("@babylonjs/core", () => {
     upperRadiusLimit = 0;
     lowerBetaLimit = 0;
     upperBetaLimit = 0;
+    beta = 1;
+    minZ = 1;
   }
   const mesh = (name: string) => {
     const result = { name, material: undefined, isPickable: true };
@@ -86,6 +88,8 @@ vi.mock("../src/TileRenderer", () => ({
   FOREST_FLOOR_COLOR: { forest: true },
 }));
 
+import { MAX_CAMERA_BETA, maxCameraBeta } from "../src/cameraLimits";
+import { TILE_TOP } from "../src/hexGeometry";
 import { setupScene } from "../src/sceneSetup";
 
 afterEach(() => {
@@ -120,6 +124,8 @@ test("the scene has a skybox, a camera, a background ground and a render loop", 
   const { camera, engine, scene } = setupScene(canvas);
   expect(camera.attachControl).toHaveBeenCalledWith(canvas, true);
   expect(camera.upperRadiusLimit).toBe(90);
+  expect(camera.upperBetaLimit).toBe(MAX_CAMERA_BETA);
+  expect(camera.minZ).toBe(0.1);
   expect(state.meshes.map((mesh) => mesh.name)).toEqual(["skyBox", "ground"]);
   expect(state.meshes[1].material).toEqual({
     name: "land",
@@ -145,7 +151,7 @@ test("the camera target is clamped before every render", () => {
   };
 
   // inside the limit: untouched
-  mock.target = { x: 10, y: 0, z: 0 };
+  mock.target = { x: 10, y: TILE_TOP, z: 0 };
   state.beforeRender!();
   expect(mock.setTarget).not.toHaveBeenCalled();
 
@@ -154,7 +160,7 @@ test("the camera target is clamped before every render", () => {
   mock.radius = 90;
   state.beforeRender!();
   expect(mock.setTarget).toHaveBeenCalledWith(
-    expect.objectContaining({ x: 5, y: 0, z: 0 }),
+    expect.objectContaining({ x: 5, y: TILE_TOP, z: 0 }),
     false,
     false,
     true,
@@ -165,11 +171,29 @@ test("the camera target is clamped before every render", () => {
   mock.target = { x: 0, y: 3, z: 0 };
   state.beforeRender!();
   expect(mock.setTarget).toHaveBeenCalledWith(
-    expect.objectContaining({ x: 0, y: 0, z: 0 }),
+    expect.objectContaining({ x: 0, y: TILE_TOP, z: 0 }),
     false,
     false,
     true,
   );
+  vi.unstubAllGlobals();
+});
+
+test("the camera beta is lowered when it would put the camera too low", () => {
+  stubResizeObserver();
+  const { camera } = setupScene({} as HTMLCanvasElement);
+  const mock = camera as unknown as { beta: number; radius: number };
+
+  // steeper than allowed at the closest zoom: lowered
+  mock.radius = 2;
+  mock.beta = 1.5;
+  state.beforeRender!();
+  expect(mock.beta).toBe(maxCameraBeta(2));
+
+  // within the limit: unchanged
+  mock.beta = 1;
+  state.beforeRender!();
+  expect(mock.beta).toBe(1);
   vi.unstubAllGlobals();
 });
 
