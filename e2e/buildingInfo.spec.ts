@@ -198,6 +198,54 @@ for (const size of [
   });
 }
 
+test("the profile shows a settler without a home as unhoused", async ({
+  page,
+}) => {
+  test.setTimeout(180_000);
+  await page.goto("./");
+  await page.waitForFunction(() => window.__solarpunk !== undefined);
+  await grantWood(page);
+  await page.evaluate(() => window.__solarpunk?.addResources({ wood: 100 }));
+  // building over the camp leaves the settlers without a home
+  await selectBuilding(page, "Production", "Sawmill");
+  const { x, y } = await tilePosition(page, origin);
+  await page.mouse.move(x, y, { steps: 5 });
+  await expect
+    .poll(() => page.evaluate(() => window.__solarpunk?.getRingTiles().length))
+    .toBe(1);
+  await page.mouse.click(x, y);
+  await expect
+    .poll(() =>
+      page.evaluate((c) => window.__solarpunk?.getBuildingType(c), origin),
+    )
+    .toBe("Sawmill");
+  await page.keyboard.press("Escape");
+
+  // tap a settler until the profile opens (they keep walking)
+  const canvas = (await page.locator("canvas").boundingBox())!;
+  const [settler] = await page.evaluate(() =>
+    window.__solarpunk!.getSettlers(),
+  );
+  await expect
+    .poll(
+      async () => {
+        const at = await page.evaluate(
+          (id) => window.__solarpunk!.settlerToScreen(id, "body"),
+          settler.id,
+        );
+        if (at) {
+          await page.mouse.move(canvas.x + at.x, canvas.y + at.y);
+          await page.mouse.click(canvas.x + at.x, canvas.y + at.y);
+        }
+        return page.getByTestId("settler-profile").count();
+      },
+      { timeout: 60_000, intervals: [300] },
+    )
+    .toBe(1);
+  await expect(page.getByTestId("settler-home")).toContainText("Unhoused");
+  await expect(page.getByTestId("settler-home-link")).toHaveCount(0);
+});
+
 test("the info panel reflects a housing change", async ({ page }) => {
   test.setTimeout(180_000);
   await page.goto("./");
