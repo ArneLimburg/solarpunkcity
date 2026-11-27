@@ -7,6 +7,28 @@ const MAX_ATTEMPTS = 30; // per tree
 
 export type TreeKind = "conifer" | "deciduous";
 
+// tree dimensions in scene units, before the per-tree scale
+export const TRUNK_HEIGHT = 0.3;
+export const CONIFER_HEIGHT = 0.5;
+export const DECIDUOUS_RADIUS = 0.22;
+// share of its radius the deciduous IcoSphere (subdivisions: 1) reaches downwards,
+// measured from the Babylon mesh (lowest vertex at ≈ -0.187 for radius 0.22)
+export const DECIDUOUS_DOWN_SHARE = 0.85;
+
+// the deciduous crown sinks into the trunk by this share of its radius
+const DECIDUOUS_SINK_FACTOR = 1 / 3;
+
+// height of the crown mesh center above the tile top, before scaling
+export function getCrownCenterHeight(kind: TreeKind): number {
+  if (kind === "conifer") {
+    return TRUNK_HEIGHT + CONIFER_HEIGHT / 2;
+  }
+  return (
+    TRUNK_HEIGHT +
+    DECIDUOUS_RADIUS * (DECIDUOUS_DOWN_SHARE - DECIDUOUS_SINK_FACTOR)
+  );
+}
+
 export type TreePlacement = {
   // offset from the tile center in scene units
   x: number;
