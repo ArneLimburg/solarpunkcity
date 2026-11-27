@@ -3,15 +3,20 @@ import { GRID_RADIUS, getRiverCourse } from "../src/board";
 import { HEX_SIZE, hexToPixel } from "../src/hexGeometry";
 import {
   BEACH_WIDTH,
+  SEA_CENTER,
   SEA_OUTER_DISTANCE,
+  SEA_RADIUS,
+  SEA_RINGS,
+  SEA_SEGMENTS,
   getBeachPolygons,
   getChannelWidth,
   getCoastZ,
   getEdgeRowZ,
   getMouthChannel,
   getOuterZ,
-  getSeaPolygon,
+  getSeaRings,
   getSeaSector,
+  type Point,
 } from "../src/sea";
 
 const R = GRID_RADIUS;
@@ -42,42 +47,89 @@ test("the coastline lies beyond the outermost tile corners", () => {
   expect(getCoastZ(R)).toBeCloseTo(1.5 * R + HEX_SIZE + 1.5);
 });
 
-test("the sea ends at a distance of 100 from the centre", () => {
-  const { left, right } = getSeaSector(R);
-  const outer = getOuterZ(R);
-  expect(outer).toBeCloseTo(SEA_OUTER_DISTANCE * left.z);
-  const sea = getSeaPolygon(R);
-  expect(zs(sea)).toEqual([getCoastZ(R), getCoastZ(R), outer, outer]);
-  // the boundary points of the outer end are 100 away
-  const strips = getBeachPolygons(R, course).slice(2);
-  expect(Math.hypot(strips[0][3].x, strips[0][3].z)).toBeCloseTo(100);
-  expect(Math.hypot(strips[1][2].x, strips[1][2].z)).toBeCloseTo(100);
-  expect(strips[0][3].x).toBeCloseTo(SEA_OUTER_DISTANCE * left.x);
-  expect(strips[1][2].x).toBeCloseTo(SEA_OUTER_DISTANCE * right.x);
+const seaPoints = getSeaRings().flat();
+
+test("the sea ends at the skybox wall", () => {
+  expect(getOuterZ()).toBe(SEA_OUTER_DISTANCE);
+  expect(Math.max(...zs(seaPoints))).toBeCloseTo(SEA_OUTER_DISTANCE);
 });
 
-test("the side beaches are 1.5 wide on the sea side of the boundaries", () => {
+test("the sea is a semicircle on the wall that bulges towards the board", () => {
+  expect(SEA_RADIUS).toBeCloseTo(48.5);
+  for (const { x, z } of seaPoints) {
+    expect(Math.hypot(x - SEA_CENTER.x, z - SEA_CENTER.z)).toBeLessThanOrEqual(
+      SEA_RADIUS + 1e-9,
+    );
+    expect(z).toBeLessThanOrEqual(SEA_OUTER_DISTANCE + 1e-9);
+  }
+  const has = (x: number, z: number) =>
+    seaPoints.some((p) => Math.hypot(p.x - x, p.z - z) < 1e-9);
+  expect(has(48.5, 100)).toBe(true);
+  expect(has(-48.5, 100)).toBe(true);
+  expect(has(0, 51.5)).toBe(true);
+  expect(getSeaRings()).toHaveLength(SEA_SEGMENTS * SEA_RINGS);
+});
+
+test("the semicircle keeps the width of a side beach to the sector boundaries", () => {
   const { left, right } = getSeaSector(R);
-  const [leftStrip, rightStrip] = getBeachPolygons(R, course).slice(2);
-  // perpendicular distance of the inner edge from the boundary line
-  const distance = (
-    point: { x: number; z: number },
-    direction: { x: number; z: number },
-  ) => Math.abs(point.x * direction.z - point.z * direction.x);
-  expect(distance(leftStrip[1], left)).toBeCloseTo(BEACH_WIDTH);
-  expect(distance(leftStrip[2], left)).toBeCloseTo(BEACH_WIDTH);
-  expect(distance(rightStrip[0], right)).toBeCloseTo(BEACH_WIDTH);
-  expect(distance(rightStrip[3], right)).toBeCloseTo(BEACH_WIDTH);
-  expect(distance(leftStrip[0], left)).toBeCloseTo(0);
-  // the strips start at the coastline
-  expect(leftStrip[0].z).toBeCloseTo(getCoastZ(R));
-  expect(rightStrip[1].z).toBeCloseTo(getCoastZ(R));
-  // the water lies between them
-  const sea = getSeaPolygon(R);
-  expect(sea[0].x).toBeCloseTo(leftStrip[1].x);
-  expect(sea[1].x).toBeCloseTo(rightStrip[0].x);
-  expect(sea[2].x).toBeCloseTo(rightStrip[3].x);
-  expect(sea[3].x).toBeCloseTo(leftStrip[2].x);
+  const distance = (p: Point, d: Point) => Math.abs(p.x * d.z - p.z * d.x);
+  for (const point of seaPoints) {
+    expect(distance(point, left)).toBeGreaterThanOrEqual(BEACH_WIDTH - 1e-9);
+    expect(distance(point, right)).toBeGreaterThanOrEqual(BEACH_WIDTH - 1e-9);
+  }
+});
+
+// whether the point lies inside the convex polygon
+function inside(point: Point, polygon: Point[]) {
+  const signs = polygon.map((a, i) => {
+    const b = polygon[(i + 1) % polygon.length];
+    return (b.x - a.x) * (point.z - a.z) - (b.z - a.z) * (point.x - a.x);
+  });
+  return signs.every((s) => s >= 0) || signs.every((s) => s <= 0);
+}
+
+test("beach and water cover the sea sector exactly once", () => {
+  const { left, right } = getSeaSector(R);
+  const water = [...getSeaRings(), ...getMouthChannel(R, course)];
+  const beach = getBeachPolygons(R, course);
+  let seed = 12345;
+  const random = () => {
+    seed = (seed * 1664525 + 1013904223) % 4294967296;
+    return seed / 4294967296;
+  };
+  const edge = getEdgeRowZ(R);
+  let inWater = 0;
+  let inBeach = 0;
+  for (let i = 0; i < 3000; i++) {
+    const z = edge + random() * (SEA_OUTER_DISTANCE - edge);
+    const x =
+      left.x * (z / left.z) + random() * (right.x - left.x) * (z / left.z);
+    const point = { x, z };
+    const w = water.filter((polygon) => inside(point, polygon)).length;
+    const b = beach.filter((polygon) => inside(point, polygon)).length;
+    expect(w + b).toBe(1);
+    inWater += w;
+    inBeach += b;
+  }
+  expect(inWater).toBeGreaterThan(0);
+  expect(inBeach).toBeGreaterThan(0);
+});
+
+test("the mouth channel ends on the semicircle", () => {
+  const channel = getMouthChannel(R, course);
+  const mouth = hexToPixel(last.q, last.r).x;
+  const half = getChannelWidth() / 2;
+  // the far end of every channel polygon lies on the shore or touches the water
+  const shoreTop = channel.slice(1).flatMap((p) => [p[2], p[3]]);
+  for (const { x, z } of shoreTop) {
+    expect(x).toBeGreaterThanOrEqual(mouth - half - 1e-9);
+    expect(x).toBeLessThanOrEqual(mouth + half + 1e-9);
+    // on the circle or on the chord between two shore points
+    expect(Math.hypot(x, z - SEA_CENTER.z)).toBeLessThanOrEqual(
+      SEA_RADIUS + 1e-9,
+    );
+    expect(Math.hypot(x, z - SEA_CENTER.z)).toBeGreaterThan(SEA_RADIUS - 0.05);
+  }
 });
 
 test("the front beach spans from the edge row to the coastline except the river mouth", () => {
@@ -101,7 +153,7 @@ test("the front beach spans from the edge row to the coastline except the river 
 });
 
 test("the mouth channel is one tile wide and centred on the last river tile", () => {
-  const channel = getMouthChannel(R, course);
+  const channel = getMouthChannel(R, course).flat();
   const mouth = hexToPixel(last.q, last.r);
   expect(last.r).toBe(R);
   expect(getChannelWidth()).toBeCloseTo(Math.sqrt(3) * HEX_SIZE);
@@ -112,5 +164,7 @@ test("the mouth channel is one tile wide and centred on the last river tile", ()
     mouth.x,
   );
   expect(Math.min(...zs(channel))).toBeCloseTo(mouth.z);
-  expect(Math.max(...zs(channel))).toBeCloseTo(getCoastZ(R));
+  // it passes the coastline and ends on the semicircle
+  expect(Math.max(...zs(channel))).toBeGreaterThan(getCoastZ(R));
+  expect(Math.max(...zs(channel))).toBeLessThan(SEA_OUTER_DISTANCE - 40);
 });

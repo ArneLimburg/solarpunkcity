@@ -65,7 +65,7 @@ vi.mock("../src/TileRenderer", () => ({
 }));
 
 import { createSeaRenderer } from "../src/SeaRenderer";
-import { BEACH_Y, SEA_Y } from "../src/sea";
+import { BEACH_Y, SEA_CENTER, SEA_RADIUS, SEA_Y } from "../src/sea";
 
 test("one sea mesh and one beach mesh, neither pickable", () => {
   const renderer = createSeaRenderer({} as Scene);
@@ -88,15 +88,35 @@ test("the water lies below the beach and fades from the river colour to deep blu
   );
   expect(SEA_Y).toBeLessThan(BEACH_Y);
   expect(beach.data!.colors).toBeUndefined();
-  // the sea polygon and the channel: two triangle fans of four points
-  expect(positions).toHaveLength(8 * 3);
-  expect(indices).toHaveLength(4 * 3);
-  // coast vertices carry the river colour, outer vertices the deep blue
+  const count = positions.length / 3;
+  expect(indices.length).toBeGreaterThan(0);
   const vertexColor = (i: number) => colors!.slice(i * 4, i * 4 + 3);
-  expect(vertexColor(0)).toEqual([0.1, 0.65, 0.75]);
-  expect(vertexColor(2)[2]).toBeCloseTo(0.45);
-  // the channel is entirely river coloured
-  for (let i = 4; i < 8; i++) expect(vertexColor(i)).toEqual([0.1, 0.65, 0.75]);
+  const distance = (i: number) =>
+    Math.hypot(positions[i * 3], positions[i * 3 + 2] - SEA_CENTER.z);
+  let shore = 0;
+  let centre = 0;
+  for (let i = 0; i < count; i++) {
+    const [r, g, b] = vertexColor(i);
+    const t = Math.min(distance(i) / SEA_RADIUS, 1);
+    // the colour depends linearly on the distance from the centre of the semicircle
+    expect(r).toBeCloseTo(0.1 + (0.02 - 0.1) * (1 - t));
+    expect(g).toBeCloseTo(0.65 + (0.15 - 0.65) * (1 - t));
+    expect(b).toBeCloseTo(0.75 + (0.45 - 0.75) * (1 - t));
+    if (Math.abs(distance(i) - SEA_RADIUS) < 1e-6) {
+      shore++;
+      expect(r).toBeCloseTo(0.1);
+      expect(g).toBeCloseTo(0.65);
+      expect(b).toBeCloseTo(0.75);
+    }
+    if (distance(i) < 1e-6) {
+      centre++;
+      expect(r).toBeCloseTo(0.02);
+      expect(g).toBeCloseTo(0.15);
+      expect(b).toBeCloseTo(0.45);
+    }
+  }
+  expect(shore).toBeGreaterThan(0);
+  expect(centre).toBeGreaterThan(0);
 });
 
 test("the backdrop can be hidden and shown", () => {
