@@ -29,16 +29,20 @@ week passes every second. Everything below happens once per week unless stated o
 | -------- | -------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
 | Wood     | Comes from forests (0.5 wood per forest per week) and from clearing forest. It is kept in a stock. | Used up week by week while a building is under construction (section 4), and sawn into planks by sawmills. |
 | Planks   | Come from sawmills (2 planks per sawmill per week). They are kept in a stock.                      | Used up week by week while an apartment building or an agro-industrial farm is under construction.         |
-| Food     | Comes from farms. It is kept in a stock, which works as a buffer.                                  | Every resident eats 1 food per week.                                                                       |
+| Food     | Comes from farms. It is kept in a stock, which only supermarkets make room for.                    | Every resident eats 1 food per week.                                                                       |
 | Labor    | Equals the number of residents. Every resident is one worker per week. It is **not** stored.       | Staffing farms, constructing buildings, sawing planks and working in forests (for wood).                   |
 
-**Storage.** Wood and planks need a place to be stored. The capacity for wood is the sum of the
-storage of all finished buildings: every wood storage adds 100 wood, without any wood storage the
-capacity is 0. The capacity for planks works the same way: every finished sawmill adds 20 planks,
-without a sawmill it is 0. The wood and plank stocks never exceed their capacity. Other resources
-are not capped yet. The top bar always shows wood as `stock / capacity` (for example `3 / 100`);
-with a capacity of 0 the entry is shown in the error style. Planks are shown right after the wood
-in the same way (for example `12 / 20`), but only while the plank capacity is above 0.
+**Storage.** Wood, planks and food need a place to be stored. The capacity for wood is the sum of
+the storage of all finished buildings: every wood storage adds 100 wood, without any wood storage
+the capacity is 0. The capacity for planks works the same way: every finished sawmill adds 20
+planks, without a sawmill it is 0. The capacity for food too: every finished supermarket adds 100
+food, and there is no base capacity, so without a supermarket no food is kept from one week to
+the next. The wood, plank and food stocks never exceed their capacity. Other resources are not
+capped yet. The top bar always shows wood as `stock / capacity` (for example `3 / 100`); with a
+capacity of 0 the entry is shown in the error style. Planks are shown right after the wood in the
+same way (for example `12 / 20`), but only while the plank capacity is above 0. Food is shown as
+the stock, the capacity and the weekly balance (for example `40 / 100 (+2/wk)`); it is in the
+error style while the balance is negative.
 
 Unused labor is lost at the end of the week. The labor shown in the status bar is the labor that
 was left over after all work of the last week.
@@ -141,15 +145,19 @@ storage it is still built: forestry delivers the missing wood to the site, it ju
 1. **Food production and staffing.**
    - Farms need workers. Farms that produce more food per worker are staffed first.
    - Only as many workers are assigned as are needed to produce the food that this week's
-     residents will eat, plus the food for the possible growth (see step 5) that the food stock
-     does not already cover. Farms that need no workers always produce at full capacity.
+     residents will eat, plus the larger of the food for the possible growth (see step 5) and
+     the food capacity, minus the food that the stock already holds. Without a supermarket
+     the capacity is 0, so only the possible growth counts. With a supermarket the farms are
+     therefore also staffed to fill the free space of the storage. Farms that need no workers
+     always produce at full capacity.
    - A farm with only part of its staff produces the same part of its food.
    - The **harvest factor** reduces all harvests when the ecology is low (section 6): at 90 %
      ecology or more the harvest is 100 %, at 50 % or less it is 50 %, in between it falls in a
      straight line.
 2. **Eating and hunger.**
    - The food stock plus the food produced this week is available. Every resident eats 1 food.
-   - If there is enough food, the rest stays in the stock.
+   - If there is enough food, the rest stays in the stock, but only up to the food capacity (see
+     step 5). The rest is lost.
    - If there is not enough food, the whole stock is eaten up and the population shrinks to the
      number of whole portions of food that were available (but never below 1 resident).
      Workers beyond the new population are no longer available this week.
@@ -183,7 +191,11 @@ storage it is still built: forestry delivers the missing wood to the site, it ju
      and rounded up,
    - the free housing (housing minus population), and
    - the whole portions of food left after eating (the stock plus this week's production minus
-     what the residents ate), so a small surplus is enough for the city to grow.
+     what the residents ate), so a small surplus is enough for the city to grow. This is counted
+     before the food is capped to the capacity: without a supermarket it is only this week's
+     surplus, with one it includes the reserve.
+
+   After the growth the food stock is capped to the food capacity, and the rest is lost.
 
    New residents start to work in the following week.
 
@@ -230,6 +242,7 @@ storage it is still built: forestry delivers the missing wood to the site, it ju
 | Farm                 | 7     | 25 wood   | 24                   | 1.0                       | 6                 | 20 food           | 4 workers         | 2         | +0.2             |
 | Agro-industrial farm | 19    | 40 planks | 80                   | 0.5                       | 10                | 60 food           | 8 workers         | 0         | −5               |
 | Wood storage         | 1     | –         | – (finished at once) | –                         | –                 | –                 | –                 | 0         | 0                |
+| Supermarket          | 1     | 10 wood   | 6                    | 1.7                       | 3                 | –                 | –                 | 0         | 0                |
 | Sawmill              | 1     | 15 wood   | 10                   | 1.5                       | 3                 | 2 planks          | 4 wood, 2 workers | 0         | 0                |
 | Forest               | 1     | –         | –                    | –                         | –                 | 0.5 wood          | 1 worker          | 0         | +1               |
 | Settlers' camp       | 1     | –         | –                    | –                         | –                 | 2 food            | –                 | 2         | 0                |
@@ -242,7 +255,10 @@ production chain: forest, wood, sawmill, planks, construction site.
 The wood storage is free, is finished immediately when placed (no construction site, gravel
 ground and a log yard on the map), stores 100 wood and cannot be built over. The sawmill is an
 open saw shed with a saw bench, a plank stack and a log pile on bare earth; it stores 20 planks
-and gives back 7 wood when it is built over. The forest and the settlers' camp cannot be built. A
+and gives back 7 wood when it is built over. The supermarket is a small timber market hall with
+a green roof, a striped awning and produce crates on a gravel forecourt in the meadow; it stores
+100 food and gives back 5 wood when it is built over. The food above the new capacity is lost
+at once, without a warning. The forest and the settlers' camp cannot be built. A
 cleared forest tile gives 3 wood, the camp gives nothing. The river cannot be built and cannot be
 built over.
 
@@ -266,19 +282,22 @@ built over.
   the homestead, but it does not take part yet.
 - **Week 5:** The 2 residents eat 2 food and one more resident could move in (housing is now
   2 + 3 = 5), so the food target is 3. The camp produces 2, so the homestead is staffed with 1
-  worker (1.5 food). 1.5 food are left after eating, so the population grows to 3 and the
-  stock holds 1.5 food.
-- **Week 6:** There are 3 residents who need 3 food. The camp and the homestead with 1 worker
-  produce 3.5, and the stock of 1.5 food already covers the possible growth of 1. 2 food are
-  left after eating, so the population grows to 4 and the stock holds 2 food.
-- **Week 7:** There are 4 residents who need 4 food. The stock covers the possible growth of 1, so
-  the target is 4: the homestead needs 2 workers (the camp and 1 worker produce only 3.5, with 2
-  workers 5). 3 food are left after eating, so the population grows to 5 and the stock holds 3
-  food. Housing is full, so the city is in balance: for further growth it needs more housing and
-  more farms. For further buildings, a wood storage keeps the wood from forestry that no
-  construction site needs.
+  worker (1.5 food). 1.5 food are left after eating, so the population grows to 3. There is no
+  food storage, so the leftover food is lost and the stock stays at 0.
+- **Week 6:** There are 3 residents who need 3 food, and one more could move in, so the target
+  is 4. The camp and the homestead with 1 worker produce only 3.5, so the homestead gets 2
+  workers (5 food). 2 food are left after eating, so the population grows to 4.
+- **Week 7:** There are 4 residents who need 4 food and one more could move in, so the target is 5. The camp and the homestead with 2 workers produce exactly 5. 1 food is left after eating,
+  so the population grows to 5. Housing is full, so the city is in balance: for further growth
+  it needs more housing and more farms. For further buildings, a wood storage keeps the wood
+  from forestry that no construction site needs.
 - **Later:** An apartment building needs 6 planks, which only a sawmill makes. With a wood
   storage in place, the sawmill is built from 15 wood and 10 worker-weeks. Once it is finished
   it turns 4 wood and 2 workers into 2 planks per week, fills the supply of the apartment site
   first and then its own plank storage (20 planks). The apartment site builds with at most
   floor(available planks / 0.3) workers and waits for material when the planks run out.
+- **With a supermarket:** Once a supermarket is finished (10 wood, 6 worker-weeks), the food
+  stock can hold up to 100 food. The farms are now staffed beyond the demand until the stock
+  is full, as far as the workers allow, before construction sites and forests get any workers.
+  The reserve also feeds the population in a bad harvest. If the stock is full, the farms only
+  cover what the residents eat.

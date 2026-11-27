@@ -16,7 +16,7 @@ import { emptyResources } from "../src/resources";
 
 const state: GameState = {
   resources: { ...emptyResources, food: 18.7, wood: 38.2, labor: 3 },
-  capacity: { ...emptyResources, wood: 100 },
+  capacity: { ...emptyResources, wood: 100, food: 100 },
   population: 12.4,
   residents: [],
   housing: 15,
@@ -36,8 +36,8 @@ const state: GameState = {
 
 test("people, food and wood", () => {
   expect(formatPopulation(state)).toBe("12 / 15");
-  expect(formatFood(state)).toBe("18 (+2/wk)");
-  expect(formatFood({ ...state, foodBalance: -1.5 })).toBe("18 (−1/wk)");
+  expect(formatFood(state)).toBe("18 / 100 (+2/wk)");
+  expect(formatFood({ ...state, foodBalance: -1.5 })).toBe("18 / 100 (−1/wk)");
   expect(formatWood(state)).toBe("38 / 100");
 });
 

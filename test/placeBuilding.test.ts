@@ -76,6 +76,14 @@ test("a sawmill shows its model on compacted earth", () => {
   expect(models["0,0"]).toBe(model);
 });
 
+test("a supermarket shows its model on a meadow, the gravel is part of the model", () => {
+  const { parts, create, models, model, setGrounds } = setup();
+  placeBuilding({ q: 0, r: 0 }, "Supermarket", parts);
+  expect(setGrounds.mock.calls[0][1]).toBe(parts.materials.meadow);
+  expect(create).toHaveBeenCalledWith("Supermarket", hexToPixel(0, 0));
+  expect(models["0,0"]).toBe(model);
+});
+
 test("a wood storage under construction shows no model", () => {
   const { parts, createLogYard, models } = setup();
   placeBuilding({ q: 0, r: 0 }, "WoodStorage", parts, true);

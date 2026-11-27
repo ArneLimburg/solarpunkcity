@@ -259,6 +259,8 @@ test("population, roster and figures agree through growth, shrinkage and regrowt
     "../src/settlers"
   );
   board.setBuilding({ q: 5, r: 5 }, BuildingDefinition.AppartmentBuilding);
+  // a supermarket keeps the food stock between the weeks
+  board.setBuilding({ q: -5, r: 5 }, BuildingDefinition.Supermarket);
   const renderer = createSettlerRenderer(createScene(), 1);
 
   const everSeen = new Set<number>();

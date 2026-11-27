@@ -79,6 +79,11 @@ export const BuildingTypes = {
     icon: "storage/wood-storage.svg",
     label: "Wood storage",
   },
+  Supermarket: {
+    category: "STORAGE",
+    icon: "storage/supermarket.svg",
+    label: "Supermarket",
+  },
   Sawmill: {
     category: "PRODUCTION",
     icon: "production/sawmill.svg",
@@ -122,7 +127,7 @@ export type Building = {
   maxBuilders: number; // workers per construction site and week
   produces: Resources;
   consumes: Resources;
-  // capacity the building adds; only wood and planks are capped so far
+  // capacity the building adds; only wood, planks and food are capped
   storage?: Resources;
   recycling?: Resources;
 };
@@ -188,6 +193,21 @@ export const BuildingDefinition: Record<BuildingType, Building> = {
     produces: { ...emptyResources },
     consumes: { ...emptyResources },
     storage: { ...emptyResources, wood: 100 },
+  },
+  Supermarket: {
+    name: "Supermarket",
+    type: "Supermarket",
+    description:
+      "Keeps up to 100 food in stock as a reserve against bad harvests",
+    size: 1,
+    resident: 0,
+    ecology: 0,
+    cost: { ...emptyResources, wood: 10, labor: 6 },
+    maxBuilders: 3,
+    produces: { ...emptyResources },
+    consumes: { ...emptyResources },
+    storage: { ...emptyResources, food: 100 },
+    recycling: { ...emptyResources, wood: 5 },
   },
   Sawmill: {
     name: "Sawmill",

@@ -8,9 +8,9 @@ export function formatPopulation(state: GameState): string {
 
 export function formatFood(state: GameState): string {
   const sign = state.foodBalance < 0 ? "−" : "+";
-  return `${Math.floor(state.resources.food)} (${sign}${Math.floor(
-    Math.abs(state.foodBalance),
-  )}/wk)`;
+  return `${Math.floor(state.resources.food)} / ${Math.floor(
+    state.capacity.food,
+  )} (${sign}${Math.floor(Math.abs(state.foodBalance))}/wk)`;
 }
 
 export function formatWood(state: GameState): string {

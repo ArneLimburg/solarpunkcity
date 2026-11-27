@@ -113,6 +113,18 @@ test("all sawmills share one opaque mesh with vertex colors", () => {
   expect(second.triangles).toBe(first.triangles);
 });
 
+test("all supermarkets share an opaque and a glass mesh", () => {
+  meshes.length = 0;
+  const renderer = createFarmRenderer({} as Scene, 1);
+  const first = renderer.create("Supermarket", { x: 0, z: 0 });
+  const second = renderer.create("Supermarket", { x: 5, z: 5 });
+  expect(meshes).toHaveLength(2);
+  expect(meshes[0].instances).toHaveLength(2);
+  expect(first.triangles).toBeGreaterThan(0);
+  expect(first.triangles).toBeLessThan(1000);
+  expect(second.triangles).toBe(first.triangles);
+});
+
 test("the template meshes of a type are exposed and built once", () => {
   meshes.length = 0;
   const renderer = createFarmRenderer({} as Scene, 1);
@@ -124,6 +136,7 @@ test("the template meshes of a type are exposed and built once", () => {
 
 test("isModelType accepts the farms, the apartment building, the camp and the sawmill only", () => {
   expect(isModelType("Sawmill")).toBe(true);
+  expect(isModelType("Supermarket")).toBe(true);
   expect(isModelType("Farm")).toBe(true);
   expect(isModelType("AppartmentBuilding")).toBe(true);
   expect(isModelType("SettlersCamp")).toBe(true);

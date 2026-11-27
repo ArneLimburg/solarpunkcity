@@ -63,7 +63,7 @@ test("a finished homestead is staffed for the possible growth", () => {
   const state = game.calculateWeek();
   expect(state.foodBalance).toBeCloseTo(1.5); // camp 2 + 1 worker 1.5 - 2
   expect(state.population).toBe(3);
-  expect(state.resources.food).toBeCloseTo(1.5);
+  expect(state.resources.food).toBe(0); // no capacity: the surplus is lost
 });
 
 test("the camp needs no labor, so both settlers can build from week 1", () => {
