@@ -156,5 +156,7 @@ test("figures do not take part in picking: hovering and building work beneath th
       { timeout: 20_000 },
     )
     .toBe(false);
-  expect(await getSettlers(page)).toHaveLength(2);
+  // the settler walked off and was not removed; the weekly ticks may have
+  // added residents meanwhile, so the total number is not fixed
+  expect((await getSettlers(page)).map(({ id }) => id)).toContain(settler.id);
 });
