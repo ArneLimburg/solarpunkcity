@@ -26,7 +26,7 @@ test("construction work and maximum builders of every building", () => {
   expect(work("WoodStorage")).toEqual([0, 0]);
   expect(work("Sawmill")).toEqual([52, 3]);
   expect(work("WindTurbine")).toEqual([80, 2]);
-  expect(work("SolarField")).toEqual([8, 2]);
+  expect(work("SolarField")).toEqual([64, 2]);
 });
 
 test("construction takes realistic weeks at full staffing", () => {
@@ -39,7 +39,7 @@ test("construction takes realistic weeks at full staffing", () => {
     HydroPowerPlant: 30,
     AppartmentBuilding: 40,
     WindTurbine: 40,
-    SolarField: 4,
+    SolarField: 32,
     WoodenHouse: 25,
   };
   for (const [type, expected] of Object.entries(weeks)) {
@@ -228,7 +228,7 @@ test("the solar field is a small automated energy building", () => {
     size: 1,
     resident: 0,
     ecology: 0.5,
-    cost: { ...emptyResources, wood: 4, labor: 8 },
+    cost: { ...emptyResources, wood: 4, labor: 64 },
     maxBuilders: 2,
     produces: { ...emptyResources, energy: 2 },
     consumes: emptyResources,
