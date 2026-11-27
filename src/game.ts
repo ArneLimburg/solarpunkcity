@@ -363,7 +363,8 @@ function calculateDevelopment() {
   let labor = startPopulation;
 
   // food producers get labor before all other buildings, but only as much
-  // as this week's demand needs; the food stock stays a buffer
+  // as this week's demand and the possible growth need; the food stock
+  // stays a buffer
   const harvestFactor = getHarvestFactor();
   let producedFood = 0;
   // demand plus the growth that the food stock does not cover
