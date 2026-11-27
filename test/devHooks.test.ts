@@ -25,6 +25,7 @@ import { createDevHooks } from "../src/devHooks";
 function setup() {
   const showBuilding = vi.fn();
   const showSettlers = vi.fn();
+  const assignWork = vi.fn();
   const toGlobal = vi.fn(() => "viewport");
   const backdrop = {
     meshes: [
@@ -73,6 +74,8 @@ function setup() {
       select: vi.fn(),
       getMarker: () => ({ id: 2, visible: true }),
       getActivity: () => "Idle",
+      assignWork,
+      getRoute: () => ({ visible: false, tiles: [] }),
       getTriangleCount: () => 164,
       getMeshCount: () => 2,
     },
@@ -103,8 +106,27 @@ function setup() {
     showBuilding,
     getProgressLabel: () => "40%",
   });
-  return { hooks, toGlobal, showBuilding, showSettlers, frame, backdrop };
+  return {
+    hooks,
+    toGlobal,
+    showBuilding,
+    showSettlers,
+    assignWork,
+    frame,
+    backdrop,
+  };
 }
+
+test("sendSettlers sends everybody to the building at the tile, or nowhere", () => {
+  const { hooks, assignWork } = setup();
+  hooks.sendSettlers({ q: 0, r: 0 });
+  expect(assignWork).toHaveBeenLastCalledWith([
+    { key: "0,0", tiles: [{ q: 0, r: 0 }], workers: Infinity },
+  ]);
+  hooks.sendSettlers(undefined);
+  expect(assignWork).toHaveBeenLastCalledWith([]);
+  expect(hooks.getSettlerRoute()).toEqual({ visible: false, tiles: [] });
+});
 
 test("the backdrop hooks report the meshes and switch them", () => {
   const { hooks, frame, backdrop } = setup();

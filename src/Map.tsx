@@ -42,7 +42,13 @@ import {
 import { createHologram } from "./Hologram";
 import { createSeaRenderer } from "./SeaRenderer";
 import { createSettlerRenderer, type SettlerRenderer } from "./SettlerRenderer";
-import { createRoster, syncRoster, type Resident } from "./settlers";
+import {
+  createRoster,
+  syncRoster,
+  type Activity,
+  type Resident,
+} from "./settlers";
+import type { WorkSlot } from "./tasks";
 import { setupScene } from "./sceneSetup";
 import { createDevHooks } from "./devHooks";
 import { placeBuilding, type PlacedModel } from "./placeBuilding";
@@ -60,7 +66,8 @@ export const Map = forwardRef<
     ) => void;
     // fills the blueprint of the construction site at the center
     setProgress: (center: HexCoordinates, percent: number) => void;
-    getSettlerActivity: (id: number) => "Walking" | "Idle" | undefined;
+    getSettlerActivity: (id: number) => Activity | undefined;
+    assignWork: (slots: WorkSlot[]) => void;
   },
   {
     onSelected: (coordinates: HexCoordinates) => void;
@@ -150,6 +157,7 @@ export const Map = forwardRef<
       setProgress: (center, percent) =>
         sitesRef.current[tileKey(center)]?.setProgress(percent),
       getSettlerActivity: (id) => settlersRef.current!.getActivity(id),
+      assignWork: (slots) => settlersRef.current!.assignWork(slots),
     }));
 
     useEffect(() => {

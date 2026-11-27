@@ -28,6 +28,7 @@ import {
 } from "./resources";
 import { assignHomes, getOccupantIds, type Assignments } from "./housing";
 import { createRoster, syncRoster, type Resident } from "./settlers";
+import type { WorkSlot } from "./tasks";
 
 export const INITIAL_RESOURCES: Resources = {
   ...emptyResources,
@@ -103,6 +104,36 @@ let unpoweredBuildings = new Set<PlacedBuilding>();
 
 // reports of the last week by placed building; a replaced or new building has none
 let reports = new Map<PlacedBuilding, BuildingReport>();
+
+// the workers per construction site of the last weekly tick
+let siteWorkers = new Map<PlacedBuilding, number>();
+
+// the work slot of a placed building: its footprint and `workers` places
+export function toWorkSlot(placed: PlacedBuilding, workers: number): WorkSlot {
+  return {
+    key: `${placed.center.q},${placed.center.r}`,
+    tiles: getFootprint(
+      placed.center,
+      getFootprintRadius(placed.building.size),
+    ),
+    workers,
+  };
+}
+
+// the places the last weekly tick staffed (buildings and construction sites);
+// settlers walk to them, the numbers are those of the building reports
+export function getWorkSlots(): WorkSlot[] {
+  const slots: WorkSlot[] = [];
+  for (const [placed, { workers }] of reports) {
+    if (workers > 0) {
+      slots.push(toWorkSlot(placed, workers));
+    }
+  }
+  for (const [site, workers] of siteWorkers) {
+    slots.push(toWorkSlot(site, workers));
+  }
+  return slots;
+}
 
 export function getBuildingReport(
   center: HexCoordinates,
@@ -634,6 +665,7 @@ function construct(labor: number): number {
   let used = 0;
   sitesWaitingForWood = 0;
   siteBuilders = new Map();
+  siteWorkers = new Map();
   for (const site of getConstructionSites()) {
     const { cost, maxBuilders } = site.building;
     const material = getMaterial(site.building);
@@ -665,6 +697,9 @@ function construct(labor: number): number {
     site.remainingWood = site.remainingWood! - amount;
     workOnSite(site, workers);
     siteBuilders.set(site, workers);
+    if (workers > 0) {
+      siteWorkers.set(site, workers);
+    }
     used += workers;
   }
   return used;

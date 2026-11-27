@@ -73,6 +73,10 @@ declare global {
       // shows generated residents instead of the real ones (benchmark);
       // undefined goes back to the real ones
       showSettlers(count: number | undefined): void;
+      // sends all settlers to the building at the tile (undefined: no task)
+      sendSettlers(coords: HexCoordinates | undefined): void;
+      // the route line of the selected settler: shown, remaining tiles
+      getSettlerRoute(): { visible: boolean; tiles: HexCoordinates[] };
       addResources(resources: Partial<Resources>): void;
       // places a finished wood storage (free) without any checks
       addWoodStorage(coords: HexCoordinates): void;

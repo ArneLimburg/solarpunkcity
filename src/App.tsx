@@ -23,8 +23,11 @@ import {
   getOccupants,
   getState,
   getStoredWood,
+  getWorkSlots,
   takeCompletedBuildings,
 } from "./game";
+import type { Activity } from "./settlers";
+import type { WorkSlot } from "./tasks";
 import { BuildingDetailsPanel } from "./BuildingDetailsPanel";
 import { BuildingInfo } from "./BuildingInfo";
 import { SettlerProfile } from "./SettlerProfile";
@@ -42,12 +45,15 @@ export const App: FC = () => {
       underConstruction?: boolean,
     ) => void;
     setProgress: (center: HexCoordinates, percent: number) => void;
-    getSettlerActivity: (id: number) => "Walking" | "Idle" | undefined;
+    getSettlerActivity: (id: number) => Activity | undefined;
+    assignWork: (slots: WorkSlot[]) => void;
   } | null>(null);
 
   useEffect(() => {
     const interval = setInterval(() => {
       setState(calculateWeek());
+      // the settlers walk to the places that this week staffed
+      mapRef.current?.assignWork(getWorkSlots());
       // the model of a finished building replaces its construction site
       for (const { coords, type } of takeCompletedBuildings()) {
         mapRef.current?.addBuilding(coords, type);

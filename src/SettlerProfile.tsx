@@ -1,7 +1,7 @@
 import { useEffect, useState, type FC } from "react";
 import type { HexCoordinates, PlacedBuilding } from "./board";
 import { ageInWeek, formatShortTime } from "./calendar";
-import type { Resident } from "./settlers";
+import type { Activity, Resident } from "./settlers";
 
 const REFRESH_MS = 200;
 
@@ -9,7 +9,7 @@ export const SettlerProfile: FC<{
   resident: Resident;
   week: number; // the current in-game week
   home: PlacedBuilding | undefined;
-  getActivity: (id: number) => "Walking" | "Idle" | undefined;
+  getActivity: (id: number) => Activity | undefined;
   onOpenHome: (center: HexCoordinates) => void;
   onClose: () => void;
 }> = ({ resident, week, home, getActivity, onOpenHome, onClose }) => {
