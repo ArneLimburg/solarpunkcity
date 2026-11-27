@@ -9,6 +9,9 @@ export type Resources = {
   glass: number;
   hydrogen: number;
   electronics: number;
+  // weekly flow like labor, never stockpiled; 1 energy = 1 MWh per week
+  // (about 6 kW continuous)
+  energy: number;
 };
 export const emptyResources: Resources = {
   food: 0,
@@ -21,6 +24,7 @@ export const emptyResources: Resources = {
   glass: 0,
   hydrogen: 0,
   electronics: 0,
+  energy: 0,
 };
 export function addResources(
   resourcesA: Resources,
@@ -37,6 +41,7 @@ export function addResources(
     glass: resourcesA.glass + resourcesB.glass,
     hydrogen: resourcesA.hydrogen + resourcesB.hydrogen,
     electronics: resourcesA.electronics + resourcesB.electronics,
+    energy: resourcesA.energy + resourcesB.energy,
   };
 }
 export function subtractResources(
@@ -54,6 +59,7 @@ export function subtractResources(
     glass: resourcesA.glass - resourcesB.glass,
     hydrogen: resourcesA.hydrogen - resourcesB.hydrogen,
     electronics: resourcesA.electronics - resourcesB.electronics,
+    energy: resourcesA.energy - resourcesB.energy,
   };
 }
 export function hasEnoughResources(
@@ -70,6 +76,7 @@ export function hasEnoughResources(
     available.steel >= cost.steel &&
     available.glass >= cost.glass &&
     available.hydrogen >= cost.hydrogen &&
-    available.electronics >= cost.electronics
+    available.electronics >= cost.electronics &&
+    available.energy >= cost.energy
   );
 }

@@ -35,6 +35,10 @@ export const BuildingCategories = {
     icon: "production/production.svg",
     label: "Production",
   },
+  ENERGY: {
+    name: "ENERGY",
+    buildable: false,
+  },
   FOREST: {
     name: "FOREST",
     buildable: false,
@@ -79,6 +83,11 @@ export const BuildingTypes = {
     category: "PRODUCTION",
     icon: "production/sawmill.svg",
     label: "Sawmill",
+  },
+  HydroPowerPlant: {
+    category: "ENERGY",
+    icon: "energy/hydro-power-plant.svg",
+    label: "Hydro power plant",
   },
   Forest: {
     category: "FOREST",
@@ -193,6 +202,19 @@ export const BuildingDefinition: Record<BuildingType, Building> = {
     consumes: { ...emptyResources, wood: 4, labor: 2 },
     storage: { ...emptyResources, planks: 20 },
     recycling: { ...emptyResources, wood: 7 },
+  },
+  HydroPowerPlant: {
+    name: "Hydro power plant",
+    type: "HydroPowerPlant",
+    description: "Turns the flow of the river into energy",
+    size: 1,
+    resident: 0,
+    ecology: -10, // the weir blocks the whole width of the river
+    // wood, not planks: planks come from sawmills, which will need energy
+    cost: { ...emptyResources, wood: 20, labor: 15 },
+    maxBuilders: 3,
+    produces: { ...emptyResources, energy: 10 },
+    consumes: { ...emptyResources }, // fully automated
   },
   SettlersCamp: {
     name: "Settlers' camp",

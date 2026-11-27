@@ -20,6 +20,7 @@ const a: Resources = {
   glass: 70,
   hydrogen: 80,
   electronics: 90,
+  energy: 100,
 };
 const b: Resources = {
   food: 1,
@@ -32,6 +33,7 @@ const b: Resources = {
   glass: 7,
   hydrogen: 8,
   electronics: 9,
+  energy: 10,
 };
 
 describe("addResources", () => {
@@ -47,6 +49,7 @@ describe("addResources", () => {
       glass: 77,
       hydrogen: 88,
       electronics: 99,
+      energy: 110,
     });
   });
 });
@@ -64,6 +67,7 @@ describe("subtractResources", () => {
       glass: 63,
       hydrogen: 72,
       electronics: 81,
+      energy: 90,
     });
   });
 });
@@ -99,6 +103,6 @@ describe("immutability", () => {
     expect(inputA).toEqual(a);
     expect(inputB).toEqual(b);
     expect(Object.values(emptyResources).every((v) => v === 0)).toBe(true);
-    expect(Object.keys(emptyResources)).toHaveLength(10);
+    expect(Object.keys(emptyResources)).toHaveLength(11);
   });
 });
