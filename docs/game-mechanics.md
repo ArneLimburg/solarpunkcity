@@ -277,6 +277,7 @@ storage it is still built: forestry delivers the missing wood to the site, it ju
 | -------------------- | ----- | --------- | -------------------- | ------------------------- | ----------------- | ----------------- | --------------------------- | --------- | ---------------- |
 | Organic homestead    | 1     | 4 wood    | 4                    | 1.0                       | 2                 | 3 food            | 2 workers                   | 3         | +0.5             |
 | Apartment building   | 1     | 6 planks  | 20                   | 0.3                       | 4                 | –                 | –                           | 15        | 0                |
+| Wooden house         | 1     | 10 wood   | 100                  | 0.1                       | 4                 | –                 | –                           | 5         | +0.3             |
 | Farm                 | 7     | 25 wood   | 24                   | 1.0                       | 6                 | 20 food           | 4 workers                   | 2         | +0.2             |
 | Agro-industrial farm | 19    | 40 planks | 80                   | 0.5                       | 10                | 60 food           | 8 workers, 4 energy         | 0         | −5               |
 | Wood storage         | 1     | –         | – (finished at once) | –                         | –                 | –                 | –                           | 0         | 0                |

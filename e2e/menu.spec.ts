@@ -58,6 +58,8 @@ test("a tab shows its buildings with the material cost", async ({ page }) => {
   await expect(
     page.getByTestId("build-cost-AppartmentBuilding"),
   ).not.toHaveClass(/error/);
+  await expect(button(page, "Wooden house")).toBeVisible();
+  await expect(page.getByTestId("build-cost-WoodenHouse")).toHaveText(/10$/);
   await tab(page, "Production").click();
   await expect(button(page, "Sawmill")).toBeVisible();
   await expect(page.getByTestId("build-cost-Sawmill")).toHaveText(/15$/);

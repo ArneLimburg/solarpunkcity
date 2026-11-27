@@ -656,6 +656,7 @@ const BUILDABLE: {
   { category: "FARM", type: "Farm", size: 7 },
   { category: "FARM", type: "AgroIndustrial", size: 19 },
   { category: "RESIDENTIAL", type: "AppartmentBuilding", size: 1 },
+  { category: "RESIDENTIAL", type: "WoodenHouse", size: 1 },
 ];
 
 for (const { category, type, size } of BUILDABLE) {
