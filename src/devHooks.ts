@@ -28,6 +28,8 @@ type DevHookSources = {
   getMountainStats: DevHooks["getMountainStats"];
   // the model currently shown on a tile ("q,r")
   models: Record<string, { triangles: number }>;
+  // the blueprint shown on the center tile of a construction site ("q,r")
+  sites: Record<string, { getFill: () => number }>;
   getTreeCount: DevHooks["getTreeCount"];
   getCornerMaterial: DevHooks["getCornerMaterial"];
   // shows the model of a finished building
@@ -50,6 +52,7 @@ export function createDevHooks({
   getTileInstanceStats,
   getMountainStats,
   models,
+  sites,
   getTreeCount,
   getCornerMaterial,
   showBuilding,
@@ -135,6 +138,7 @@ export function createDevHooks({
     getMountainStats,
     getModelCount: (coords) => (models[tileKey(coords)] ? 1 : 0),
     getModelTriangleCount: (coords) => models[tileKey(coords)]?.triangles ?? 0,
+    getSiteFill: (coords) => sites[tileKey(coords)]?.getFill(),
     getTreeCount,
     getCornerMaterial,
     getProgressLabel,

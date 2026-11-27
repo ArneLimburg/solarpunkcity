@@ -16,6 +16,20 @@ export type Hologram = {
   update: (type: BuildingType | undefined, tile: HexCoordinates | null) => void;
 };
 
+// the translucent blue material of blueprints
+export function createHologramMaterial(
+  name: string,
+  scene: Scene,
+): StandardMaterial {
+  const material = new StandardMaterial(name, scene);
+  material.diffuseColor = new Color3(0.2, 0.55, 1);
+  material.emissiveColor = new Color3(0.2, 0.55, 1);
+  material.specularColor = Color3.Black();
+  material.backFaceCulling = false;
+  material.alpha = 0.45;
+  return material;
+}
+
 // A single translucent blue copy of the selected building that follows the
 // cursor. The clones share the geometry of the building templates and are not
 // pickable, so the map input passes through.
@@ -24,12 +38,7 @@ export function createHologram(
   farms: FarmRenderer,
   woodStorage: WoodStorageRenderer,
 ): Hologram {
-  const material = new StandardMaterial("hologram", scene);
-  material.diffuseColor = new Color3(0.2, 0.55, 1);
-  material.emissiveColor = new Color3(0.2, 0.55, 1);
-  material.specularColor = Color3.Black();
-  material.backFaceCulling = false;
-  material.alpha = 0.45;
+  const material = createHologramMaterial("hologram", scene);
 
   const roots: Partial<Record<BuildingType, TransformNode>> = {};
   let current: TransformNode | undefined;

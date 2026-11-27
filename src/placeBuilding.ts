@@ -5,6 +5,10 @@ import {
   type BuildingType,
 } from "./gameDefinitions";
 import type { CornerRenderer } from "./CornerRenderer";
+import type {
+  ConstructionRenderer,
+  ConstructionSite,
+} from "./ConstructionRenderer";
 import { isModelType, type FarmRenderer } from "./FarmRenderer";
 import type { ForestRenderer } from "./ForestRenderer";
 import { hexToPixel, tileKey } from "./hexGeometry";
@@ -16,7 +20,7 @@ import type { GroundMaterials, TileRenderer } from "./TileRenderer";
 export type PlacedModel = { dispose: () => void; triangles: number };
 
 // replaces trees, models and ground on the footprint of a building; a
-// construction site shows bare soil and no model
+// construction site shows bare soil and the blueprint of the model
 export function placeBuilding(
   coords: HexCoordinates,
   type: BuildingType,
@@ -28,11 +32,23 @@ export function placeBuilding(
     materials: GroundMaterials;
     corners: CornerRenderer;
     models: Record<string, PlacedModel>;
+    construction: ConstructionRenderer;
+    // the blueprint shown on the center tile of a construction site
+    sites: Record<string, ConstructionSite>;
   },
   underConstruction = false,
 ) {
-  const { forest, farms, woodStorage, tiles, materials, corners, models } =
-    parts;
+  const {
+    forest,
+    farms,
+    woodStorage,
+    tiles,
+    materials,
+    corners,
+    models,
+    construction,
+    sites,
+  } = parts;
   const radius = getFootprintRadius(BuildingDefinition[type].size);
   // bare soil below construction sites, farmland below farms, gravel below
   // the wood storage, compacted earth below production buildings, meadow below
@@ -56,20 +72,31 @@ export function placeBuilding(
     forest.clearTile(tile);
     models[tileKey(tile)]?.dispose();
     delete models[tileKey(tile)];
+    sites[tileKey(tile)]?.dispose();
+    delete sites[tileKey(tile)];
   }
   tiles.setGrounds(getFootprint(coords, radius), ground);
   corners.update(getFootprint(coords, radius));
   const center = hexToPixel(coords.q, coords.r);
-  if (!underConstruction && type === "WoodStorage") {
+  if (underConstruction) {
+    // the blueprint fills with the finished model as the work proceeds
+    if (type === "WoodStorage" || isModelType(type)) {
+      sites[tileKey(coords)] = construction.create(
+        type,
+        center,
+        type === "HydroPowerPlant" ? getHydroPowerPlantRotation(coords) : 0,
+      );
+    }
+  } else if (type === "WoodStorage") {
     models[tileKey(coords)] = woodStorage.create(center);
-  } else if (!underConstruction && type === "HydroPowerPlant") {
+  } else if (type === "HydroPowerPlant") {
     // the weir lies across the river
     models[tileKey(coords)] = farms.create(
       type,
       center,
       getHydroPowerPlantRotation(coords),
     );
-  } else if (!underConstruction && isModelType(type)) {
+  } else if (isModelType(type)) {
     // models are built from code at scale 1
     models[tileKey(coords)] = farms.create(type, center);
   }
