@@ -24,6 +24,7 @@ test("construction work and maximum builders of every building", () => {
   expect(work("Forest")).toEqual([0, 0]);
   expect(work("WoodStorage")).toEqual([0, 0]);
   expect(work("Sawmill")).toEqual([52, 3]);
+  expect(work("WindTurbine")).toEqual([10, 2]);
 });
 
 test("construction takes realistic weeks at full staffing", () => {
@@ -35,6 +36,7 @@ test("construction takes realistic weeks at full staffing", () => {
     Sawmill: 18,
     HydroPowerPlant: 30,
     AppartmentBuilding: 40,
+    WindTurbine: 5,
   };
   for (const [type, expected] of Object.entries(weeks)) {
     const { cost, maxBuilders } = BuildingDefinition[type as BuildingType];
