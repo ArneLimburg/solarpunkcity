@@ -234,7 +234,7 @@ storage it is still built: forestry delivers the missing wood to the site, it ju
   ground-mounted panels; at about 1,000 kWh per kWp and year that is about 2 MWh per week. The
   wood is the timber mounting; the panels count as bought in. Per 10 energy, hydro needs 1 river
   tile and changes the ecology by −11, wind 2.5 tiles and about −5, solar 5 tiles and about −2.5
-  (compared to forest), for 20 wood and 40 labor.
+  (compared to forest), for 20 wood.
 - **Sawmill, 2.** About 20 m³ of sawn timber per week at 30–50 kWh per m³ for sawing, planing and
   conveying is about 1 MWh. Electric (heat pump) kiln drying brings it to 2–3 MWh.
 - **Agro-industrial farm, 4.** On-farm energy for machines, irrigation, drying and cooling is
