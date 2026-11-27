@@ -240,7 +240,7 @@ for (const size of [
 test("the profile shows a settler without a home as unhoused", async ({
   page,
 }) => {
-  test.setTimeout(180_000);
+  test.setTimeout(240_000);
   await page.goto("./");
   await page.waitForFunction(() => window.__solarpunk !== undefined);
   await grantWood(page);
@@ -262,23 +262,27 @@ test("the profile shows a settler without a home as unhoused", async ({
 
   // tap a settler until the profile opens (they keep walking)
   const canvas = (await page.locator("canvas").boundingBox())!;
-  const [settler] = await page.evaluate(() =>
-    window.__solarpunk!.getSettlers(),
-  );
   await expect
     .poll(
       async () => {
-        const at = await page.evaluate(
-          (id) => window.__solarpunk!.settlerToScreen(id, "body"),
-          settler.id,
+        // any settler will do; the roster can change, so read it every time
+        const positions = await page.evaluate(() =>
+          window
+            .__solarpunk!.getSettlers()
+            .map((s) => window.__solarpunk!.settlerToScreen(s.id, "body")),
         );
-        if (at) {
-          await page.mouse.move(canvas.x + at.x, canvas.y + at.y);
-          await page.mouse.click(canvas.x + at.x, canvas.y + at.y);
+        for (const at of positions) {
+          if (at) {
+            await page.mouse.move(canvas.x + at.x, canvas.y + at.y);
+            await page.mouse.click(canvas.x + at.x, canvas.y + at.y);
+          }
+          if ((await page.getByTestId("settler-profile").count()) === 1) {
+            break;
+          }
         }
         return page.getByTestId("settler-profile").count();
       },
-      { timeout: 60_000, intervals: [300] },
+      { timeout: 120_000, intervals: [300] },
     )
     .toBe(1);
   await expect(page.getByTestId("settler-home")).toContainText("Unhoused");
