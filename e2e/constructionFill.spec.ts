@@ -65,6 +65,9 @@ test("a single-hex and a multi-hex site fill up and give way to the model", asyn
     .toBeGreaterThan(0);
   expect(await fill(page, home)).toBeLessThan(1);
 
+  // the homestead is older and takes the labor, so the farm is still empty
+  expect(await fill(page, farm)).toBe(0);
+
   // a finished building replaces its blueprint
   await finishConstruction(page);
   await expect.poll(() => fill(page, home)).toBeUndefined();
@@ -74,4 +77,23 @@ test("a single-hex and a multi-hex site fill up and give way to the model", asyn
       page.evaluate((c) => window.__solarpunk?.getModelCount(c), farm),
     )
     .toBe(1);
+});
+
+test("a multi-hex site is filled partly from the ground up", async ({
+  page,
+}) => {
+  test.setTimeout(180_000);
+  await installClockWithNativeFrames(page);
+  await page.goto("./");
+  await page.waitForFunction(() => window.__solarpunk !== undefined);
+  await grantWood(page);
+  // alone on the map, the farm gets all workers of the week
+  await place(page, "Farm", "Farm", farm, 7);
+  expect(await fill(page, farm)).toBe(0);
+
+  await page.clock.runFor(1000);
+  await expect
+    .poll(async () => (await fill(page, farm)) ?? 1, { timeout: 30_000 })
+    .toBeGreaterThan(0);
+  expect(await fill(page, farm)).toBeLessThan(1);
 });
