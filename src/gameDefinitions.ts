@@ -141,7 +141,7 @@ export const BuildingDefinition: Record<BuildingType, Building> = {
     size: 1,
     resident: 3,
     ecology: 0.5,
-    cost: { ...emptyResources, wood: 4, labor: 4 }, // 40 cu m
+    cost: { ...emptyResources, wood: 4, labor: 32 }, // 40 cu m
     maxBuilders: 2,
     produces: { ...emptyResources, food: 3 },
     consumes: { ...emptyResources, labor: 2 },
@@ -153,7 +153,7 @@ export const BuildingDefinition: Record<BuildingType, Building> = {
     size: 7,
     resident: 2,
     ecology: 0.2,
-    cost: { ...emptyResources, wood: 25, labor: 24 },
+    cost: { ...emptyResources, wood: 25, labor: 156 },
     maxBuilders: 6,
     produces: { ...emptyResources, food: 20 },
     consumes: { ...emptyResources, labor: 4 },
@@ -165,7 +165,7 @@ export const BuildingDefinition: Record<BuildingType, Building> = {
     size: 19,
     resident: 0,
     ecology: -5,
-    cost: { ...emptyResources, planks: 40, labor: 80 },
+    cost: { ...emptyResources, planks: 40, labor: 520 },
     maxBuilders: 10,
     produces: { ...emptyResources, food: 60 },
     consumes: { ...emptyResources, labor: 8, energy: 4 },
@@ -204,7 +204,7 @@ export const BuildingDefinition: Record<BuildingType, Building> = {
     size: 1,
     resident: 0,
     ecology: 0,
-    cost: { ...emptyResources, wood: 10, labor: 6 },
+    cost: { ...emptyResources, wood: 10, labor: 39 },
     maxBuilders: 3,
     produces: { ...emptyResources },
     consumes: { ...emptyResources },
@@ -218,7 +218,7 @@ export const BuildingDefinition: Record<BuildingType, Building> = {
     size: 1,
     resident: 0,
     ecology: 0,
-    cost: { ...emptyResources, wood: 15, labor: 10 },
+    cost: { ...emptyResources, wood: 15, labor: 52 },
     maxBuilders: 3,
     produces: { ...emptyResources, planks: 2 },
     consumes: { ...emptyResources, wood: 4, labor: 2, energy: 2 },
@@ -233,8 +233,8 @@ export const BuildingDefinition: Record<BuildingType, Building> = {
     resident: 0,
     ecology: -10, // the weir blocks the whole width of the river
     // wood, not planks: planks come from sawmills, which need energy
-    cost: { ...emptyResources, wood: 20, labor: 15 },
-    maxBuilders: 3,
+    cost: { ...emptyResources, wood: 20, labor: 120 },
+    maxBuilders: 4,
     produces: { ...emptyResources, energy: 10 },
     consumes: { ...emptyResources }, // fully automated
   },
@@ -270,8 +270,8 @@ export const BuildingDefinition: Record<BuildingType, Building> = {
     size: 1,
     resident: 15,
     ecology: 0,
-    cost: { ...emptyResources, planks: 6, labor: 20 },
-    maxBuilders: 4,
+    cost: { ...emptyResources, planks: 6, labor: 240 },
+    maxBuilders: 6,
     produces: emptyResources,
     consumes: { ...emptyResources }, // later water and energy
   },

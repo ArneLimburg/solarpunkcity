@@ -57,14 +57,14 @@ test("unaffordableCosts never reports the wood of a construction site", () => {
 });
 
 test("planksPerBuilderWeek is the plank cost per work", () => {
-  expect(planksPerBuilderWeek("AppartmentBuilding")).toBeCloseTo(0.3);
-  expect(planksPerBuilderWeek("AgroIndustrial")).toBeCloseTo(0.5);
+  expect(planksPerBuilderWeek("AppartmentBuilding")).toBeCloseTo(6 / 240);
+  expect(planksPerBuilderWeek("AgroIndustrial")).toBeCloseTo(40 / 520);
   expect(planksPerBuilderWeek("Farm")).toBe(0);
   expect(planksPerBuilderWeek("WoodStorage")).toBe(0);
 });
 
 test("woodPerBuilderWeek is the wood cost per work", () => {
-  expect(woodPerBuilderWeek("Farm")).toBeCloseTo(25 / 24);
+  expect(woodPerBuilderWeek("Farm")).toBeCloseTo(25 / 156);
   expect(woodPerBuilderWeek("WoodStorage")).toBe(0);
 });
 

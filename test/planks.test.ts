@@ -165,7 +165,7 @@ test("a sawmill works if only a plank site has free supply space", () => {
   expect(game.getState().resources.planks).toBe(20);
 });
 
-test("an apartment site uses exactly 6 planks and 20 worker-weeks", () => {
+test("an apartment site uses exactly 6 planks and 240 worker-weeks", () => {
   addSawmill(); // the plank capacity
   game.grantResources({ planks: 6 });
   game.build("AppartmentBuilding", SITE);
@@ -174,16 +174,16 @@ test("an apartment site uses exactly 6 planks and 20 worker-weeks", () => {
   expect(site.siteWood).toBe(0);
   let workerWeeks = 0;
   let weeks = 0;
-  while (board.getConstructionSites().length > 0 && weeks < 50) {
+  while (board.getConstructionSites().length > 0 && weeks < 400) {
     const before = game.getState().resources.planks;
     const work = site.remainingWork!;
     game.calculateWeek();
     const workers = work - (site.remainingWork ?? 0);
-    expect(workers).toBeLessThanOrEqual(Math.floor(before / 0.3 + 1e-9));
+    expect(workers).toBeLessThanOrEqual(Math.floor(before / 0.025 + 1e-9));
     workerWeeks += workers;
     weeks++;
   }
-  expect(workerWeeks).toBe(20);
+  expect(workerWeeks).toBe(240);
   expect(game.getState().resources.planks).toBeCloseTo(0);
   expect(game.takeCompletedBuildings()).toEqual([
     { coords: SITE, type: "AppartmentBuilding" },
@@ -193,17 +193,17 @@ test("an apartment site uses exactly 6 planks and 20 worker-weeks", () => {
 test("workers are limited by the available planks", () => {
   game.build("AppartmentBuilding", SITE);
   const [site] = board.getConstructionSites();
-  site.siteWood = 0.5; // floor(0.5 / 0.3) = 1 worker
+  site.siteWood = 0.05; // floor(0.05 / 0.025) = 2 workers
   game.calculateWeek();
-  expect(site.remainingWork).toBe(19);
-  expect(site.siteWood).toBeCloseTo(0.2);
+  expect(site.remainingWork).toBe(238);
+  expect(site.siteWood).toBeCloseTo(0);
 });
 
 test("a site without planks waits for material", () => {
   game.build("AppartmentBuilding", SITE);
   const state = game.calculateWeek();
   expect(state.sitesWaitingForWood).toBe(1);
-  expect(board.getConstructionSites()[0].remainingWork).toBe(20);
+  expect(board.getConstructionSites()[0].remainingWork).toBe(240);
   // the labor went to the forests
   expect(state.workforce!.construction).toBe(0);
 });
@@ -212,10 +212,10 @@ test("the plank stock is used after the own supply", () => {
   addSawmill(); // the plank capacity
   game.grantResources({ planks: 1 });
   game.build("AppartmentBuilding", SITE);
-  board.getConstructionSites()[0].siteWood = 0.3;
-  game.calculateWeek(); // 2 workers need 0.6 planks
-  expect(board.getConstructionSites()[0].siteWood).toBe(0);
-  expect(game.getState().resources.planks).toBeCloseTo(0.7);
+  board.getConstructionSites()[0].siteWood = 0.025;
+  game.calculateWeek(); // 2 workers need 0.05 planks
+  expect(board.getConstructionSites()[0].siteWood).toBeCloseTo(0);
+  expect(game.getState().resources.planks).toBeCloseTo(0.975);
 });
 
 test("planks of a plank building do not go into the wood storage", () => {

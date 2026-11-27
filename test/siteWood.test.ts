@@ -56,11 +56,9 @@ test("a farm is placed without any wood: the cleared wood goes into the site", (
 test("a farm without storage is finished after forestry delivered the missing wood", () => {
   game.build("Farm", { q: -5, r: 0 });
   let weeks = 0;
-  let waited = false;
-  while (board.getConstructionSites().length > 0 && weeks < 100) {
+  while (board.getConstructionSites().length > 0 && weeks < 300) {
     const state = game.calculateWeek();
     weeks++;
-    waited ||= state.sitesWaitingForWood > 0;
     for (const site of board.getConstructionSites()) {
       expect(site.siteWood).toBeGreaterThanOrEqual(-1e-9);
       expect(site.remainingWood).toBeGreaterThanOrEqual(-1e-9);
@@ -71,15 +69,14 @@ test("a farm without storage is finished after forestry delivered the missing wo
   expect(game.takeCompletedBuildings()).toEqual([
     { coords: { q: -5, r: 0 }, type: "Farm" },
   ]);
-  expect(waited).toBe(true);
-  expect(weeks).toBeGreaterThan(12); // 24 worker-weeks with 2 builders
+  expect(weeks).toBeGreaterThan(78); // 156 worker-weeks with 2 builders
 });
 
 test("a site without wood gets no workers, uses no labor and waits for wood", () => {
   game.build("OrganicHomestead", { q: 0, r: 0 }); // the camp gives no wood
   const state = game.calculateWeek();
   expect(state.sitesWaitingForWood).toBe(1);
-  expect(board.getConstructionSites()[0].remainingWork).toBe(4);
+  expect(board.getConstructionSites()[0].remainingWork).toBe(32);
   // the free labor works in forests, their wood goes into the site
   expect(board.getConstructionSites()[0].siteWood).toBe(1);
   expect(state.resources.wood).toBe(0);
@@ -87,23 +84,23 @@ test("a site without wood gets no workers, uses no labor and waits for wood", ()
   // the delivered wood is used from the next week on
   const next = game.calculateWeek();
   expect(next.sitesWaitingForWood).toBe(0);
-  expect(board.getConstructionSites()[0].remainingWork).toBe(3);
+  expect(board.getConstructionSites()[0].remainingWork).toBe(30);
 });
 
 test("workers are limited by the wood per worker-week", () => {
   game.build("OrganicHomestead", { q: 0, r: 0 });
-  board.getConstructionSites()[0].siteWood = 1.9;
+  board.getConstructionSites()[0].siteWood = 0.15;
   game.calculateWeek();
-  // floor(1.9 / 1) = 1 worker
-  expect(board.getConstructionSites()[0].remainingWork).toBe(3);
-  expect(board.getConstructionSites()[0].siteWood).toBeCloseTo(0.9 + 0.5);
+  // floor(0.15 / 0.125) = 1 worker
+  expect(board.getConstructionSites()[0].remainingWork).toBe(31);
+  expect(board.getConstructionSites()[0].siteWood).toBeCloseTo(0.025 + 0.5);
 });
 
 test("the wood stock is only used for the work of the week", () => {
   game.build("OrganicHomestead", { q: 0, r: 0 });
   game.grantResources({ wood: 5 });
   const state = game.calculateWeek();
-  expect(state.resources.wood).toBe(3); // 2 builders use 2 wood
+  expect(state.resources.wood).toBe(4.75); // 2 builders use 0.25 wood
   expect(board.getConstructionSites()[0].siteWood).toBe(0);
   expect(state.sitesWaitingForWood).toBe(0);
 });
@@ -111,12 +108,10 @@ test("the wood stock is only used for the work of the week", () => {
 test("the own supply is used before the stock", () => {
   game.build("OrganicHomestead", { q: 1, r: 0 }); // 3 wood into the site
   game.grantResources({ wood: 5 });
-  game.calculateWeek();
-  expect(game.getState().resources.wood).toBe(5);
-  expect(board.getConstructionSites()[0].siteWood).toBe(1);
-  game.calculateWeek(); // 1 wood from the supply, 1 from the stock
-  expect(game.getState().resources.wood).toBe(4);
-  expect(board.getConstructionSites()).toEqual([]);
+  board.getConstructionSites()[0].siteWood = 0.125;
+  game.calculateWeek(); // 0.125 wood from the supply, 0.125 from the stock
+  expect(game.getState().resources.wood).toBe(4.875);
+  expect(board.getConstructionSites()[0].siteWood).toBe(0);
 });
 
 test("the last work week uses exactly the remaining wood", () => {

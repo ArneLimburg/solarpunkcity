@@ -34,7 +34,7 @@ test("the supermarket is a storage building with the specified values", () => {
   expect(supermarket.resident).toBe(0);
   expect(supermarket.ecology).toBe(0);
   expect(supermarket.cost.wood).toBe(10);
-  expect(supermarket.cost.labor).toBe(6);
+  expect(supermarket.cost.labor).toBe(39);
   expect(supermarket.maxBuilders).toBe(3);
   expect(supermarket.storage?.food).toBe(100);
   expect(supermarket.recycling?.wood).toBe(5);

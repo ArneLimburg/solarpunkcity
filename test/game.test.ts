@@ -275,17 +275,17 @@ test("build without recycling only pays the cost", () => {
   expect(board.getBuilding({ q: 1, r: 0 })).toBe(
     definitions.BuildingDefinition.OrganicHomestead,
   );
-  // 10 + 10 (granted) - 2 (wood used by the 2 builders this week)
-  expect(game.calculateWeek().resources.wood).toBeCloseTo(18);
+  // 10 + 10 (granted) - 0.25 (wood used by the 2 builders this week)
+  expect(game.calculateWeek().resources.wood).toBeCloseTo(19.75);
 });
 
 test("build recycles the old building", () => {
   storeFood(10);
   game.grantResources({ wood: 10 });
   game.build("OrganicHomestead", { q: 1, r: 0 });
-  // the recycled 3 wood are in the site; the 2 builders use 2 of them
+  // the recycled 3 wood are in the site; the 2 builders use 0.25 of them
   expect(game.calculateWeek().resources.wood).toBeCloseTo(20);
-  expect(board.getConstructionSites()[0].siteWood).toBeCloseTo(1);
+  expect(board.getConstructionSites()[0].siteWood).toBeCloseTo(2.75);
 });
 
 test("population does not grow when no food remains after eating", () => {
@@ -735,13 +735,17 @@ test("a construction site gives no housing, no ecology and cannot be built over"
   expect(game.canPlace("OrganicHomestead", { q: 0, r: 0 })).toBe(false);
 });
 
-test("an organic homestead is finished after 2 weeks and produces from week 3", () => {
-  storeFood(10);
+test("an organic homestead is finished after 16 weeks and produces from week 17", () => {
+  storeFood(100);
+  game.grantResources({ food: 100 });
   game.build("OrganicHomestead", { q: 0, r: 0 });
   const week1 = game.calculateWeek();
   expect(week1.constructionSites).toBe(1);
   expect(week1.foodBalance).toBe(-2);
   expect(game.takeCompletedBuildings()).toEqual([]);
+  for (let week = 2; week < 16; week++) {
+    expect(game.calculateWeek().constructionSites, `week ${week}`).toBe(1);
+  }
   const week2 = game.calculateWeek();
   expect(week2.constructionSites).toBe(0);
   expect(week2.foodBalance).toBe(-2); // not produced in the week it is finished
@@ -753,12 +757,12 @@ test("an organic homestead is finished after 2 weeks and produces from week 3", 
   expect(game.calculateWeek().foodBalance).toBe(1); // 2 workers: 3 food
 });
 
-test("a single worker finishes a farm after 24 weeks", () => {
+test("a single worker finishes a farm after 156 weeks", () => {
   game.build("Farm", { q: 0, r: 0 });
   game.grantResources({ food: -10 }); // hunger: the population shrinks to 1
   expect(game.calculateWeek().population).toBe(1);
   game.grantResources({ food: 1000 });
-  for (let week = 1; week < 23; week++) {
+  for (let week = 1; week < 155; week++) {
     expect(game.calculateWeek().constructionSites).toBe(1);
   }
   const state = game.calculateWeek(); // housing 0: the population stays 1

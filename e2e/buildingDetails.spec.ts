@@ -31,11 +31,11 @@ test("shows the organic homestead details", async ({ page }) => {
     /4 during construction$/,
   );
   await expect(panel(page).getByTestId("details-wood-per-builder")).toHaveText(
-    "Wood per builder-week: 1.0",
+    "Wood per builder-week: 0.1",
   );
   await expect(chip(page, "details-produces", "food")).toHaveText(/3$/);
   await expect(chip(page, "details-consumes", "labor")).toHaveText(/2$/);
-  await expect(chip(page, "details-cost", "labor")).toHaveText(/4$/);
+  await expect(chip(page, "details-cost", "labor")).toHaveText(/32$/);
   await expect(chip(page, "details-cost", "labor")).not.toHaveClass(/error/);
   await expect(panel(page).getByTestId("details-builders")).toHaveText(
     "Builders per week: max 2",
@@ -63,7 +63,7 @@ test("updates when another type is selected", async ({ page }) => {
   await expect(chip(page, "details-cost", "wood")).toHaveCount(0);
   await expect(
     panel(page).getByTestId("details-planks-per-builder"),
-  ).toHaveText("Planks per builder-week: 0.5");
+  ).toHaveText("Planks per builder-week: 0.1");
   await expect(panel(page).getByTestId("details-wood-per-builder")).toHaveCount(
     0,
   );
@@ -81,7 +81,7 @@ test("omits empty sections for the apartment building", async ({ page }) => {
   );
   await expect(
     panel(page).getByTestId("details-planks-per-builder"),
-  ).toHaveText("Planks per builder-week: 0.3");
+  ).toHaveText("Planks per builder-week: 0.0");
   await expect(panel(page).getByTestId("details-produces")).toHaveCount(0);
   await expect(panel(page).getByTestId("details-consumes")).toHaveCount(0);
 });

@@ -15,13 +15,35 @@ test("construction work and maximum builders of every building", () => {
     BuildingDefinition[name].cost.labor,
     BuildingDefinition[name].maxBuilders,
   ];
-  expect(work("OrganicHomestead")).toEqual([4, 2]);
-  expect(work("AppartmentBuilding")).toEqual([20, 4]);
-  expect(work("Farm")).toEqual([24, 6]);
-  expect(work("AgroIndustrial")).toEqual([80, 10]);
+  expect(work("OrganicHomestead")).toEqual([32, 2]);
+  expect(work("AppartmentBuilding")).toEqual([240, 6]);
+  expect(work("Farm")).toEqual([156, 6]);
+  expect(work("AgroIndustrial")).toEqual([520, 10]);
+  expect(work("Supermarket")).toEqual([39, 3]);
+  expect(work("HydroPowerPlant")).toEqual([120, 4]);
   expect(work("Forest")).toEqual([0, 0]);
   expect(work("WoodStorage")).toEqual([0, 0]);
-  expect(work("Sawmill")).toEqual([10, 3]);
+  expect(work("Sawmill")).toEqual([52, 3]);
+});
+
+test("construction takes realistic weeks at full staffing", () => {
+  const weeks: Partial<Record<BuildingType, number>> = {
+    OrganicHomestead: 16,
+    Farm: 26,
+    AgroIndustrial: 52,
+    Supermarket: 13,
+    Sawmill: 18,
+    HydroPowerPlant: 30,
+    AppartmentBuilding: 40,
+  };
+  for (const [type, expected] of Object.entries(weeks)) {
+    const { cost, maxBuilders } = BuildingDefinition[type as BuildingType];
+    expect(Math.ceil(cost.labor / maxBuilders)).toBe(expected);
+  }
+  for (const { cost, maxBuilders, type } of Object.values(BuildingDefinition)) {
+    expect(cost.labor > 0, type).toBe(type in weeks);
+    expect(maxBuilders > 0, type).toBe(type in weeks);
+  }
 });
 
 test("the sawmill and its category", () => {
@@ -43,7 +65,7 @@ test("the sawmill and its category", () => {
     resident: 0,
     ecology: 0,
   });
-  expect(sawmill.cost).toEqual({ ...emptyResources, wood: 15, labor: 10 });
+  expect(sawmill.cost).toEqual({ ...emptyResources, wood: 15, labor: 52 });
   expect(sawmill.consumes).toEqual({
     ...emptyResources,
     wood: 4,
@@ -137,9 +159,9 @@ test("the hydro power plant is a buildable energy building on the river", () => 
     size: 1,
     resident: 0,
     ecology: -10,
-    maxBuilders: 3,
+    maxBuilders: 4,
   });
-  expect(plant.cost).toEqual({ ...emptyResources, wood: 20, labor: 15 });
+  expect(plant.cost).toEqual({ ...emptyResources, wood: 20, labor: 120 });
   expect(plant.produces).toEqual({ ...emptyResources, energy: 10 });
   expect(plant.consumes).toEqual(emptyResources);
   expect(plant.recycling).toBeUndefined();
