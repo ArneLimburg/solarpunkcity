@@ -211,6 +211,7 @@ export const App: FC = () => {
             {settler && (
               <SettlerProfile
                 resident={settler}
+                week={state.week}
                 home={getHome(settler.id)}
                 getActivity={getSettlerActivity}
                 onOpenHome={openHome}

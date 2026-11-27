@@ -6,6 +6,7 @@ import {
   isOnBoard,
   type HexCoordinates,
 } from "./board";
+import { birthTime } from "./calendar";
 import { BuildingTypes } from "./gameDefinitions";
 
 // Residents (one record per person) and the walking settlers (pure movement
@@ -85,6 +86,7 @@ export type Resident = {
   skin: string; // "#rrggbb"
   name: string; // generated once
   age: number; // age in whole years when the resident arrived
+  birthDate: number; // UTC time of the birth, generated once
 };
 
 export type Roster = {
@@ -107,8 +109,13 @@ export function createRoster(seed: number): Roster {
 }
 
 // Adds residents with new IDs and colors, or removes the newest residents,
-// until the roster has the population's size. Returns the residents.
-export function syncRoster(roster: Roster, population: number): Resident[] {
+// until the roster has the population's size. Newcomers join in the given
+// week. Returns the residents.
+export function syncRoster(
+  roster: Roster,
+  population: number,
+  week = 0,
+): Resident[] {
   while (roster.residents.length < population) {
     const id = roster.nextId++;
     const clothing =
@@ -119,12 +126,14 @@ export function syncRoster(roster: Roster, population: number): Resident[] {
     const first = FIRST_NAMES[Math.floor(random(own) * FIRST_NAMES.length)];
     const last = LAST_NAMES[Math.floor(random(own) * LAST_NAMES.length)];
     const age = MIN_AGE + Math.floor(random(own) * (MAX_AGE - MIN_AGE + 1));
+    const dayOffset = Math.floor(random(own) * 365);
     roster.residents.push({
       id,
       clothing,
       skin,
       name: `${first} ${last}`,
       age,
+      birthDate: birthTime(week, age, dayOffset),
     });
   }
   roster.residents.length = population;
