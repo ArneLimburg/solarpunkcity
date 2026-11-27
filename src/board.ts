@@ -22,6 +22,9 @@ export type PlacedBuilding = {
   // still to be used up (the cost minus the material already used)
   siteWood?: number;
   remainingWood?: number;
+  // finished sawmills: own wood supply (missing means empty), at most one
+  // week's consumption, lost when the sawmill is replaced
+  sawmillWood?: number;
   sequence: number; // placement order, oldest first
 };
 
