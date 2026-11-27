@@ -96,6 +96,7 @@ function setup() {
       inView: true,
     }),
     models: { "0,0": { triangles: 42 } },
+    sites: { "1,0": { getFill: () => 0.5 } },
     getTreeCount: () => 3,
     getCornerMaterial: (_coords, corner) =>
       corner === 2 ? "meadow" : undefined,
@@ -226,6 +227,8 @@ test("the hooks expose ring, models, trees, material and buildings", () => {
   expect(hooks.getModelCount({ q: 1, r: 0 })).toBe(0);
   expect(hooks.getModelTriangleCount({ q: 0, r: 0 })).toBe(42);
   expect(hooks.getModelTriangleCount({ q: 1, r: 0 })).toBe(0);
+  expect(hooks.getSiteFill({ q: 1, r: 0 })).toBe(0.5);
+  expect(hooks.getSiteFill({ q: 0, r: 0 })).toBeUndefined();
   expect(hooks.getTreeCount({ q: 0, r: 0 })).toBe(3);
   expect(hooks.getCornerMaterial({ q: 0, r: 0 }, 2)).toBe("meadow");
   expect(hooks.getCornerMaterial({ q: 0, r: 0 }, 0)).toBeUndefined();

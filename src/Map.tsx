@@ -18,7 +18,12 @@ import {
 } from "./WoodStorageRenderer";
 import { createMountainRenderer } from "./MountainRenderer";
 import { createForest, type ForestRenderer } from "./ForestRenderer";
-import { HEX_SIZE, hexToPixel } from "./hexGeometry";
+import {
+  createConstructionRenderer,
+  type ConstructionRenderer,
+  type ConstructionSite,
+} from "./ConstructionRenderer";
+import { HEX_SIZE, hexToPixel, tileKey } from "./hexGeometry";
 import {
   createGroundMaterials,
   createTileRenderer,
@@ -53,6 +58,8 @@ export const Map = forwardRef<
       type: BuildingType,
       underConstruction?: boolean,
     ) => void;
+    // fills the blueprint of the construction site at the center
+    setProgress: (center: HexCoordinates, percent: number) => void;
     getSettlerActivity: (id: number) => "Walking" | "Idle" | undefined;
   },
   {
@@ -82,6 +89,9 @@ export const Map = forwardRef<
     const canvasRef = useRef<HTMLCanvasElement | null>(null);
     // the model currently shown on a tile ("q,r")
     const modelsRef = useRef<Record<string, PlacedModel>>({});
+    // the blueprint of each construction site by center tile ("q,r")
+    const sitesRef = useRef<Record<string, ConstructionSite>>({});
+    const constructionRef = useRef<ConstructionRenderer | null>(null);
     const forestRef = useRef<ForestRenderer | null>(null);
     const farmsRef = useRef<FarmRenderer | null>(null);
     const woodStorageRef = useRef<WoodStorageRenderer | null>(null);
@@ -122,6 +132,8 @@ export const Map = forwardRef<
           materials: materialsRef.current!,
           corners: cornersRef.current!,
           models: modelsRef.current,
+          construction: constructionRef.current!,
+          sites: sitesRef.current,
         },
         underConstruction,
       );
@@ -135,6 +147,8 @@ export const Map = forwardRef<
 
     useImperativeHandle(ref, () => ({
       addBuilding: place,
+      setProgress: (center, percent) =>
+        sitesRef.current[tileKey(center)]?.setProgress(percent),
       getSettlerActivity: (id) => settlersRef.current!.getActivity(id),
     }));
 
@@ -163,6 +177,11 @@ export const Map = forwardRef<
       );
       farmsRef.current = createFarmRenderer(scene, HEX_SIZE);
       woodStorageRef.current = createWoodStorageRenderer(scene, HEX_SIZE);
+      constructionRef.current = createConstructionRenderer(
+        scene,
+        farmsRef.current,
+        woodStorageRef.current,
+      );
       const settlers = createSettlerRenderer(
         scene,
         Math.floor(Math.random() * 2 ** 32),
@@ -266,6 +285,7 @@ export const Map = forwardRef<
           getTileInstanceStats: tiles.getInstanceStats,
           getMountainStats: mountains.getStats,
           models: modelsRef.current,
+          sites: sitesRef.current,
           getTreeCount: (coords) => forestRef.current!.getTreeCount(coords),
           getCornerMaterial: (coords, corner) =>
             cornersRef.current!.getMaterialName({ tile: coords, corner }),

@@ -1,5 +1,9 @@
 import { expect, test, vi } from "vitest";
 import type { CornerRenderer } from "../src/CornerRenderer";
+import type {
+  ConstructionRenderer,
+  ConstructionSite,
+} from "../src/ConstructionRenderer";
 import type { FarmRenderer } from "../src/FarmRenderer";
 import type { ForestRenderer } from "../src/ForestRenderer";
 import type { WoodStorageRenderer } from "../src/WoodStorageRenderer";
@@ -39,6 +43,14 @@ function setup() {
     water: { name: "water" },
   } as GroundMaterials;
   const update = vi.fn();
+  const siteDispose = vi.fn();
+  const site: ConstructionSite = {
+    dispose: siteDispose,
+    setProgress: vi.fn(),
+    getFill: () => 0,
+  };
+  const createSite = vi.fn(() => site);
+  const sites: Record<string, ConstructionSite> = {};
   const createLogYard = vi.fn(() => model);
   const parts = {
     corners: { update } as unknown as CornerRenderer,
@@ -48,9 +60,15 @@ function setup() {
     tiles: { setGrounds } as unknown as TileRenderer,
     materials,
     models,
+    construction: { create: createSite } as ConstructionRenderer,
+    sites,
   };
   return {
     parts,
+    createSite,
+    site,
+    siteDispose,
+    sites,
     dispose,
     model,
     clearTile,
@@ -100,20 +118,44 @@ test("a hydro power plant keeps the water and is turned to the river", () => {
   expect(models[`${tile.q},${tile.r}`]).toBe(model);
 });
 
-test("a hydro power plant site keeps the water and shows no model", () => {
-  const { parts, create, models, setGrounds } = setup();
+test("a hydro power plant site keeps the water and shows a turned blueprint", () => {
+  const { parts, create, createSite, site, sites, models, setGrounds } =
+    setup();
   const tile = getRiverCourse(GRID_RADIUS)[3];
   placeBuilding(tile, "HydroPowerPlant", parts, true);
   expect(setGrounds).toHaveBeenCalledWith([tile], parts.materials.water);
   expect(create).not.toHaveBeenCalled();
+  expect(createSite).toHaveBeenCalledWith(
+    "HydroPowerPlant",
+    hexToPixel(tile.q, tile.r),
+    getHydroPowerPlantRotation(tile),
+  );
+  expect(sites[`${tile.q},${tile.r}`]).toBe(site);
   expect(models).toEqual({});
 });
 
-test("a wood storage under construction shows no model", () => {
-  const { parts, createLogYard, models } = setup();
+test("a wood storage under construction shows a blueprint, no log yard", () => {
+  const { parts, createLogYard, createSite, sites, site, models } = setup();
   placeBuilding({ q: 0, r: 0 }, "WoodStorage", parts, true);
   expect(createLogYard).not.toHaveBeenCalled();
+  expect(createSite).toHaveBeenCalledWith("WoodStorage", hexToPixel(0, 0), 0);
+  expect(sites["0,0"]).toBe(site);
   expect(models).toEqual({});
+});
+
+test("a site without a model has no blueprint", () => {
+  const { parts, createSite, sites } = setup();
+  placeBuilding({ q: 0, r: 0 }, "Forest", parts, true);
+  expect(createSite).not.toHaveBeenCalled();
+  expect(sites).toEqual({});
+});
+
+test("blueprints on the footprint are disposed", () => {
+  const { parts, siteDispose, sites, site } = setup();
+  sites["1,0"] = site;
+  placeBuilding({ q: 0, r: 0 }, "Farm", parts);
+  expect(siteDispose).toHaveBeenCalledTimes(1);
+  expect(sites["1,0"]).toBeUndefined();
 });
 
 test("a model building clears the footprint and shows its model", () => {
@@ -132,9 +174,11 @@ test("a model building clears the footprint and shows its model", () => {
   expect(models["0,0"]).toBe(model);
 });
 
-test("a construction site shows bare soil and no model", () => {
-  const { parts, clearTile, create, models, update, setGrounds } = setup();
+test("a construction site shows bare soil and a blueprint, no model", () => {
+  const { parts, clearTile, create, createSite, models, update, setGrounds } =
+    setup();
   placeBuilding({ q: 0, r: 0 }, "Farm", parts, true);
+  expect(createSite).toHaveBeenCalledWith("Farm", hexToPixel(0, 0), 0);
   expect(clearTile).toHaveBeenCalledTimes(7);
   expect(update).toHaveBeenCalledTimes(1);
   expect(setGrounds).toHaveBeenCalledTimes(1);

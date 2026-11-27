@@ -2,7 +2,11 @@ import "beercss/dist/cdn/beer.min.css";
 import { useCallback, useEffect, useRef, useState, type FC } from "react";
 import { Map } from "./Map";
 import { BuildButton, BuildList } from "./Menu";
-import { getPlacedBuilding, type HexCoordinates } from "./board";
+import {
+  getConstructionSites,
+  getPlacedBuilding,
+  type HexCoordinates,
+} from "./board";
 import {
   BuildingDefinition,
   type BuildingCategory,
@@ -37,6 +41,7 @@ export const App: FC = () => {
       type: BuildingType,
       underConstruction?: boolean,
     ) => void;
+    setProgress: (center: HexCoordinates, percent: number) => void;
     getSettlerActivity: (id: number) => "Walking" | "Idle" | undefined;
   } | null>(null);
 
@@ -46,6 +51,13 @@ export const App: FC = () => {
       // the model of a finished building replaces its construction site
       for (const { coords, type } of takeCompletedBuildings()) {
         mapRef.current?.addBuilding(coords, type);
+      }
+      // the remaining sites fill up with their progress
+      for (const { center } of getConstructionSites()) {
+        mapRef.current?.setProgress(
+          center,
+          getConstructionReport(center)!.percent,
+        );
       }
     }, 1000);
 

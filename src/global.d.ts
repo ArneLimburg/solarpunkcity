@@ -28,6 +28,9 @@ declare global {
       getModelCount(coords: HexCoordinates): number;
       getModelTriangleCount(coords: HexCoordinates): number;
       getTreeCount(coords: HexCoordinates): number;
+      // the share (0 to 1) of the blueprint of a construction site that shows
+      // the finished model, undefined without a blueprint
+      getSiteFill(coords: HexCoordinates): number | undefined;
       // material name of the fill at corner 0..5 of a tile, undefined without fill
       getCornerMaterial(
         coords: HexCoordinates,
