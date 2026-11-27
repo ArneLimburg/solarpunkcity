@@ -37,7 +37,9 @@ export const BuildingCategories = {
   },
   ENERGY: {
     name: "ENERGY",
-    buildable: false,
+    buildable: true,
+    icon: "energy/energy.svg",
+    label: "Energy",
   },
   FOREST: {
     name: "FOREST",
@@ -166,7 +168,7 @@ export const BuildingDefinition: Record<BuildingType, Building> = {
     cost: { ...emptyResources, planks: 40, labor: 80 },
     maxBuilders: 10,
     produces: { ...emptyResources, food: 60 },
-    consumes: { ...emptyResources, labor: 8 },
+    consumes: { ...emptyResources, labor: 8, energy: 4 },
   },
   Forest: {
     name: "Forest",
@@ -219,7 +221,7 @@ export const BuildingDefinition: Record<BuildingType, Building> = {
     cost: { ...emptyResources, wood: 15, labor: 10 },
     maxBuilders: 3,
     produces: { ...emptyResources, planks: 2 },
-    consumes: { ...emptyResources, wood: 4, labor: 2 },
+    consumes: { ...emptyResources, wood: 4, labor: 2, energy: 2 },
     storage: { ...emptyResources, planks: 20 },
     recycling: { ...emptyResources, wood: 7 },
   },
@@ -230,7 +232,7 @@ export const BuildingDefinition: Record<BuildingType, Building> = {
     size: 1,
     resident: 0,
     ecology: -10, // the weir blocks the whole width of the river
-    // wood, not planks: planks come from sawmills, which will need energy
+    // wood, not planks: planks come from sawmills, which need energy
     cost: { ...emptyResources, wood: 20, labor: 15 },
     maxBuilders: 3,
     produces: { ...emptyResources, energy: 10 },

@@ -4,6 +4,7 @@ import { chipClassName } from "./buildingDetails";
 import { formatLongDate, formatSessionTime, formatShortDate } from "./calendar";
 import {
   formatConstructionSites,
+  formatEnergy,
   formatFood,
   formatFreeRow,
   formatPercent,
@@ -154,6 +155,14 @@ export const StatusBar: FC<{ state: GameState; sessionStart: number }> = ({
             name="planks"
             icon={resourceIcons.planks}
             value={formatPlanks(state)}
+          />
+        )}
+        {(state.energyProduced > 0 || state.energyUsed > 0) && (
+          <Entry
+            name="energy"
+            icon={resourceIcons.energy}
+            value={formatEnergy(state)}
+            error={state.buildingsWithoutEnergy > 0}
           />
         )}
       </div>

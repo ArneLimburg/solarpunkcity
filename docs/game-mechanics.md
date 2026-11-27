@@ -44,6 +44,11 @@ same way (for example `12 / 20`), but only while the plank capacity is above 0. 
 the stock, the capacity and the weekly balance (for example `40 / 100 (+2/wk)`); it is in the
 error style while the balance is negative.
 
+**Energy.** Energy is a weekly flow like labor: it is **not** stored, what is not used in a week
+is lost. Hydro power plants produce it, sawmills and agro-industrial farms use it. The top bar
+shows it as `used / produced` (for example `6 / 10`) as soon as energy is produced or needed; the
+entry is shown in the error style while a building gets no energy. See section 6 for the rules.
+
 Unused labor is lost at the end of the week. The labor shown in the status bar is the labor that
 was left over after all work of the last week.
 
@@ -151,7 +156,7 @@ storage it is still built: forestry delivers the missing wood to the site, it ju
      therefore also staffed to fill the free space of the storage. Farms that need no workers
      always produce at full capacity.
    - A farm with only part of its staff produces the same part of its food.
-   - The **harvest factor** reduces all harvests when the ecology is low (section 6): at 90 %
+   - The **harvest factor** reduces all harvests when the ecology is low (section 7): at 90 %
      ecology or more the harvest is 100 %, at 50 % or less it is 50 %, in between it falls in a
      straight line.
 2. **Eating and hunger.**
@@ -199,10 +204,43 @@ storage it is still built: forestry delivers the missing wood to the site, it ju
 
    New residents start to work in the following week.
 
-## 6. Ecology and satisfaction
+## 6. Energy
+
+- **Producing.** A finished hydro power plant produces 10 energy per week. It needs no workers.
+  It can only be built on a river tile (the details panel says "Can only be built on the river"),
+  costs 20 wood (and 15 worker-weeks of work), and has an ecology value of −10: the weir blocks the
+  whole river. The river stays visible below it, and the plant cannot be built over.
+- **Consuming.** A finished sawmill needs 2 energy per week, a finished agro-industrial farm 4.
+  All other buildings are energy neutral and do not appear in the energy balance.
+- **Distribution.** At the start of every week the energy of all finished plants is distributed
+  to the finished consumers. Food producers (the agro-industrial farm) come first, then all other
+  consumers; within each group the building that was placed first comes first. A consumer gets
+  its full demand or nothing. A consumer whose demand no longer fits is without energy this week.
+- **Without energy** a building does not work: it needs no workers, produces nothing, consumes
+  nothing and has the status "missing resources". Energy that is left over is lost.
+- **Example.** One plant (10) powers one agro-industrial farm and three sawmills (4 + 3 × 2 = 10).
+  A fourth sawmill would stand still; the top bar then shows `10 / 10` in the error style.
+
+### Background of the numbers
+
+- **Unit.** 1 energy = 1 MWh per week, which is about 6 kW of continuous power.
+- **Hydro power plant, 10.** A micro run-of-river plant of 30–100 kW fits on one tile and runs
+  almost continuously, i.e. 5–17 MWh per week.
+- **Sawmill, 2.** About 20 m³ of sawn timber per week at 30–50 kWh per m³ for sawing, planing and
+  conveying is about 1 MWh. Electric (heat pump) kiln drying brings it to 2–3 MWh.
+- **Agro-industrial farm, 4.** On-farm energy for machines, irrigation, drying and cooling is
+  roughly 1–2 MWh per person and year, i.e. 1–2.5 MWh per week for 60 people, a bit more with
+  on-site processing.
+- **Ecology −10.** The weir spans the whole river and blocks fish migration and sediment
+  transport. Ecology is the average over about 2,800 tiles, so a small value would be invisible:
+  −10 equals losing about 11 forest tiles, clearly less than an agro-industrial farm (about 114).
+- **Other buildings** are energy neutral: in the solarpunk setting they cover their own demand
+  with solar and wind on their roofs, so they do not appear in the energy grid.
+
+## 7. Ecology and satisfaction
 
 - Every tile has an **ecology value**. Forest has the reference value +1. Other buildings have
-  their own value per tile they cover (see the table in section 7); a construction site counts as 0.
+  their own value per tile they cover (see the table in section 8); a construction site counts as 0.
 - The **ecology** of the whole city is the average ecology value of all tiles compared to a board
   that is completely forest. 100 % means every tile is forest; it cannot go below 0 % or above
   100 %.
@@ -233,20 +271,21 @@ storage it is still built: forestry delivers the missing wood to the site, it ju
   more it matters. The agro-industrial farm has a strongly negative value on each of its 19
   tiles.
 
-## 7. All buildings
+## 8. All buildings
 
-| Building             | Tiles | Material  | Work (worker-weeks)  | Material per builder-week | Builders per week | Produces per week | Consumes per week | Residents | Ecology per tile |
-| -------------------- | ----- | --------- | -------------------- | ------------------------- | ----------------- | ----------------- | ----------------- | --------- | ---------------- |
-| Organic homestead    | 1     | 4 wood    | 4                    | 1.0                       | 2                 | 3 food            | 2 workers         | 3         | +0.5             |
-| Apartment building   | 1     | 6 planks  | 20                   | 0.3                       | 4                 | –                 | –                 | 15        | 0                |
-| Farm                 | 7     | 25 wood   | 24                   | 1.0                       | 6                 | 20 food           | 4 workers         | 2         | +0.2             |
-| Agro-industrial farm | 19    | 40 planks | 80                   | 0.5                       | 10                | 60 food           | 8 workers         | 0         | −5               |
-| Wood storage         | 1     | –         | – (finished at once) | –                         | –                 | –                 | –                 | 0         | 0                |
-| Supermarket          | 1     | 10 wood   | 6                    | 1.7                       | 3                 | –                 | –                 | 0         | 0                |
-| Sawmill              | 1     | 15 wood   | 10                   | 1.5                       | 3                 | 2 planks          | 4 wood, 2 workers | 0         | 0                |
-| Forest               | 1     | –         | –                    | –                         | –                 | 0.5 wood          | 1 worker          | 0         | +1               |
-| Settlers' camp       | 1     | –         | –                    | –                         | –                 | 2 food            | –                 | 2         | 0                |
-| River                | 1     | –         | –                    | –                         | –                 | –                 | –                 | 0         | +1               |
+| Building             | Tiles | Material  | Work (worker-weeks)  | Material per builder-week | Builders per week | Produces per week | Consumes per week           | Residents | Ecology per tile |
+| -------------------- | ----- | --------- | -------------------- | ------------------------- | ----------------- | ----------------- | --------------------------- | --------- | ---------------- |
+| Organic homestead    | 1     | 4 wood    | 4                    | 1.0                       | 2                 | 3 food            | 2 workers                   | 3         | +0.5             |
+| Apartment building   | 1     | 6 planks  | 20                   | 0.3                       | 4                 | –                 | –                           | 15        | 0                |
+| Farm                 | 7     | 25 wood   | 24                   | 1.0                       | 6                 | 20 food           | 4 workers                   | 2         | +0.2             |
+| Agro-industrial farm | 19    | 40 planks | 80                   | 0.5                       | 10                | 60 food           | 8 workers, 4 energy         | 0         | −5               |
+| Wood storage         | 1     | –         | – (finished at once) | –                         | –                 | –                 | –                           | 0         | 0                |
+| Supermarket          | 1     | 10 wood   | 6                    | 1.7                       | 3                 | –                 | –                           | 0         | 0                |
+| Sawmill              | 1     | 15 wood   | 10                   | 1.5                       | 3                 | 2 planks          | 4 wood, 2 workers, 2 energy | 0         | 0                |
+| Hydro power plant    | 1     | 20 wood   | 15                   | 1.3                       | 3                 | 10 energy         | –                           | 0         | −10              |
+| Forest               | 1     | –         | –                    | –                         | –                 | 0.5 wood          | 1 worker                    | 0         | +1               |
+| Settlers' camp       | 1     | –         | –                    | –                         | –                 | 2 food            | –                           | 2         | 0                |
+| River                | 1     | –         | –                    | –                         | –                 | –                 | –                           | 0         | +1               |
 
 The wood or planks of a building are not paid when placing, but used up during construction.
 The early game (settlers' camp, homestead, farm) needs wood only; a growing town needs the first
@@ -262,7 +301,7 @@ at once, without a warning. The forest and the settlers' camp cannot be built. A
 cleared forest tile gives 3 wood, the camp gives nothing. The river cannot be built and cannot be
 built over.
 
-## 8. Example: the first weeks
+## 9. Example: the first weeks
 
 - **Start (week 0):** 2 residents in the settlers' camp, 0 wood, 0 food, no wood storage. An
   organic homestead costs 4 wood and 4 worker-weeks, so it needs 1 wood per builder-week. You
