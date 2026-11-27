@@ -481,23 +481,33 @@ function getFreeSiteMaterial(site: PlacedBuilding): number {
   return site.remainingWood! - site.siteWood!;
 }
 
-// whether any construction site supply of the material or its storage has room
+// the wood supply of a sawmill holds one week's consumption
+function getFreeSawmillWood(sawmill: PlacedBuilding): number {
+  return sawmill.building.consumes.wood - (sawmill.sawmillWood ?? 0);
+}
+
+// whether any construction site supply, sawmill supply (wood only) or the
+// storage of the material has room
 function hasRoom(
   sites: PlacedBuilding[],
+  sawmills: PlacedBuilding[],
   material: Material,
   capacity: number,
 ): boolean {
   return (
     currentResources[material] < capacity ||
-    sites.some((site) => getFreeSiteMaterial(site) > WOOD_EPSILON)
+    sites.some((site) => getFreeSiteMaterial(site) > WOOD_EPSILON) ||
+    sawmills.some((sawmill) => getFreeSawmillWood(sawmill) > WOOD_EPSILON)
   );
 }
 
 // produced wood or planks go into the supplies of the construction sites that
 // use them first (oldest first, each up to its free space), the rest into the
-// storages, capped by the capacity
+// storages, capped by the capacity; wood goes into the supplies of the
+// sawmills (placement order) between the sites and the storage
 function deliver(
   sites: PlacedBuilding[],
+  sawmills: PlacedBuilding[],
   material: Material,
   amount: number,
   capacity: number,
@@ -506,6 +516,11 @@ function deliver(
   for (const site of sites) {
     const delivered = Math.min(rest, Math.max(0, getFreeSiteMaterial(site)));
     site.siteWood = site.siteWood! + delivered;
+    rest -= delivered;
+  }
+  for (const sawmill of sawmills) {
+    const delivered = Math.min(rest, Math.max(0, getFreeSawmillWood(sawmill)));
+    sawmill.sawmillWood = (sawmill.sawmillWood ?? 0) + delivered;
     rest -= delivered;
   }
   currentResources[material] = Math.min(
@@ -530,6 +545,7 @@ function getOutputMaterial(building: Building): Material | undefined {
 function produce(
   placed: PlacedBuilding,
   sites: PlacedBuilding[],
+  sawmills: PlacedBuilding[],
   capacity: Resources,
 ): number {
   const { building } = placed;
@@ -537,12 +553,24 @@ function produce(
   const outputSites = sites.filter(
     (site) => getMaterial(site.building) === output,
   );
+  const outputSawmills = output === "wood" ? sawmills : [];
   // forestry and sawmills stop (and keep their labor free) when neither a
-  // construction site nor the storages have room for their output
-  if (output && !hasRoom(outputSites, output, capacity[output])) {
+  // construction site, a sawmill supply nor the storages have room for their
+  // output
+  if (
+    output &&
+    !hasRoom(outputSites, outputSawmills, output, capacity[output])
+  ) {
     return 0;
   }
-  if (!hasEnoughResources(currentResources, building.consumes)) {
+  // a sawmill uses its own wood supply before the stock
+  const supply = placed.sawmillWood ?? 0;
+  if (
+    !hasEnoughResources(
+      { ...currentResources, wood: currentResources.wood + supply },
+      building.consumes,
+    )
+  ) {
     // no partial production
     reports.set(placed, {
       workers: 0,
@@ -554,14 +582,27 @@ function produce(
     });
     return 0;
   }
-  currentResources = subtractResources(currentResources, building.consumes);
+  const fromSupply = Math.min(supply, building.consumes.wood);
+  if (supply > 0) {
+    placed.sawmillWood = supply - fromSupply;
+  }
+  currentResources = subtractResources(currentResources, {
+    ...building.consumes,
+    wood: building.consumes.wood - fromSupply,
+  });
   currentResources = addResources(currentResources, {
     ...building.produces,
     wood: 0,
     planks: 0,
   });
   if (output) {
-    deliver(outputSites, output, building.produces[output], capacity[output]);
+    deliver(
+      outputSites,
+      outputSawmills,
+      output,
+      building.produces[output],
+      capacity[output],
+    );
   }
   reports.set(placed, {
     workers: building.consumes.labor,
@@ -581,11 +622,12 @@ function calculateOtherProductions(): { production: number; forestry: number } {
   const isSawmill = ({ building }: PlacedBuilding) =>
     building.produces.planks > 0;
   // sawmills work before forestry, in placement order
-  let production = 0;
-  for (const placed of finished
+  const sawmills = finished
     .filter(isSawmill)
-    .sort((a, b) => a.sequence - b.sequence)) {
-    production += produce(placed, sites, capacity);
+    .sort((a, b) => a.sequence - b.sequence);
+  let production = 0;
+  for (const placed of sawmills) {
+    production += produce(placed, sites, sawmills, capacity);
   }
   let forestry = 0;
   for (const placed of finished) {
@@ -593,7 +635,7 @@ function calculateOtherProductions(): { production: number; forestry: number } {
     if (placed.building.produces.food > 0 || isSawmill(placed)) {
       continue;
     }
-    forestry += produce(placed, sites, capacity);
+    forestry += produce(placed, sites, sawmills, capacity);
   }
   return { production, forestry };
 }

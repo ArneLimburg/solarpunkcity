@@ -65,8 +65,9 @@ test("a sawmill with less than 4 wood does not work and consumes nothing", () =>
   const { resources, workforce } = game.calculateWeek();
   expect(resources.planks).toBe(0);
   expect(workforce!.production).toBe(0);
-  // the 2 workers cut wood in the forests instead: 3 + 1
-  expect(resources.wood).toBeCloseTo(4);
+  // the 2 workers cut 1 wood in the forests, it goes into the sawmill supply
+  expect(resources.wood).toBeCloseTo(3);
+  expect(board.getPlacedBuilding(SAWMILL)!.sawmillWood).toBeCloseTo(1);
   expect(game.getBuildingReport(SAWMILL)).toMatchObject({
     workers: 0,
     status: "missing-resources",
@@ -96,8 +97,10 @@ test("a sawmill with a full plank storage and no plank site does not work", () =
   const { resources, workforce } = game.calculateWeek();
   expect(resources.planks).toBe(20);
   expect(workforce!.production).toBe(0);
-  // the labor went to the forests, the wood was not consumed
-  expect(resources.wood).toBeCloseTo(5);
+  // the labor went to the forests, the wood was not consumed; the new wood
+  // went into the sawmill supply
+  expect(resources.wood).toBeCloseTo(4);
+  expect(board.getPlacedBuilding(SAWMILL)!.sawmillWood).toBeCloseTo(1);
 });
 
 test("the plank stock never exceeds the capacity", () => {
