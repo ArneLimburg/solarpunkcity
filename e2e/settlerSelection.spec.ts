@@ -2,7 +2,6 @@ import type { Page } from "@playwright/test";
 import { test, expect } from "./fixtures";
 import {
   buildingAt,
-  finishConstruction,
   grantWood,
   installClockWithNativeFrames,
   seedRandom,
