@@ -6,6 +6,7 @@ import type {
 } from "../src/ConstructionRenderer";
 import type { FarmRenderer } from "../src/FarmRenderer";
 import type { ForestRenderer } from "../src/ForestRenderer";
+import type { WindTurbineRenderer } from "../src/WindTurbineRenderer";
 import type { WoodStorageRenderer } from "../src/WoodStorageRenderer";
 import type { GroundMaterials, TileRenderer } from "../src/TileRenderer";
 import { GRID_RADIUS, getRiverCourse } from "../src/board";
@@ -52,11 +53,13 @@ function setup() {
   const createSite = vi.fn(() => site);
   const sites: Record<string, ConstructionSite> = {};
   const createLogYard = vi.fn(() => model);
+  const createTurbine = vi.fn(() => model);
   const parts = {
     corners: { update } as unknown as CornerRenderer,
     forest: { clearTile } as unknown as ForestRenderer,
     farms: { create } as unknown as FarmRenderer,
     woodStorage: { create: createLogYard } as unknown as WoodStorageRenderer,
+    windTurbines: { create: createTurbine } as unknown as WindTurbineRenderer,
     tiles: { setGrounds } as unknown as TileRenderer,
     materials,
     models,
@@ -74,6 +77,7 @@ function setup() {
     clearTile,
     create,
     createLogYard,
+    createTurbine,
     models,
     update,
     setGrounds,
@@ -103,6 +107,23 @@ test("a supermarket shows its model on a meadow, the gravel is part of the model
   expect(setGrounds.mock.calls[0][1]).toBe(parts.materials.meadow);
   expect(create).toHaveBeenCalledWith("Supermarket", hexToPixel(0, 0));
   expect(models["0,0"]).toBe(model);
+});
+
+test("a wind turbine is shown by the wind turbine renderer on a meadow", () => {
+  const { parts, create, createTurbine, models, model, setGrounds } = setup();
+  placeBuilding({ q: 1, r: 2 }, "WindTurbine", parts);
+  expect(setGrounds.mock.calls[0][1]).toBe(parts.materials.meadow);
+  expect(createTurbine).toHaveBeenCalledWith({ q: 1, r: 2 }, hexToPixel(1, 2));
+  expect(create).not.toHaveBeenCalled();
+  expect(models["1,2"]).toBe(model);
+});
+
+test("a wind turbine site shows a blueprint, no turbine", () => {
+  const { parts, createTurbine, createSite, sites, site } = setup();
+  placeBuilding({ q: 1, r: 2 }, "WindTurbine", parts, true);
+  expect(createTurbine).not.toHaveBeenCalled();
+  expect(createSite).toHaveBeenCalledWith("WindTurbine", hexToPixel(1, 2), 0);
+  expect(sites["1,2"]).toBe(site);
 });
 
 test("a hydro power plant keeps the water and is turned to the river", () => {

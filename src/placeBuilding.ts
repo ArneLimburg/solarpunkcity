@@ -13,6 +13,7 @@ import { isModelType, type FarmRenderer } from "./FarmRenderer";
 import type { ForestRenderer } from "./ForestRenderer";
 import { hexToPixel, tileKey } from "./hexGeometry";
 import { getHydroPowerPlantRotation } from "./hydroPowerPlant";
+import type { WindTurbineRenderer } from "./WindTurbineRenderer";
 import type { WoodStorageRenderer } from "./WoodStorageRenderer";
 import type { GroundMaterials, TileRenderer } from "./TileRenderer";
 
@@ -28,6 +29,7 @@ export function placeBuilding(
     forest: ForestRenderer;
     farms: FarmRenderer;
     woodStorage: WoodStorageRenderer;
+    windTurbines: WindTurbineRenderer;
     tiles: TileRenderer;
     materials: GroundMaterials;
     corners: CornerRenderer;
@@ -42,6 +44,7 @@ export function placeBuilding(
     forest,
     farms,
     woodStorage,
+    windTurbines,
     tiles,
     materials,
     corners,
@@ -96,6 +99,9 @@ export function placeBuilding(
       center,
       getHydroPowerPlantRotation(coords),
     );
+  } else if (type === "WindTurbine") {
+    // the rotor turns, see WindTurbineRenderer
+    models[tileKey(coords)] = windTurbines.create(coords, center);
   } else if (isModelType(type)) {
     // models are built from code at scale 1
     models[tileKey(coords)] = farms.create(type, center);

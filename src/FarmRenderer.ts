@@ -10,6 +10,7 @@ import { getApartmentLayout } from "./apartment";
 import { getHydroPowerPlantLayout } from "./hydroPowerPlant";
 import { getSawmillLayout } from "./sawmill";
 import { getWoodenHouseLayout } from "./woodenHouse";
+import { getWindTurbineLayout, getWindTurbineRotorLayout } from "./windTurbine";
 import { getSupermarketLayout } from "./supermarket";
 import { getSettlersCampLayout } from "./settlersCamp";
 import { TILE_TOP } from "./hexGeometry";
@@ -29,7 +30,8 @@ export type ModelType =
   | "SettlersCamp"
   | "Sawmill"
   | "Supermarket"
-  | "HydroPowerPlant";
+  | "HydroPowerPlant"
+  | "WindTurbine";
 
 export function isModelType(type: string): type is ModelType {
   return (
@@ -39,7 +41,8 @@ export function isModelType(type: string): type is ModelType {
     type === "SettlersCamp" ||
     type === "Sawmill" ||
     type === "Supermarket" ||
-    type === "HydroPowerPlant"
+    type === "HydroPowerPlant" ||
+    type === "WindTurbine"
   );
 }
 
@@ -58,6 +61,9 @@ function getLayout(type: ModelType, hexSize: number): FarmPart[] {
   }
   if (type === "HydroPowerPlant") {
     return getHydroPowerPlantLayout(hexSize);
+  }
+  if (type === "WindTurbine") {
+    return getWindTurbineLayout(hexSize);
   }
   return type === "SettlersCamp"
     ? getSettlersCampLayout(hexSize)
@@ -78,6 +84,8 @@ export type FarmRenderer = {
   ) => FarmModel;
   // the template meshes of a type (shared geometry, not shown themselves)
   getMeshes: (type: ModelType) => Mesh[];
+  // the triangles of all template meshes of a type
+  getTriangles: (type: ModelType) => number;
 };
 
 type Template = { meshes: Mesh[]; triangles: number };
@@ -126,12 +134,20 @@ export function createFarmRenderer(
     if (glass.indices.length > 0) {
       meshes.push(createMesh(`${type}Glass`, glass, GLASS_ALPHA, scene));
     }
-    const triangles = (opaque.indices.length + glass.indices.length) / 3;
+    let triangles = (opaque.indices.length + glass.indices.length) / 3;
+    if (type === "WindTurbine") {
+      // the rotor is its own mesh (at angle 0, the last template): the
+      // WindTurbineRenderer turns it, blueprints and holograms show it at rest
+      const rotor = buildGeometry(getWindTurbineRotorLayout(hexSize));
+      meshes.push(createMesh(`${type}Rotor`, rotor, 1, scene));
+      triangles += rotor.indices.length / 3;
+    }
     return (templates[type] = { meshes, triangles });
   };
 
   return {
     getMeshes: (type) => getTemplate(type).meshes,
+    getTriangles: (type) => getTemplate(type).triangles,
     create: (type, center, rotation = 0) => {
       const template = getTemplate(type);
       const instances = template.meshes.map((mesh) => {
