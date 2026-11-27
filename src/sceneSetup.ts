@@ -9,6 +9,7 @@ import {
   Texture,
   Vector3,
 } from "@babylonjs/core";
+import { clampCameraTarget } from "./cameraLimits";
 import { FOREST_FLOOR_COLOR, makeMaterial } from "./TileRenderer";
 
 const SKYBOX_FILES = [
@@ -53,9 +54,28 @@ export function setupScene(canvas: HTMLCanvasElement) {
   );
   camera.attachControl(canvas, true);
   camera.lowerRadiusLimit = 2;
-  camera.upperRadiusLimit = 120;
+  camera.upperRadiusLimit = 90;
   camera.lowerBetaLimit = 0;
   camera.upperBetaLimit = 1.5;
+
+  // keep the camera inside the skybox: clamp the pan target after every camera change
+  scene.onBeforeRenderObservable.add(() => {
+    const { target, radius } = camera;
+    const clamped = clampCameraTarget(target, radius);
+    if (
+      clamped.x !== target.x ||
+      clamped.y !== target.y ||
+      clamped.z !== target.z
+    ) {
+      // keep alpha, beta and radius, so the camera moves with the target
+      camera.setTarget(
+        new Vector3(clamped.x, clamped.y, clamped.z),
+        false,
+        false,
+        true,
+      );
+    }
+  });
 
   new HemisphericLight("hemi", new Vector3(0, 1, 0), scene);
 
