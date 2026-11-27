@@ -1,10 +1,10 @@
 import type { FC } from "react";
 import type { HexCoordinates } from "./board";
 import { formatEcology, nonZeroResources } from "./buildingDetails";
-import { getResidents } from "./buildingResidents";
 import { BuildingTypes, type Building } from "./gameDefinitions";
 import type { BuildingReport, BuildingStatus } from "./game";
 import type { Resources } from "./resources";
+import type { Resident } from "./settlers";
 import { resourceIcons } from "./resourceIcons";
 
 const statusTexts: Record<BuildingStatus, string> = {
@@ -45,11 +45,10 @@ export const BuildingInfo: FC<{
   building: Building;
   center: HexCoordinates;
   report: BuildingReport | undefined;
-  population: number;
-  housing: number;
+  occupants: Resident[];
+  onSelectResident: (id: number) => void;
   onClose: () => void;
-}> = ({ building, center, report, population, housing, onClose }) => {
-  const residents = getResidents(building.resident, population, housing);
+}> = ({ building, center, report, occupants, onSelectResident, onClose }) => {
   return (
     <article className="hud-glass hud-panel" data-testid="building-info">
       <div className="row no-wrap">
@@ -84,8 +83,30 @@ export const BuildingInfo: FC<{
       </div>
       {building.resident > 0 && (
         <div data-testid="info-residents">
-          Residents {residents.residents} / {building.resident} (
-          {residents.percent} %)
+          <h6 className="no-margin small">Residents</h6>
+          <div data-testid="info-residents-count">
+            {occupants.length} / {building.resident}
+          </div>
+          {occupants.length === 0 ? (
+            <div data-testid="info-no-residents">No residents</div>
+          ) : (
+            <ul className="no-margin" data-testid="info-resident-list">
+              {occupants.map(({ id, name }) => (
+                <li key={id}>
+                  <a
+                    href="#"
+                    data-testid={`info-resident-${id}`}
+                    onClick={(event) => {
+                      event.preventDefault();
+                      onSelectResident(id);
+                    }}
+                  >
+                    {name}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       )}
       {report ? (

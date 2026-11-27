@@ -26,6 +26,7 @@ import {
   subtractResources,
   type Resources,
 } from "./resources";
+import { assignHomes, getOccupantIds, type Assignments } from "./housing";
 import { createRoster, syncRoster, type Resident } from "./settlers";
 
 export const INITIAL_RESOURCES: Resources = {
@@ -39,6 +40,30 @@ let currentPopulation = INITIAL_POPULATION;
 // one record per person, in sync with the population
 const roster = createRoster(Math.floor(Math.random() * 2 ** 32));
 syncRoster(roster, INITIAL_POPULATION);
+// the home of every housed resident (resident ID -> placed building)
+const homes: Assignments = new Map();
+
+// brings the home assignments in line with the roster and the finished
+// buildings; called whenever one of them changes
+function updateHomes() {
+  assignHomes(
+    homes,
+    roster.residents.map(({ id }) => id),
+    getPlacedBuildings().filter(({ building }) => building.resident > 0),
+  );
+}
+updateHomes();
+
+// the home of a resident, undefined if they are unhoused
+export function getHome(residentId: number): PlacedBuilding | undefined {
+  return homes.get(residentId);
+}
+
+// the residents who live in a placed building, in arrival order
+export function getOccupants(home: PlacedBuilding): Resident[] {
+  const ids = new Set(getOccupantIds(homes, home));
+  return roster.residents.filter(({ id }) => ids.has(id));
+}
 let currentFoodBalance = 0;
 let currentWeek = 0;
 // free labor share of the last weekly tick in percent; the labor factor
@@ -188,6 +213,7 @@ export function build(buildingType: BuildingType, coords: HexCoordinates) {
   );
   currentResources.wood -= surplusWood + siteWood;
   placeBuilding(coords, newBuilding, newBuilding.cost.labor, siteWood);
+  updateHomes(); // occupants of a replaced home move out immediately
   const capacity = getCapacity();
   // a replaced storage takes its capacity with it; wood and planks above the
   // new capacity are lost
@@ -266,6 +292,7 @@ function collectCompletedBuildings() {
       type: site.building.type,
     })),
   );
+  updateHomes(); // completed homes take unhoused residents
 }
 
 export function takeCompletedBuildings() {
@@ -428,6 +455,7 @@ function calculateDevelopment() {
     currentPopulation += Math.min(possibleGrowth, Math.floor(leftFood));
   }
   syncRoster(roster, currentPopulation); // newcomers are added, the newest leave first
+  updateHomes();
   const constructionWorkers = construct(labor);
   currentResources.labor = labor - constructionWorkers;
   const { production, forestry } = calculateOtherProductions();
