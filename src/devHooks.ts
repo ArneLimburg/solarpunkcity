@@ -40,6 +40,7 @@ type DevHookSources = {
   // shows the model of a finished building
   showBuilding: (coords: HexCoordinates, type: BuildingType) => void;
   getProgressLabel: DevHooks["getProgressLabel"];
+  getRotorMatrix: DevHooks["getRotorMatrix"];
   settlers: SettlerRenderer;
   backdrop: SeaRenderer;
   // shows the given number of generated residents; undefined: the real ones
@@ -62,6 +63,7 @@ export function createDevHooks({
   getCornerMaterial,
   showBuilding,
   getProgressLabel,
+  getRotorMatrix,
   settlers,
   backdrop,
   showSettlers,
@@ -163,6 +165,11 @@ export function createDevHooks({
       build("HydroPowerPlant", coords);
       showBuilding(coords, "HydroPowerPlant");
     },
+    addWindTurbine: (coords) => {
+      build("WindTurbine", coords);
+      showBuilding(coords, "WindTurbine");
+    },
+    getRotorMatrix,
     finishConstruction: () =>
       finishConstruction().forEach(({ coords, type }) =>
         showBuilding(coords, type),

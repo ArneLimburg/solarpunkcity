@@ -55,6 +55,9 @@ Always run `npm run lint`, `npm run build` and `npm test` before considering a c
 - `src/farms.ts`, `src/apartment.ts`, `src/farmGeometry.ts`, `src/FarmRenderer.ts` – building
   models built from code (layout, geometry, instanced rendering)
 - `src/sawmill.ts` – layout of the sawmill model (pure parts, rendered by `FarmRenderer.ts`)
+- `src/windTurbine.ts`, `src/WindTurbineRenderer.ts` – wind turbine model (pure layout, wind
+  direction, rotor angle and matrix) and its rotor as one thin-instanced mesh turning in real time
+  (tower and rotor templates come from `FarmRenderer.ts`)
 - `src/woodStorage.ts`, `src/WoodStorageRenderer.ts` – log yard model of the wood storage (pure
   log layout and geometry, instanced rendering)
 - `src/forest.ts`, `src/ForestRenderer.ts` – procedural forest with thin instances

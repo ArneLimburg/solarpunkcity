@@ -34,6 +34,7 @@ export const FarmPalette = {
   gravel: [0.68, 0.64, 0.58],
   awning: [0.75, 0.2, 0.18],
   foam: [0.95, 0.97, 1],
+  white: [0.93, 0.94, 0.95],
 } as const satisfies Record<string, readonly [number, number, number]>;
 export type PaletteColor = keyof typeof FarmPalette;
 

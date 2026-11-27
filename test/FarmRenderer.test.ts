@@ -155,6 +155,18 @@ test("all hydro power plants share one opaque mesh and are turned to the river",
   expect(second.triangles).toBe(first.triangles);
 });
 
+test("a wind turbine has a tower mesh and a rotor mesh as templates", () => {
+  meshes.length = 0;
+  const renderer = createFarmRenderer({} as Scene, 1);
+  const templates = renderer.getMeshes("WindTurbine");
+  expect(templates.map((mesh) => mesh.name)).toEqual([
+    "WindTurbine",
+    "WindTurbineRotor",
+  ]);
+  expect(renderer.getTriangles("WindTurbine")).toBeGreaterThan(0);
+  expect(renderer.getTriangles("WindTurbine")).toBeLessThan(1000);
+});
+
 test("the template meshes of a type are exposed and built once", () => {
   meshes.length = 0;
   const renderer = createFarmRenderer({} as Scene, 1);
@@ -172,5 +184,6 @@ test("isModelType accepts the farms, the apartment building, the camp and the sa
   expect(isModelType("WoodenHouse")).toBe(true);
   expect(isModelType("SettlersCamp")).toBe(true);
   expect(isModelType("HydroPowerPlant")).toBe(true);
+  expect(isModelType("WindTurbine")).toBe(true);
   expect(isModelType("Forest")).toBe(false);
 });

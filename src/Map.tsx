@@ -16,6 +16,10 @@ import {
   createWoodStorageRenderer,
   type WoodStorageRenderer,
 } from "./WoodStorageRenderer";
+import {
+  createWindTurbineRenderer,
+  type WindTurbineRenderer,
+} from "./WindTurbineRenderer";
 import { createMountainRenderer } from "./MountainRenderer";
 import { createForest, type ForestRenderer } from "./ForestRenderer";
 import {
@@ -102,6 +106,7 @@ export const Map = forwardRef<
     const forestRef = useRef<ForestRenderer | null>(null);
     const farmsRef = useRef<FarmRenderer | null>(null);
     const woodStorageRef = useRef<WoodStorageRenderer | null>(null);
+    const windTurbinesRef = useRef<WindTurbineRenderer | null>(null);
     const cornersRef = useRef<CornerRenderer | null>(null);
     const settlersRef = useRef<SettlerRenderer | null>(null);
     // the residents to show; DEV benchmarks replace them with generated ones
@@ -135,6 +140,7 @@ export const Map = forwardRef<
           forest: forestRef.current!,
           farms: farmsRef.current!,
           woodStorage: woodStorageRef.current!,
+          windTurbines: windTurbinesRef.current!,
           tiles: tilesRef.current!,
           materials: materialsRef.current!,
           corners: cornersRef.current!,
@@ -185,6 +191,12 @@ export const Map = forwardRef<
       );
       farmsRef.current = createFarmRenderer(scene, HEX_SIZE);
       woodStorageRef.current = createWoodStorageRenderer(scene, HEX_SIZE);
+      windTurbinesRef.current = createWindTurbineRenderer(
+        scene,
+        farmsRef.current,
+        HEX_SIZE,
+        () => performance.now() / 1000,
+      );
       constructionRef.current = createConstructionRenderer(
         scene,
         farmsRef.current,
@@ -299,6 +311,8 @@ export const Map = forwardRef<
             cornersRef.current!.getMaterialName({ tile: coords, corner }),
           showBuilding: (coords, type) => place(coords, type, false),
           getProgressLabel: () => labelText,
+          getRotorMatrix: (coords) =>
+            windTurbinesRef.current!.getRotorMatrix(coords),
           settlers,
           backdrop,
           // shows generated residents instead of the roster; undefined goes back

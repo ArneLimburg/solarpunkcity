@@ -105,6 +105,7 @@ function setup() {
       corner === 2 ? "meadow" : undefined,
     showBuilding,
     getProgressLabel: () => "40%",
+    getRotorMatrix: (coords) => (coords.q === 4 ? [1] : undefined),
   });
   return {
     hooks,
@@ -182,6 +183,16 @@ test("addHydroPowerPlant builds the plant on a river tile and shows it", () => {
   hooks.addHydroPowerPlant(tile);
   expect(showBuilding).toHaveBeenCalledWith(tile, "HydroPowerPlant");
   expect(hooks.getBuildingType(tile)).toBe("HydroPowerPlant");
+});
+
+test("addWindTurbine builds the turbine and shows it, the rotor matrix is passed on", () => {
+  const { hooks, showBuilding } = setup();
+  const tile = { q: 4, r: 4 };
+  hooks.addWindTurbine(tile);
+  expect(showBuilding).toHaveBeenCalledWith(tile, "WindTurbine");
+  expect(hooks.getBuildingType(tile)).toBe("WindTurbine");
+  expect(hooks.getRotorMatrix(tile)).toEqual([1]);
+  expect(hooks.getRotorMatrix({ q: 0, r: 0 })).toBeUndefined();
 });
 
 test("tileToScreen scales projected positions to the canvas size", () => {
