@@ -118,11 +118,11 @@ export function canPlace(
 ): boolean {
   // a hydro power plant needs the river; all other buildings need tiles with
   // recycling, which the river and the plant itself do not have
-  const needed = buildingType === "HydroPowerPlant";
+  const isHydro = buildingType === "HydroPowerPlant";
   return getFootprintOf(BuildingDefinition[buildingType], coords).every(
     (tile) =>
       isOnBoard(tile) &&
-      (needed
+      (isHydro
         ? getBuilding(tile)?.type === "River"
         : getBuilding(tile)?.recycling),
   );
