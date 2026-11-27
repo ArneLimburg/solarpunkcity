@@ -88,7 +88,7 @@ test("opens, updates, switches and closes the building info", async ({
   await expect(info(page).getByTestId("info-remaining-work")).toContainText(
     "worker-weeks",
   );
-  await expect(info(page).getByTestId("info-builders")).toContainText("/ 4");
+  await expect(info(page).getByTestId("info-builders")).toContainText("/ 6");
   await expect(info(page).getByTestId("info-residents")).toHaveCount(0);
   const percent = (await info(page)
     .getByTestId("info-progress")
