@@ -93,6 +93,27 @@ test("a roster is reproducible from its seed and uses the whole palettes", () =>
   );
 });
 
+test("residents get a name and a starting age once, for good", () => {
+  const roster = settlers.createRoster(5);
+  const first = settlers.syncRoster(roster, 30);
+  for (const { name, age } of first) {
+    const [given, family, ...rest] = name.split(" ");
+    expect(settlers.FIRST_NAMES).toContain(given);
+    expect(settlers.LAST_NAMES).toContain(family);
+    expect(rest).toEqual([]);
+    expect(Number.isInteger(age)).toBe(true);
+    expect(age).toBeGreaterThanOrEqual(settlers.MIN_AGE);
+    expect(age).toBeLessThanOrEqual(settlers.MAX_AGE);
+  }
+  expect(new Set(first.map(({ name }) => name)).size).toBeGreaterThan(10);
+  expect(new Set(first.map(({ age }) => age)).size).toBeGreaterThan(5);
+  // they stay the same when others leave and arrive
+  settlers.syncRoster(roster, 10);
+  expect(settlers.syncRoster(roster, 30).slice(0, 10)).toEqual(
+    first.slice(0, 10),
+  );
+});
+
 test("random numbers are in [0, 1) and differ per seed", () => {
   const owner = { seed: 1 };
   const values = Array.from({ length: 100 }, () => settlers.random(owner));

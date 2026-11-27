@@ -99,6 +99,16 @@ export function createLeaveHandler(ring: Ring): (event: PointerEvent) => void {
   };
 }
 
+// a click or single tap with the primary button (Babylon sends a second tap
+// within DoubleClickDelay only as POINTERDOUBLETAP)
+export function isPrimaryTap(pointerInfo: PointerInfo): boolean {
+  return (
+    (pointerInfo.type === PointerEventTypes.POINTERTAP ||
+      pointerInfo.type === PointerEventTypes.POINTERDOUBLETAP) &&
+    (pointerInfo.event as PointerEvent).button === 0
+  );
+}
+
 export function createPointerHandler(
   scene: Scene,
   ring: Ring,

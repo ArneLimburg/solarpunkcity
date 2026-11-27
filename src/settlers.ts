@@ -42,10 +42,49 @@ export const SKIN_TONES = [
   "#3b2219",
 ];
 
+export const FIRST_NAMES = [
+  "Amara",
+  "Bruno",
+  "Clara",
+  "Dario",
+  "Elif",
+  "Finn",
+  "Greta",
+  "Hugo",
+  "Ines",
+  "Jonas",
+  "Kira",
+  "Leon",
+  "Mila",
+  "Nico",
+  "Olga",
+  "Pavel",
+];
+
+export const LAST_NAMES = [
+  "Alder",
+  "Brook",
+  "Cedar",
+  "Dale",
+  "Elm",
+  "Fern",
+  "Grove",
+  "Heath",
+  "Ivy",
+  "Juniper",
+  "Moss",
+  "Reed",
+];
+
+export const MIN_AGE = 18;
+export const MAX_AGE = 65;
+
 export type Resident = {
   id: number; // unique within a game, never reused
   clothing: string; // "#rrggbb"
   skin: string; // "#rrggbb"
+  name: string; // generated once
+  age: number; // age in whole years when the resident arrived
 };
 
 export type Roster = {
@@ -71,11 +110,21 @@ export function createRoster(seed: number): Roster {
 // until the roster has the population's size. Returns the residents.
 export function syncRoster(roster: Roster, population: number): Resident[] {
   while (roster.residents.length < population) {
+    const id = roster.nextId++;
+    const clothing =
+      CLOTHING_COLORS[Math.floor(random(roster) * CLOTHING_COLORS.length)];
+    const skin = SKIN_TONES[Math.floor(random(roster) * SKIN_TONES.length)];
+    // name and age use their own numbers: the colors above do not depend on them
+    const own = { seed: roster.seed ^ Math.imul(id, 0x9e3779b1) };
+    const first = FIRST_NAMES[Math.floor(random(own) * FIRST_NAMES.length)];
+    const last = LAST_NAMES[Math.floor(random(own) * LAST_NAMES.length)];
+    const age = MIN_AGE + Math.floor(random(own) * (MAX_AGE - MIN_AGE + 1));
     roster.residents.push({
-      id: roster.nextId++,
-      clothing:
-        CLOTHING_COLORS[Math.floor(random(roster) * CLOTHING_COLORS.length)],
-      skin: SKIN_TONES[Math.floor(random(roster) * SKIN_TONES.length)],
+      id,
+      clothing,
+      skin,
+      name: `${first} ${last}`,
+      age,
     });
   }
   roster.residents.length = population;

@@ -13,9 +13,17 @@ type FakeMesh = {
   thinInstanceSetBuffer: ReturnType<typeof vi.fn>;
   thinInstanceBufferUpdated: ReturnType<typeof vi.fn>;
   getTotalIndices: () => number;
+  thinInstanceEnablePicking: boolean;
+  thinInstanceRefreshBoundingInfo: ReturnType<typeof vi.fn>;
+  thinInstanceGetWorldMatrices: () => unknown[];
+  position: { x: number; y: number; z: number; set: (...a: number[]) => void };
+  isEnabled: () => boolean;
 };
 
 const meshes: FakeMesh[] = [];
+const refresh = vi.hoisted(() => vi.fn());
+// the world matrices Babylon picks with
+const cache = [{ id: "first" }, { id: "second" }, { id: "third" }];
 
 function fakeMesh(name: string, indices: number): FakeMesh {
   const mesh: FakeMesh = {
@@ -33,6 +41,16 @@ function fakeMesh(name: string, indices: number): FakeMesh {
     }),
     thinInstanceBufferUpdated: vi.fn(),
     getTotalIndices: () => indices,
+    thinInstanceEnablePicking: false,
+    thinInstanceRefreshBoundingInfo: vi.fn(),
+    thinInstanceGetWorldMatrices: () => cache,
+    position: {
+      x: 0,
+      y: 0,
+      z: 0,
+      set: (x, y, z) => Object.assign(mesh.position, { x, y, z }),
+    },
+    isEnabled: () => mesh.enabled,
   };
   meshes.push(mesh);
   return mesh;
@@ -45,13 +63,16 @@ vi.mock("@babylonjs/core", () => {
     static Black = () => new Color3();
   }
   class StandardMaterial {}
+  const Matrix = { FromArrayToRef: refresh };
   return {
     Vector3,
     Color3,
+    Matrix,
     StandardMaterial,
     MeshBuilder: {
       CreateSphere: (name: string) =>
         fakeMesh(name, name === "settlerBody" ? 300 : 192),
+      CreateCylinder: (name: string) => fakeMesh(name, 60),
     },
   };
 });
@@ -65,9 +86,11 @@ import {
 } from "../src/settlers";
 
 const frame = { seconds: 0.1, render: () => {} };
+const pick = vi.fn();
 
 function createScene(): Scene {
   return {
+    pick,
     onBeforeRenderObservable: {
       add: (callback: () => void) => {
         frame.render = callback;
@@ -80,6 +103,8 @@ function createScene(): Scene {
 beforeEach(() => {
   meshes.length = 0;
   frame.seconds = 0.1;
+  pick.mockReset();
+  refresh.mockReset();
 });
 
 function colorOf(buffer: Float32Array, index: number) {
@@ -94,19 +119,23 @@ function colorOf(buffer: Float32Array, index: number) {
 test("two base meshes with thin instances draw all settlers", () => {
   const renderer = createSettlerRenderer(createScene(), 1);
   const [body, head] = meshes;
-  expect(meshes).toHaveLength(2);
+  expect(meshes).toHaveLength(3); // body, head and the selection marker
   expect(renderer.getMeshCount()).toBe(2);
   expect(renderer.getTriangleCount()).toBe((300 + 192) / 3);
-  for (const mesh of meshes) {
+  for (const mesh of meshes.slice(0, 2)) {
     expect(mesh.isPickable).toBe(false);
+    expect(mesh.thinInstanceEnablePicking).toBe(true);
     expect(mesh.alwaysSelectAsActiveMesh).toBe(true);
+  }
+  for (const mesh of meshes) {
     expect(mesh.enabled).toBe(false); // nobody there yet
   }
+  expect(meshes[2].isPickable).toBe(false);
 
   const residents = syncRoster(createRoster(3), 2);
   renderer.sync(residents);
   expect(renderer.getSettlers()).toHaveLength(2);
-  for (const mesh of meshes) {
+  for (const mesh of meshes.slice(0, 2)) {
     expect(mesh.enabled).toBe(true);
     expect(mesh.thinInstanceCount).toBe(2);
     expect(mesh.thinInstanceSetBuffer).toHaveBeenCalledTimes(2);
@@ -206,7 +235,7 @@ test("colors stay the same through animation, shrinking, regrowth and rebuilds",
   // a new renderer for the same residents draws the same colors
   const rebuilt = createSettlerRenderer(createScene(), 2);
   rebuilt.sync(residents);
-  check(rebuilt, meshes[2], meshes[3]);
+  check(rebuilt, meshes[3], meshes[4]);
 });
 
 test("without residents nothing is drawn", () => {
@@ -215,7 +244,7 @@ test("without residents nothing is drawn", () => {
   renderer.sync(syncRoster(roster, 3));
   renderer.sync(syncRoster(roster, 0));
   expect(renderer.getSettlers()).toEqual([]);
-  expect(meshes.map((mesh) => mesh.enabled)).toEqual([false, false]);
+  expect(meshes.map((mesh) => mesh.enabled)).toEqual([false, false, false]);
   const updates = meshes[0].thinInstanceBufferUpdated.mock.calls.length;
   frame.render();
   renderer.boardChanged();
@@ -282,6 +311,75 @@ test("population, roster and figures agree through growth, shrinkage and regrowt
     1, 7, 8,
   ]);
   expect(everSeen.size).toBe(8);
+});
+
+test("picking resolves the thin instance to the resident ID", () => {
+  const renderer = createSettlerRenderer(createScene(), 1);
+  const [body, head] = meshes;
+  pick.mockReturnValue({ hit: true, thinInstanceIndex: 0 });
+  expect(renderer.pick(5, 6)).toBeUndefined(); // nobody there
+  expect(pick).not.toHaveBeenCalled();
+
+  renderer.sync(syncRoster(createRoster(3), 2));
+  pick.mockReturnValue({ hit: true, thinInstanceIndex: 1 });
+  expect(renderer.pick(5, 6)).toBe(2);
+  expect(pick).toHaveBeenCalledWith(5, 6, expect.any(Function));
+  expect(body.thinInstanceRefreshBoundingInfo).toHaveBeenCalledWith(false);
+  // the pick matrices follow the figures (2 settlers, 2 parts)
+  expect(refresh).toHaveBeenCalledTimes(4);
+  expect(refresh).toHaveBeenCalledWith(body.buffers.matrix, 16, cache[1]);
+  const predicate = pick.mock.calls[0][2];
+  expect(predicate(body)).toBe(true);
+  expect(predicate(head)).toBe(true);
+  expect(predicate(meshes[2])).toBe(false);
+
+  pick.mockReturnValue({ hit: true, thinInstanceIndex: -1 });
+  expect(renderer.pick(5, 6)).toBeUndefined();
+  pick.mockReturnValue({ hit: false, thinInstanceIndex: -1 });
+  expect(renderer.pick(5, 6)).toBeUndefined();
+  pick.mockReturnValue(null);
+  expect(renderer.pick(5, 6)).toBeUndefined();
+});
+
+test("the marker follows the selected settler and goes with the resident", () => {
+  const renderer = createSettlerRenderer(createScene(), 1);
+  const marker = meshes[2];
+  const roster = createRoster(3);
+  renderer.sync(syncRoster(roster, 3));
+  expect(renderer.getMarker()).toEqual({ id: undefined, visible: false });
+
+  renderer.select(2);
+  expect(renderer.getMarker()).toEqual({ id: 2, visible: true });
+  for (let i = 0; i < 5; i++) {
+    frame.render();
+    const settler = renderer.getSettlers()[1];
+    expect(marker.position.x).toBe(settler.x);
+    expect(marker.position.z).toBe(settler.z);
+    expect(marker.position.y).toBeGreaterThan(0.3);
+  }
+
+  // other residents leaving and the figures reordering keep the link
+  renderer.sync(syncRoster(roster, 2).slice(1));
+  frame.render();
+  expect(marker.position.x).toBe(renderer.getSettlers()[0].x);
+
+  // the selected resident leaves
+  renderer.sync(syncRoster(roster, 1));
+  expect(renderer.getMarker()).toEqual({ id: 2, visible: false });
+  renderer.select(undefined);
+  expect(renderer.getMarker()).toEqual({ id: undefined, visible: false });
+});
+
+test("the activity is Walking or Idle, unknown for strangers", () => {
+  const renderer = createSettlerRenderer(createScene(), 1);
+  renderer.sync(syncRoster(createRoster(3), 2));
+  expect(renderer.getActivity(99)).toBeUndefined();
+  const seen = new Set<string | undefined>();
+  for (let i = 0; i < 400; i++) {
+    frame.render();
+    seen.add(renderer.getActivity(1));
+  }
+  expect(seen).toEqual(new Set(["Walking", "Idle"]));
 });
 
 test("a changed board moves the affected figures to other ways", async () => {

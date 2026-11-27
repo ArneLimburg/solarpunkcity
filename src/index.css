@@ -186,6 +186,10 @@ canvas {
     /* a bottom panel: push it down even when it is the only item */
     margin: auto 0 0;
   }
+  /* the settler profile sits right below the top menu */
+  .hud-right.hud-right-top {
+    margin: 0;
+  }
   .hud-left .hud-panel,
   .hud-right .hud-panel {
     max-height: 100%;

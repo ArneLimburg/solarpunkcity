@@ -44,6 +44,13 @@ declare global {
         walking: boolean;
         pausing: boolean;
       }[];
+      // canvas position of the head or body of a settler, null outside the view
+      settlerToScreen(
+        id: number,
+        part: "head" | "body",
+      ): { x: number; y: number } | null;
+      // the selection marker: whose, and whether it is shown
+      getSettlerMarker(): { id: number | undefined; visible: boolean };
       getSettlerStats(): {
         count: number;
         trianglesPerFigure: number;

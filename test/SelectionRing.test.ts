@@ -89,6 +89,7 @@ import {
   createPointerHandler,
   createPreview,
   createRing,
+  isPrimaryTap,
 } from "../src/SelectionRing";
 
 beforeEach(() => {
@@ -272,6 +273,16 @@ test("the first touch tap only moves the ring, the second selects", () => {
 
   send(PointerEventTypes.POINTERTAP, { pointerType: "touch", button: 0 });
   expect(onSelected).toHaveBeenCalledWith({ q: 2, r: 1 });
+});
+
+test("only a primary click or tap counts as a settler selection", () => {
+  const info = (type: number, button: number) =>
+    ({ type, event: { button } }) as unknown as PointerInfo;
+  expect(isPrimaryTap(info(PointerEventTypes.POINTERTAP, 0))).toBe(true);
+  expect(isPrimaryTap(info(PointerEventTypes.POINTERDOUBLETAP, 0))).toBe(true);
+  expect(isPrimaryTap(info(PointerEventTypes.POINTERTAP, 2))).toBe(false);
+  expect(isPrimaryTap(info(PointerEventTypes.POINTERMOVE, 0))).toBe(false);
+  expect(isPrimaryTap(info(PointerEventTypes.POINTERDOWN, 0))).toBe(false);
 });
 
 test("a double tap counts as a tap", () => {

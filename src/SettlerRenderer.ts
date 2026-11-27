@@ -1,5 +1,6 @@
 import {
   Color3,
+  Matrix,
   MeshBuilder,
   StandardMaterial,
   type Mesh,
@@ -22,6 +23,7 @@ const HEAD_FORWARD = 0.02; // the head sits a bit in front: shows the heading
 const HEAD_HEIGHT = BODY_HEIGHT + HEAD_DIAMETER / 2 - 0.01;
 const MAX_FRAME_SECONDS = 0.25; // a long pause (hidden tab) must not teleport anyone
 const MIN_CAPACITY = 16;
+const MARKER_SIZE = 0.1;
 
 export type SettlerInfo = {
   id: number;
@@ -40,6 +42,15 @@ export type SettlerRenderer = {
   // the buildings changed: affected figures pick another way
   boardChanged: () => void;
   getSettlers: () => SettlerInfo[];
+  // the ID of the frontmost figure at the screen position, if any; hit testing
+  // only happens here, on demand
+  pick: (x: number, y: number) => number | undefined;
+  // marks the resident (undefined: nobody); the marker follows the figure and
+  // disappears when the resident is gone
+  select: (id: number | undefined) => void;
+  getMarker: () => { id: number | undefined; visible: boolean };
+  // what the resident does now, undefined for an unknown ID
+  getActivity: (id: number) => "Walking" | "Idle" | undefined;
   // triangles of one figure
   getTriangleCount: () => number;
   // base meshes (one draw call each)
@@ -122,9 +133,40 @@ export function createSettlerRenderer(
     scene,
   );
   const parts = [body, head];
+  // thin instances are picked on demand only (the meshes are not pickable)
+  for (const part of parts) {
+    part.mesh.thinInstanceEnablePicking = true;
+  }
+
+  // a cone above the head of the selected settler: one draw call
+  const marker = MeshBuilder.CreateCylinder(
+    "selectionMarker",
+    { diameterTop: MARKER_SIZE, diameterBottom: 0, height: MARKER_SIZE },
+    scene,
+  );
+  const markerMaterial = new StandardMaterial("selectionMarkerMaterial", scene);
+  markerMaterial.diffuseColor = Color3.Black();
+  markerMaterial.emissiveColor = new Color3(1, 0.85, 0.1);
+  markerMaterial.specularColor = Color3.Black();
+  marker.material = markerMaterial;
+  marker.isPickable = false;
+  marker.setEnabled(false);
 
   let walkers: Walker[] = [];
   let capacity = 0;
+  let selectedId: number | undefined;
+
+  const moveMarker = () => {
+    const walker = walkers.find(({ id }) => id === selectedId);
+    marker.setEnabled(walker !== undefined);
+    if (walker) {
+      marker.position.set(
+        walker.x,
+        TILE_TOP + walker.bob + HEAD_HEIGHT + MARKER_SIZE,
+        walker.z,
+      );
+    }
+  };
 
   const write = () => {
     for (let i = 0; i < walkers.length; i++) {
@@ -155,6 +197,9 @@ export function createSettlerRenderer(
       for (const part of parts) {
         part.mesh.thinInstanceBufferUpdated("matrix");
       }
+    }
+    if (selectedId !== undefined) {
+      moveMarker();
     }
   };
 
@@ -219,6 +264,35 @@ export function createSettlerRenderer(
         walking: walker.walking,
         pausing: walker.pause > 0,
       })),
+    pick: (x, y) => {
+      if (walkers.length === 0) {
+        return undefined;
+      }
+      for (const part of parts) {
+        // Babylon keeps the matrices it picks with from the first pick on, and
+        // the bounds of the base mesh do not follow the instances either
+        const picked = part.mesh.thinInstanceGetWorldMatrices();
+        for (let i = 0; i < walkers.length; i++) {
+          Matrix.FromArrayToRef(part.matrices, i * 16, picked[i]);
+        }
+        part.mesh.thinInstanceRefreshBoundingInfo(false);
+      }
+      const hit = scene.pick(
+        x,
+        y,
+        (mesh) => mesh === body.mesh || mesh === head.mesh,
+      );
+      return hit?.hit ? walkers[hit.thinInstanceIndex]?.id : undefined;
+    },
+    select: (id) => {
+      selectedId = id;
+      moveMarker();
+    },
+    getMarker: () => ({ id: selectedId, visible: marker.isEnabled() }),
+    getActivity: (id) => {
+      const walker = walkers.find((w) => w.id === id);
+      return walker && (walker.walking ? "Walking" : "Idle");
+    },
     getTriangleCount: () =>
       parts.reduce((sum, part) => sum + part.mesh.getTotalIndices() / 3, 0),
     getMeshCount: () => parts.length,
