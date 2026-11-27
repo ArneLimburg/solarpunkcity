@@ -34,22 +34,26 @@ async function settlerPosition(
   return { x: box.x + position.x, y: box.y + position.y };
 }
 
-async function start(page: Page) {
-  // with this seed settlers pause early, see settlers.spec.ts
-  await seedRandom(page, 2);
+// Pauses are random and the walk only advances with the frames, which are slow
+// on CI runners. With seed 2 a settler pauses within its first tile (see
+// settlers.spec.ts); seed 4 does so as well, which the touch test needs. Wood
+// storages (grantWood) send the settlers on long walks, so no test waits for a
+// pause after that.
+async function start(page: Page, seed = 2) {
+  await seedRandom(page, seed);
   await page.goto("./");
   await page.waitForFunction(() => window.__solarpunk !== undefined);
   await expect(page.getByTestId("status-population")).toContainText("2");
 }
 
 // the ID of a settler that stands still right now (pauses last 1 to 3 seconds)
-async function waitForPause(page: Page, not?: number) {
+async function waitForPause(page: Page) {
   let id = 0;
   await expect
     .poll(
       async () => {
         const found = (await getSettlers(page)).find(
-          (s) => s.pausing && s.id !== not,
+          (s) => s.pausing && !s.walking,
         );
         id = found?.id ?? 0;
         return id;
@@ -214,9 +218,7 @@ test("dragging does not select a settler, the build mode does not either", async
   test.setTimeout(240_000);
   await start(page);
   await grantWood(page);
-  // the storages are construction sites that keep the settlers busy
-  await finishConstruction(page);
-  const id = await waitForPause(page);
+  const [{ id }] = await getSettlers(page);
   const { x, y } = await settlerPosition(page, id, "body");
 
   await page.mouse.move(x, y);
@@ -228,7 +230,7 @@ test("dragging does not select a settler, the build mode does not either", async
   // a placement with a settler over the target tile builds, one click
   await selectBuilding(page, "Farms", "Organic homestead");
   await page.getByTestId("building-details").click();
-  const target = await waitForPause(page);
+  const [{ id: target }] = await getSettlers(page);
   const spot = await settlerPosition(page, target, "body");
   await page.mouse.move(spot.x, spot.y, { steps: 5 });
   await expect.poll(() => ringTile(page)).not.toBeNull();
@@ -246,12 +248,10 @@ test.describe("touch", () => {
     page,
   }) => {
     test.setTimeout(240_000);
-    await start(page);
-    await grantWood(page);
-    // the storages are construction sites that keep the settlers busy
-    await finishConstruction(page);
-    const [first] = await getSettlers(page);
-    await clickUntilSelected(page, first.id, "head", (x, y) =>
+    await start(page, 4);
+    // a settler that stands still is hit by the tap
+    const first = await waitForPause(page);
+    await clickUntilSelected(page, first, "head", (x, y) =>
       page.touchscreen.tap(x, y),
     );
     await expect(profile(page)).toBeVisible();
@@ -259,15 +259,16 @@ test.describe("touch", () => {
     await expect(profile(page)).toHaveCount(0);
 
     // entering the build mode closes the profile
-    await clickUntilSelected(page, first.id, "body", (x, y) =>
+    await clickUntilSelected(page, await waitForPause(page), "body", (x, y) =>
       page.touchscreen.tap(x, y),
     );
+    await grantWood(page);
     await selectBuilding(page, "Farms", "Organic homestead");
     await expect(profile(page)).toHaveCount(0);
     await page.getByTestId("building-details").tap();
 
     // the first tap previews although a settler stands there, the second builds
-    const target = await waitForPause(page);
+    const target = (await getSettlers(page))[0].id;
     const spot = await settlerPosition(page, target, "body");
     await page.touchscreen.tap(spot.x, spot.y);
     await expect.poll(() => ringTile(page)).not.toBeNull();
