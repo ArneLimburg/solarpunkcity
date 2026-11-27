@@ -1,6 +1,7 @@
 # Review agent (Opus) for pull requests labeled `agent-pr`, run after every Build.
 # - Build failed: sends the pull request back without an Opus review.
-# - Build passed: Opus reviews against the issue's acceptance criteria.
+# - Build passed: Opus reviews against the issue's acceptance criteria; a comment on the pull
+#   request announces the review as soon as it starts.
 # Verdict CHANGES labels `review:changes`, which starts implement.yaml again. After
 # MAX_PING_PONG change requests, or on APPROVE, the repository owner is asked to review.
 # Skips pull requests handed over to a human (`review:max-rounds`, `agent-blocked`) and approved
@@ -127,6 +128,22 @@ jobs:
             echo "build=$CONCLUSION"
             echo "build_url=$RUN_URL"
           } >> "$GITHUB_OUTPUT"
+
+      # Plain text without the `<!-- agent-review` marker, so the build-fix count ignores it.
+      - if: steps.ctx.outputs.skip == 'false' && steps.ctx.outputs.build == 'success' && steps.ctx.outputs.owner == 'false'
+        name: Announce review
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          GH_REPO: ${{ github.repository }}
+          PR: ${{ steps.ctx.outputs.pr }}
+          ROUND: ${{ steps.ctx.outputs.round }}
+          REBASE: ${{ steps.ctx.outputs.rebase }}
+        run: |
+          run_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          suffix=""
+          [ "$REBASE" = "true" ] && suffix=" (after rebase)"
+          printf '🤖 The review agent started round %s of %s%s ([run](%s)).\n' \
+            "$ROUND" "$MAX_PING_PONG" "$suffix" "$run_url" | gh pr comment "$PR" --body-file -
 
       # Without persisted credentials nothing the reviewer writes can be pushed.
       - if: steps.ctx.outputs.skip == 'false' && steps.ctx.outputs.build == 'success' && steps.ctx.outputs.owner == 'false'
