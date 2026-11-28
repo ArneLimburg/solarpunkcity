@@ -139,6 +139,45 @@ test("a pausing settler follows the hobby", () => {
   }
 });
 
+test("the occupation and the activities follow the workplace of the task", () => {
+  const { BuildingDefinition: defs } = definitions;
+  const place = (center: HexCoordinates, type: keyof typeof defs, work = 0) =>
+    board.placeBuilding(center, defs[type], work, 0);
+  place({ q: 4, r: 4 }, "Farm", 3); // construction site
+  place({ q: 8, r: 4 }, "Farm");
+  place({ q: 12, r: 4 }, "OrganicHomestead");
+  place({ q: 16, r: 4 }, "AgroIndustrial");
+  place({ q: 20, r: 4 }, "Sawmill");
+  place({ q: 24, r: 4 }, "WindTurbine");
+  const cases: [string, string, string, string][] = [
+    ["4,4", "Builder", "Walking to construction site", "Building"],
+    ["8,4", "Farm worker", "Walking to farm", "Farming"],
+    ["12,4", "Farm worker", "Walking to farm", "Farming"],
+    ["16,4", "Farm worker", "Walking to farm", "Farming"],
+    ["-8,2", "Forestry worker", "Walking to forest", "Working in the forest"],
+    ["20,4", "Sawmill worker", "Walking to sawmill", "Sawing planks"],
+    ["24,4", "Worker", "Walking", "Working"],
+    ["99,99", "Worker", "Walking", "Working"], // the workplace is gone
+  ];
+  for (const [task, occupation, travelling, working] of cases) {
+    const walker = settlers.createWalker(1, 3);
+    expect(settlers.getOccupation(walker)).toBe("No current job");
+    walker.task = task;
+    expect(settlers.getOccupation(walker)).toBe(occupation);
+    expect(settlers.getActivity(walker)).toBe(travelling);
+    walker.working = true;
+    expect(settlers.getActivity(walker)).toBe(working);
+  }
+  // without a route the settler waits, without a task it works for nobody
+  const walker = settlers.createWalker(1, 3);
+  walker.task = "4,4";
+  walker.blocked = true;
+  expect(settlers.getActivity(walker)).toBe("Idle");
+  walker.task = undefined;
+  walker.working = true;
+  expect(settlers.getActivity(walker)).toBe("Working");
+});
+
 test("residents get a name and a starting age once, for good", () => {
   const roster = settlers.createRoster(5);
   const first = settlers.syncRoster(roster, 30);

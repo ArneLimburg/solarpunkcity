@@ -67,6 +67,7 @@ export const App: FC = () => {
     ) => void;
     setProgress: (center: HexCoordinates, percent: number) => void;
     getSettlerActivity: (id: number) => Activity | undefined;
+    getSettlerOccupation: (id: number) => string | undefined;
     assignWork: (slots: WorkSlot[]) => void;
   } | null>(null);
 
@@ -125,6 +126,10 @@ export const App: FC = () => {
   );
   const getSettlerActivity = useCallback(
     (id: number) => mapRef.current!.getSettlerActivity(id),
+    [],
+  );
+  const getSettlerOccupation = useCallback(
+    (id: number) => mapRef.current!.getSettlerOccupation(id),
     [],
   );
   const selectBuildingType = useCallback(
@@ -265,6 +270,7 @@ export const App: FC = () => {
                 week={state.week}
                 home={getHome(settler.id)}
                 getActivity={getSettlerActivity}
+                getOccupation={getSettlerOccupation}
                 onOpenHome={openHome}
                 onClose={closeSettler}
               />

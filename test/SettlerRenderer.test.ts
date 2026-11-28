@@ -193,6 +193,22 @@ test("the figures move every frame", () => {
   expect(Math.hypot(jumped.x - x, jumped.z - z)).toBeLessThan(0.2);
 });
 
+test("advance simulates the seconds in capped steps, independent of frames", () => {
+  const residents = syncRoster(createRoster(3), 2);
+  const framed = createSettlerRenderer(createScene(), 1);
+  framed.sync(residents);
+  frame.seconds = 0.25;
+  for (let i = 0; i < 6; i++) {
+    frame.render();
+  }
+  const advanced = createSettlerRenderer(createScene(), 1);
+  advanced.sync(residents);
+  advanced.advance(1.5);
+  expect(advanced.getSettlers()).toEqual(framed.getSettlers());
+  advanced.advance(0); // nothing to simulate
+  expect(advanced.getSettlers()).toEqual(framed.getSettlers());
+});
+
 test("an unchanged roster changes nothing, a changed one keeps known figures", () => {
   const renderer = createSettlerRenderer(createScene(), 1);
   const roster = createRoster(3);
@@ -420,7 +436,10 @@ test("settlers take the staffed places, walk there, work and go free again", () 
   renderer.sync(syncRoster(createRoster(3), 3));
   renderer.select(1);
   renderer.assignWork([slot(2)]);
-  expect(renderer.getActivity(1)).toBe("Walking"); // the route is still searched
+  expect(renderer.getActivity(1)).toBe("Walking to forest"); // route still searched
+  expect(renderer.getOccupation(1)).toBe("Forestry worker");
+  expect(renderer.getOccupation(3)).toBe("No current job");
+  expect(renderer.getOccupation(99)).toBeUndefined();
   expect(renderer.getActivity(3)).not.toBe("Working");
   frame.render();
   expect(renderer.getRoute().visible).toBe(true);
@@ -433,14 +452,14 @@ test("settlers take the staffed places, walk there, work and go free again", () 
 
   // a new week with the same places changes nothing: the walk goes on
   renderer.assignWork([slot(2)]);
-  expect(renderer.getActivity(1)).toBe("Walking");
+  expect(renderer.getActivity(1)).toBe("Walking to forest");
   runFrames(3);
   expect(renderer.getRoute().tiles.at(-1)).toEqual(WORKPLACE);
 
   runFrames(1500);
-  expect(renderer.getActivity(1)).toBe("Working");
-  expect(renderer.getActivity(2)).toBe("Working");
-  expect(renderer.getActivity(3)).not.toBe("Working");
+  expect(renderer.getActivity(1)).toBe("Working in the forest");
+  expect(renderer.getActivity(2)).toBe("Working in the forest");
+  expect(renderer.getActivity(3)).not.toBe("Working in the forest");
   expect(renderer.getSettlers()[0].tile).toEqual(WORKPLACE);
   // arrived: the line is gone
   expect(renderer.getRoute()).toEqual({ visible: false, tiles: [] });
@@ -448,10 +467,11 @@ test("settlers take the staffed places, walk there, work and go free again", () 
 
   // fewer places: the one that loses its place goes free
   renderer.assignWork([slot(1)]);
-  expect(renderer.getActivity(1)).toBe("Working");
-  expect(renderer.getActivity(2)).not.toBe("Working");
+  expect(renderer.getActivity(1)).toBe("Working in the forest");
+  expect(renderer.getActivity(2)).not.toBe("Working in the forest");
   renderer.assignWork([]);
-  expect(renderer.getActivity(1)).not.toBe("Working");
+  expect(renderer.getActivity(1)).not.toBe("Working in the forest");
+  expect(renderer.getOccupation(1)).toBe("No current job");
   runFrames(5);
   expect(renderer.getSettlers()[0].walking).toBe(true);
 
@@ -460,6 +480,42 @@ test("settlers take the staffed places, walk there, work and go free again", () 
   expect(renderer.getRoute()).toEqual({ visible: false, tiles: [] });
   renderer.select(99);
   expect(renderer.getRoute().visible).toBe(false);
+});
+
+test("occupations agree with the tasks of the work slots and follow site completion", async () => {
+  const board = await import("../src/board");
+  const { BuildingDefinition } = await import("../src/gameDefinitions");
+  const { assignTasks } = await import("../src/tasks");
+  const site = { q: -11, r: 3 };
+  const mill = { q: -12, r: 5 };
+  board.placeBuilding(site, BuildingDefinition.OrganicHomestead, 2, 0);
+  board.placeBuilding(mill, BuildingDefinition.Sawmill);
+  const renderer = createSettlerRenderer(createScene(), 1);
+  renderer.sync(syncRoster(createRoster(3), 5));
+  const slots = [slot(2, site), slot(1, mill), slot(1)];
+  renderer.assignWork(slots);
+  const tasks = assignTasks(new Map(), [1, 2, 3, 4, 5], slots);
+  const names: Record<string, string> = {
+    [`${site.q},${site.r}`]: "Builder",
+    [`${mill.q},${mill.r}`]: "Sawmill worker",
+    [`${WORKPLACE.q},${WORKPLACE.r}`]: "Forestry worker",
+  };
+  for (const id of [1, 2, 3, 4, 5]) {
+    const task = tasks.get(id);
+    expect(renderer.getOccupation(id)).toBe(
+      task === undefined ? "No current job" : names[task],
+    );
+  }
+  expect(renderer.getOccupation(5)).toBe("No current job");
+
+  // the site is finished: its builders take the next task or have none
+  board.completeSites();
+  renderer.assignWork([slot(2, mill), slot(1)]);
+  expect(renderer.getOccupation(1)).toBe("Sawmill worker"); // the next task
+  expect(renderer.getOccupation(2)).toBe("No current job");
+  expect(renderer.getOccupation(3)).toBe("Sawmill worker");
+  expect(renderer.getOccupation(4)).toBe("Forestry worker");
+  await restoreForest([site, mill]);
 });
 
 test("movement leaves production, construction and the weekly results unchanged", async () => {
@@ -543,7 +599,7 @@ test("a blocked route is searched again, none at all makes the settler wait", as
   board.setBuilding(around[3], BuildingDefinition.Forest);
   renderer.boardChanged();
   runFrames(1);
-  expect(renderer.getActivity(1)).toBe("Walking");
+  expect(renderer.getActivity(1)).toBe("Walking to forest");
   expect(renderer.getRoute().tiles.at(-1)).toEqual(WORKPLACE);
 
   for (const tile of [blocked, ...around]) {
@@ -677,7 +733,7 @@ test("a garden takes two visitors, a task, leaving and demolition free spots", a
 
   // work wins: the settler leaves, the third gardener takes the spot
   renderer.assignWork([slot(1)]);
-  expect(renderer.getActivity(1)).toBe("Walking");
+  expect(renderer.getActivity(1)).toBe("Walking to forest");
   expect(visitors()).toEqual([2, 3]);
 
   // a resident who leaves frees the spot at the next tick

@@ -17,6 +17,7 @@ import {
   createWalker,
   endVisit,
   getActivity,
+  getOccupation,
   getStandingTile,
   isRouteBlocked,
   planRoute,
@@ -56,6 +57,8 @@ export type SettlerInfo = {
 };
 
 export type SettlerRenderer = {
+  // simulates the given seconds at once, in steps of at most one capped frame
+  advance: (seconds: number) => void;
   // shows exactly the given residents (keeps the figures of known IDs)
   sync: (residents: Resident[]) => void;
   // the buildings changed: affected figures pick another way
@@ -70,6 +73,8 @@ export type SettlerRenderer = {
   getMarker: () => { id: number | undefined; visible: boolean };
   // what the resident does now, undefined for an unknown ID
   getActivity: (id: number) => Activity | undefined;
+  // the job of the resident's current task, undefined for an unknown ID
+  getOccupation: (id: number) => string | undefined;
   // The settlers take the places that the weekly simulation staffed (those
   // with an unchanged workplace keep walking), the others have no task.
   assignWork: (slots: WorkSlot[]) => void;
@@ -327,11 +332,7 @@ export function createSettlerRenderer(
     }
   };
 
-  scene.onBeforeRenderObservable.add(() => {
-    const seconds = Math.min(
-      scene.getEngine().getDeltaTime() / 1000,
-      MAX_FRAME_SECONDS,
-    );
+  const step = (seconds: number) => {
     planRoutes();
     for (let i = 0; i < walkers.length; i++) {
       const walker = walkers[i];
@@ -345,9 +346,18 @@ export function createSettlerRenderer(
       }
     }
     write();
-  });
+  };
+
+  scene.onBeforeRenderObservable.add(() =>
+    step(Math.min(scene.getEngine().getDeltaTime() / 1000, MAX_FRAME_SECONDS)),
+  );
 
   return {
+    advance: (seconds) => {
+      for (let left = seconds; left > 0; left -= MAX_FRAME_SECONDS) {
+        step(Math.min(left, MAX_FRAME_SECONDS));
+      }
+    },
     sync: (residents) => {
       if (
         residents.length === walkers.length &&
@@ -481,6 +491,10 @@ export function createSettlerRenderer(
     getActivity: (id) => {
       const walker = walkers.find((w) => w.id === id);
       return walker && getActivity(walker);
+    },
+    getOccupation: (id) => {
+      const walker = walkers.find((w) => w.id === id);
+      return walker && getOccupation(walker);
     },
     getTriangleCount: () =>
       parts.reduce((sum, part) => sum + part.mesh.getTotalIndices() / 3, 0),

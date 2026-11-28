@@ -10,17 +10,32 @@ export const SettlerProfile: FC<{
   week: number; // the current in-game week
   home: PlacedBuilding | undefined;
   getActivity: (id: number) => Activity | undefined;
+  getOccupation: (id: number) => string | undefined;
   onOpenHome: (center: HexCoordinates) => void;
   onClose: () => void;
-}> = ({ resident, week, home, getActivity, onOpenHome, onClose }) => {
-  // the activity changes with the animation, not with the game state
+}> = ({
+  resident,
+  week,
+  home,
+  getActivity,
+  getOccupation,
+  onOpenHome,
+  onClose,
+}) => {
+  // activity and occupation change with the animation, not with the game state
   const [activity, setActivity] = useState(() => getActivity(resident.id));
+  const [occupation, setOccupation] = useState(() =>
+    getOccupation(resident.id),
+  );
   useEffect(() => {
-    const update = () => setActivity(getActivity(resident.id));
+    const update = () => {
+      setActivity(getActivity(resident.id));
+      setOccupation(getOccupation(resident.id));
+    };
     update();
     const interval = setInterval(update, REFRESH_MS);
     return () => clearInterval(interval);
-  }, [resident.id, getActivity]);
+  }, [resident.id, getActivity, getOccupation]);
   return (
     <article className="hud-glass hud-panel" data-testid="settler-profile">
       <div className="row no-wrap">
@@ -33,6 +48,9 @@ export const SettlerProfile: FC<{
           </div>
           <div className="small-text" data-testid="settler-born">
             Born {formatShortTime(resident.birthDate)}
+          </div>
+          <div className="small-text" data-testid="settler-occupation">
+            Occupation: {occupation}
           </div>
           <div className="small-text" data-testid="settler-activity">
             {activity}
