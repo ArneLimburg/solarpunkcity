@@ -94,6 +94,9 @@ Game state currently lives in module-level variables in `board.ts` and `game.ts`
   - geometry is created once per building type and reused for every placement (instances or
     thin instances)
   - at most 3 draw calls per building type (e.g. opaque, transparent, one special material)
+- Codex reads the same instructions and skills: `AGENTS.md` is a symlink to `CLAUDE.md` and
+  `.agents/skills` a symlink to `.claude/skills`. Edit the originals and keep the symlinks; keep
+  skills free of tool names specific to one agent.
 
 ## Agent workflow
 
