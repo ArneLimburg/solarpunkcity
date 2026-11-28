@@ -633,7 +633,7 @@ async function buildAtOrigin(
   await expect
     .poll(
       async () => {
-        if ((await buildingAt(page, origin)) === "Forest") {
+        if ((await buildingAt(page, origin)) !== type) {
           await page.mouse.click(x, y);
         }
         return buildingAt(page, origin);
