@@ -17,16 +17,26 @@ test("a gardener without work walks to the community garden and tends a bed", as
 
   // click the settler where it is until the profile shows (it keeps walking)
   const box = (await page.locator("canvas").boundingBox())!;
+  let attempt = 0;
   await expect
     .poll(
       async () => {
-        const position = await page.evaluate(
-          (id) => window.__solarpunk!.settlerToScreen(id, "head"),
-          first.id,
-        );
-        if (position) {
-          await page.mouse.move(box.x + position.x, box.y + position.y);
-          await page.mouse.click(box.x + position.x, box.y + position.y);
+        // alternate head and body; on a slow runner the settler moves on
+        // between reading its position and the click, so read it again
+        const part =
+          attempt++ % 2 === 0 ? ("head" as const) : ("body" as const);
+        const read = () =>
+          page.evaluate(
+            ({ id, part }) => window.__solarpunk!.settlerToScreen(id, part),
+            { id: first.id, part },
+          );
+        const target = await read();
+        if (target) {
+          await page.mouse.move(box.x + target.x, box.y + target.y);
+          const position = await read();
+          if (position) {
+            await page.mouse.click(box.x + position.x, box.y + position.y);
+          }
         }
         return (
           await page.evaluate(() => window.__solarpunk!.getSettlerMarker())
