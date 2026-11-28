@@ -43,6 +43,7 @@ test("construction takes realistic weeks at full staffing", () => {
     SolarField: 32,
     WoodenHouse: 25,
     CommunityGarden: 6,
+    Woodcutter: 8,
   };
   for (const [type, expected] of Object.entries(weeks)) {
     const { cost, maxBuilders } = BuildingDefinition[type as BuildingType];
@@ -148,6 +149,7 @@ test("buildable categories and building types have display labels", () => {
     "Wood storage",
     "Supermarket",
     "Sawmill",
+    "Woodcutter",
     "Hydro power plant",
     "Wind turbine",
     "Solar field",

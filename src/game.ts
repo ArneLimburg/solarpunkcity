@@ -36,6 +36,11 @@ import {
 } from "./homeEnergy";
 import { createRoster, syncRoster, type Resident } from "./settlers";
 import type { WorkSlot } from "./tasks";
+import {
+  assignHarvestTiles,
+  getWoodOutput,
+  WOOD_PER_WORKER,
+} from "./woodcutter";
 
 export const INITIAL_RESOURCES: Resources = {
   ...emptyResources,
@@ -901,13 +906,84 @@ function calculateOtherProductions(): { production: number; forestry: number } {
   for (const placed of sawmills) {
     production += produce(placed, sites, sawmills, capacity);
   }
+  // woodcutters work after the sawmills, in placement order; the forest tiles
+  // they harvest do not produce passively
+  const isWoodcutter = ({ building }: PlacedBuilding) =>
+    building.type === "Woodcutter";
+  const harvest = assignHarvestTiles(finished.filter(isWoodcutter));
+  const harvested = new Set<PlacedBuilding>();
   let forestry = 0;
+  for (const [woodcutter, tiles] of harvest) {
+    forestry += harvestWood(
+      woodcutter,
+      tiles.length,
+      sites,
+      sawmills,
+      capacity,
+    );
+    for (const tile of tiles) {
+      harvested.add(getPlacedBuilding(tile)!);
+    }
+  }
   for (const placed of finished) {
     // food is already produced in calculateDevelopment
-    if (placed.building.produces.food > 0 || isSawmill(placed)) {
+    if (
+      placed.building.produces.food > 0 ||
+      isSawmill(placed) ||
+      isWoodcutter(placed) ||
+      harvested.has(placed)
+    ) {
       continue;
     }
     forestry += produce(placed, sites, sawmills, capacity);
   }
   return { production, forestry };
+}
+
+// lets a woodcutter harvest its tiles; returns its workers
+function harvestWood(
+  woodcutter: PlacedBuilding,
+  tiles: number,
+  sites: PlacedBuilding[],
+  sawmills: PlacedBuilding[],
+  capacity: Resources,
+): number {
+  const freeCapacity =
+    Math.max(0, capacity.wood - currentResources.wood) +
+    sites
+      .filter((site) => getMaterial(site.building) === "wood")
+      .reduce((sum, site) => sum + Math.max(0, getFreeSiteMaterial(site)), 0) +
+    sawmills.reduce(
+      (sum, sawmill) => sum + Math.max(0, getFreeSawmillWood(sawmill)),
+      0,
+    );
+  const freeWorkers = Math.min(
+    woodcutter.building.consumes.labor,
+    currentResources.labor,
+  );
+  const output = getWoodOutput(tiles, freeWorkers, freeCapacity);
+  if (output <= WOOD_EPSILON) {
+    reports.set(woodcutter, {
+      workers: 0,
+      produced: { ...emptyResources },
+      consumed: { ...emptyResources },
+      status: freeWorkers === 0 ? "no-workers" : "not-needed",
+    });
+    return 0;
+  }
+  const workers = Math.ceil(output / WOOD_PER_WORKER);
+  currentResources.labor -= workers;
+  deliver(
+    sites.filter((site) => getMaterial(site.building) === "wood"),
+    sawmills,
+    "wood",
+    output,
+    capacity.wood,
+  );
+  reports.set(woodcutter, {
+    workers,
+    produced: { ...emptyResources, wood: output },
+    consumed: { ...emptyResources, labor: workers },
+  });
+  return workers;
 }

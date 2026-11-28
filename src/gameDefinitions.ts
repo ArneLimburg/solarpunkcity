@@ -102,6 +102,12 @@ export const BuildingTypes = {
     icon: "production/sawmill.svg",
     label: "Sawmill",
   },
+  Woodcutter: {
+    category: "PRODUCTION",
+    icon: "production/woodcutter.svg",
+    label: "Woodcutter",
+    hidden: true, // not offered in the build menu yet
+  },
   HydroPowerPlant: {
     category: "ENERGY",
     icon: "energy/hydro-power-plant.svg",
@@ -136,9 +142,14 @@ export const BuildingTypes = {
   },
 } as const satisfies Record<
   string,
-  { category: BuildingCategory; icon: string; label?: string }
+  { category: BuildingCategory; icon: string; label?: string; hidden?: boolean }
 >;
 export type BuildingType = keyof typeof BuildingTypes;
+
+// whether the build menu offers a type
+export function isInBuildMenu(type: BuildingType): boolean {
+  return !(BuildingTypes[type] as { hidden?: boolean }).hidden;
+}
 
 // the label of a buildable type or category; other types have none
 export function getLabel(type: BuildingType): string | undefined {
@@ -250,6 +261,19 @@ export const BuildingDefinition: Record<BuildingType, Building> = {
     consumes: { ...emptyResources, wood: 4, labor: 2, energy: 2 },
     storage: { ...emptyResources, planks: 20 },
     recycling: { ...emptyResources, wood: 7 },
+  },
+  Woodcutter: {
+    name: "Woodcutter",
+    type: "Woodcutter",
+    description: "Harvests the forest around it",
+    size: 1,
+    resident: 0,
+    ecology: 0.3,
+    cost: { ...emptyResources, wood: 3, labor: 8 },
+    maxBuilders: 1,
+    produces: { ...emptyResources }, // the output depends on the forest around
+    consumes: { ...emptyResources, labor: 2 },
+    recycling: { ...emptyResources, wood: 1 },
   },
   HydroPowerPlant: {
     name: "Hydro power plant",

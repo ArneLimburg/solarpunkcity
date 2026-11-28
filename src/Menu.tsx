@@ -5,6 +5,7 @@ import {
   BuildingDefinition,
   BuildingTypes,
   getLabel,
+  isInBuildMenu,
   type BuildingCategory,
   type BuildingType,
 } from "./gameDefinitions";
@@ -53,7 +54,10 @@ const BuildingRows: FC<{
 }> = ({ category, selected, resources, onSelect }) => (
   <div className="hud-list">
     {(Object.keys(BuildingTypes) as BuildingType[])
-      .filter((type) => BuildingTypes[type].category === category)
+      .filter(
+        (type) =>
+          BuildingTypes[type].category === category && isInBuildMenu(type),
+      )
       .map((type) => {
         // the construction material: planks or wood
         const { wood, planks } = BuildingDefinition[type].cost;
