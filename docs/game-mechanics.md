@@ -179,7 +179,17 @@ storage it is still built: forestry delivers the missing wood to the site, it ju
       capped so that the stock never exceeds the capacity, and planks beyond that are lost.
       Planks that reach a site this week are used from the next week on. A sawmill never works
       partly.
-   2. **Forestry and everything else.** Every forest tile that gets a worker produces 0.5 wood.
+   2. **Woodcutters** (finished ones only, in the order they were placed; not yet offered in the
+      build menu). A woodcutter harvests the forest tiles within 3 hexes of its center, not its
+      own tile and no tile that holds anything but forest. A tile in reach of several woodcutters
+      belongs to the nearest one, the older one on a tie, so no tile counts twice. The weekly
+      output is the smallest of 4 wood, 2 wood per free worker (at most 2 workers), 0.5 wood per
+      tile it harvests and the free space for wood. Only `ceil(output / 2)` workers are staffed;
+      without free space no worker is. The wood goes to the construction sites first (oldest
+      first), then to the sawmill supplies, then to the wood stock, like forestry. The report of
+      the woodcutter shows its workers and the wood it delivered. Forest tiles that a woodcutter
+      harvests do not produce as forestry that week.
+   3. **Forestry and everything else.** Every forest tile that gets a worker produces 0.5 wood.
       A building that cannot be staffed fully or lacks other inputs does not produce anything.
       The produced wood goes into the wood supplies of the construction sites first (oldest
       site first, each up to its free space); the rest goes into the wood stock, capped so that
@@ -303,6 +313,7 @@ storage it is still built: forestry delivers the missing wood to the site, it ju
 | Wood storage         | 1     | –         | – (finished at once) | –                         | –                 | –                 | –                           | 0         | 0                |
 | Supermarket          | 1     | 10 wood   | 6                    | 1.7                       | 3                 | –                 | –                           | 0         | 0                |
 | Sawmill              | 1     | 15 wood   | 10                   | 1.5                       | 3                 | 2 planks          | 4 wood, 2 workers, 2 energy | 0         | 0                |
+| Woodcutter           | 1     | 3 wood    | 8                    | 0.4                       | 1                 | up to 4 wood      | up to 2 workers             | 0         | +0.3             |
 | Hydro power plant    | 1     | 20 wood   | 15                   | 1.3                       | 3                 | 10 energy         | –                           | 0         | −10              |
 | Solar field          | 1     | 4 wood    | 8                    | 0.5                       | 2                 | 2 energy          | –                           | 0         | +0.5             |
 | Forest               | 1     | –         | –                    | –                         | –                 | 0.5 wood          | 1 worker                    | 0         | +1               |
