@@ -131,7 +131,14 @@ test("buildable categories and building types have display labels", () => {
     Object.values(BuildingCategories).flatMap((category) =>
       category.buildable ? [category.label] : [],
     ),
-  ).toEqual(["Farms", "Residential", "Storage", "Production", "Energy"]);
+  ).toEqual([
+    "Farms",
+    "Residential",
+    "Storage",
+    "Production",
+    "Energy",
+    "Leisure",
+  ]);
   expect((Object.keys(BuildingTypes) as BuildingType[]).map(getLabel)).toEqual([
     "Organic homestead",
     "Farm",
@@ -144,7 +151,7 @@ test("buildable categories and building types have display labels", () => {
     "Hydro power plant",
     "Wind turbine",
     "Solar field",
-    undefined,
+    "Community garden",
     undefined,
     undefined,
     undefined,

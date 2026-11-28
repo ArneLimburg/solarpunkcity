@@ -173,6 +173,18 @@ test("all solar fields share one opaque mesh within the budget", () => {
   expect(second.triangles).toBe(first.triangles);
 });
 
+test("all community gardens share one opaque mesh within the budget", () => {
+  meshes.length = 0;
+  const renderer = createFarmRenderer({} as Scene, 1);
+  const first = renderer.create("CommunityGarden", { x: 0, z: 0 });
+  const second = renderer.create("CommunityGarden", { x: 5, z: 5 });
+  expect(meshes).toHaveLength(1);
+  expect(meshes[0].instances).toHaveLength(2);
+  expect(first.triangles).toBeGreaterThan(0);
+  expect(first.triangles).toBeLessThan(1000);
+  expect(second.triangles).toBe(first.triangles);
+});
+
 test("a wind turbine has a tower mesh and a rotor mesh as templates", () => {
   meshes.length = 0;
   const renderer = createFarmRenderer({} as Scene, 1);
@@ -203,6 +215,7 @@ test("isModelType accepts the farms, the apartment building, the camp and the sa
   expect(isModelType("SettlersCamp")).toBe(true);
   expect(isModelType("HydroPowerPlant")).toBe(true);
   expect(isModelType("SolarField")).toBe(true);
+  expect(isModelType("CommunityGarden")).toBe(true);
   expect(isModelType("WindTurbine")).toBe(true);
   expect(isModelType("Forest")).toBe(false);
 });
