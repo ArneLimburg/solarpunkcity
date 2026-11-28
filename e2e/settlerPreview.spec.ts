@@ -107,10 +107,19 @@ test("the preview follows the selected settler without touching the map camera",
     )
     .toBeLessThan(1.5);
   // a preview frame costs at most as many draw calls as the map
-  await expect
-    .poll(async () => (await frameStats(page)).passes, { timeout: 60_000 })
-    .toBe(2);
-  const total = await frameStats(page);
+  // (the preview renders every other frame: look at a few of them)
+  const total = await page.evaluate(async () => {
+    let best = window.__solarpunk!.getFrameStats();
+    for (let i = 0; i < 6; i++) {
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+      const now = window.__solarpunk!.getFrameStats();
+      if (now.passes > best.passes) {
+        best = now;
+      }
+    }
+    return best;
+  });
+  expect(total.passes).toBe(2);
   const mapCalls = await page.evaluate(
     () => window.__solarpunk!.getSettlerStats().drawCalls,
   );
@@ -120,8 +129,9 @@ test("the preview follows the selected settler without touching the map camera",
   const ring = await page.evaluate(() => window.__solarpunk!.getRingTile());
   await preview(page).click();
   expect((await marker(page)).id).toBe(first.id);
-  expect(await page.evaluate(() => window.__solarpunk!.getRingTile())).toEqual(
-    ring,
+  // the pointer left the map, so the ring is gone or unchanged, never moved
+  expect([null, ring]).toContainEqual(
+    await page.evaluate(() => window.__solarpunk!.getRingTile()),
   );
 
   // another settler: one view, one camera, the camera moves to them

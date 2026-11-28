@@ -88,11 +88,13 @@ export function createDevHooks({
   });
   // the whole last frame, with all its passes
   let frame = { passes: 0, drawCalls: 0 };
+  let frameStart = 0;
   engine.onBeginFrameObservable.add(() => {
     passes = 0;
+    frameStart = engine._drawCalls.current;
   });
   engine.onEndFrameObservable.add(() => {
-    frame = { passes, drawCalls: engine._drawCalls.current };
+    frame = { passes, drawCalls: engine._drawCalls.current - frameStart };
   });
   const registerView = engine.registerView;
   // canvas position of a scene point, null outside the view

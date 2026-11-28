@@ -52,7 +52,9 @@ export const SettlerProfile: FC<{
         hidden={previewFailed}
         style={{
           display: previewFailed ? "none" : "block",
+          position: "static",
           width: "100%",
+          height: "auto",
           aspectRatio: "4 / 3",
           borderRadius: "0.5rem",
         }}
