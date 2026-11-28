@@ -75,7 +75,7 @@ Always run `npm run lint`, `npm run build` and `npm test` before considering a c
 - `src/SettlerProfile.tsx` – card of the selected settler (name, age, activity); selection by
   resident ID lives in `App.tsx`, hit testing (`pick`) and the marker in `SettlerRenderer.ts`
   (only on taps outside build mode; the figures stay out of ground picking)
-- `src/Menu.tsx` – building selection app bar
+- `src/Menu.tsx` – build menu: bottom category bar on desktop, upper-left menu on phones
 - `public/` – icons, skybox; referenced by relative paths
 
 Game state currently lives in module-level variables in `board.ts` and `game.ts`.

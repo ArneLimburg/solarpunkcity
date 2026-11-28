@@ -70,7 +70,7 @@ export const BuildingDetailsPanel: FC<{
   const building = BuildingDefinition[type];
   return (
     <article
-      className="hud-glass hud-panel"
+      className="hud-glass hud-panel hud-details"
       data-testid="building-details"
       role="button"
       aria-label="Hide building details"

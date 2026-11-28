@@ -11,7 +11,18 @@ import {
 import { resourceIcons } from "./resourceIcons";
 import type { Resources } from "./resources";
 
-// the Build button at the top left; it shows the selection while collapsed
+// the Cancel placement button, it clears the blueprint
+export const CancelButton: FC<{ desktop: boolean; onCancel: () => void }> = ({
+  desktop,
+  onCancel,
+}) => (
+  <button className="border hud-glass hud-cancel" data-hud onClick={onCancel}>
+    <i aria-hidden="true">close</i>
+    <span>{desktop ? "Cancel placement" : "✕ Cancel placement"}</span>
+  </button>
+);
+
+// the Build button at the top left (phones); it shows the selection while collapsed
 export const BuildButton: FC<{
   open: boolean;
   selected: BuildingType | undefined;
@@ -33,67 +44,137 @@ const buildableCategories = Object.values(BuildingCategories).filter(
   (category) => category.buildable,
 );
 
-// the list of buildings, one tab per buildable category
-export const BuildList: FC<{
+// the buildings of one category
+const BuildingRows: FC<{
   category: BuildingCategory;
   selected: BuildingType | undefined;
   resources: Resources;
-  onCategory: (category: BuildingCategory) => void;
   onSelect: (buildingType: BuildingType | undefined) => void;
-}> = ({ category, selected, resources, onCategory, onSelect }) => (
+}> = ({ category, selected, resources, onSelect }) => (
+  <div className="hud-list">
+    {(Object.keys(BuildingTypes) as BuildingType[])
+      .filter((type) => BuildingTypes[type].category === category)
+      .map((type) => {
+        // the construction material: planks or wood
+        const { wood, planks } = BuildingDefinition[type].cost;
+        const material = planks > 0 ? "planks" : "wood";
+        return (
+          <button
+            key={type}
+            className={`border hud-row ${selected === type ? "fill" : ""}`}
+            aria-label={getLabel(type)}
+            aria-pressed={selected === type}
+            onClick={() => onSelect(selected === type ? undefined : type)}
+          >
+            <img
+              className="small"
+              src={BuildingTypes[type].icon}
+              alt=""
+              aria-hidden="true"
+            />
+            <span className="max">{getLabel(type)}</span>
+            <span
+              className={chipClassName(
+                unaffordableCosts(type, resources).has(material),
+              )}
+              data-testid={`build-cost-${type}`}
+            >
+              <i aria-hidden="true">{resourceIcons[material]}</i>
+              <span>{planks > 0 ? planks : wood}</span>
+            </span>
+          </button>
+        );
+      })}
+  </div>
+);
+
+type MenuProps = {
+  // the category whose buildings are shown
+  category: BuildingCategory | undefined;
+  selected: BuildingType | undefined;
+  resources: Resources;
+  onCategory: (category: BuildingCategory | undefined) => void;
+  onSelect: (buildingType: BuildingType | undefined) => void;
+};
+
+// desktop: the bar at the bottom edge with one button per category; the buildings of the open
+// category are listed above its button
+export const BuildBar: FC<MenuProps & { onCancel: () => void }> = ({
+  category,
+  selected,
+  resources,
+  onCategory,
+  onSelect,
+  onCancel,
+}) => (
+  <div className="hud-bottom">
+    <nav className="hud-bar hud-glass" data-testid="build-bar" data-hud>
+      {buildableCategories.map(({ name, label, icon }) => (
+        <div key={name} className="hud-bar-item">
+          <button
+            className={`border hud-category ${category === name ? "fill" : ""}`}
+            aria-expanded={category === name}
+            aria-controls="build-panel"
+            onClick={() => onCategory(category === name ? undefined : name)}
+          >
+            <img className="small" src={icon} alt="" aria-hidden="true" />
+            <span>{label}</span>
+          </button>
+          {category === name && (
+            <section
+              id="build-panel"
+              className="hud-glass hud-panel hud-bar-list"
+              data-testid="build-panel"
+              data-hud
+            >
+              <BuildingRows
+                category={name}
+                selected={selected}
+                resources={resources}
+                onSelect={onSelect}
+              />
+            </section>
+          )}
+        </div>
+      ))}
+      {selected && <CancelButton desktop onCancel={onCancel} />}
+    </nav>
+  </div>
+);
+
+// phones: the list of categories, the open one shows its buildings (accordion)
+export const BuildMenu: FC<MenuProps> = ({
+  category,
+  selected,
+  resources,
+  onCategory,
+  onSelect,
+}) => (
   <section
     id="build-panel"
     className="hud-glass hud-panel"
     data-testid="build-panel"
     data-hud
   >
-    <div className="row no-wrap" role="tablist">
-      {buildableCategories.map(({ name, label }) => (
+    {buildableCategories.map(({ name, label, icon }) => (
+      <div key={name}>
         <button
-          key={name}
-          role="tab"
-          className={`border small ${category === name ? "fill" : ""}`}
-          aria-selected={category === name}
-          onClick={() => onCategory(name)}
+          className={`border hud-row ${category === name ? "fill" : ""}`}
+          aria-expanded={category === name}
+          onClick={() => onCategory(category === name ? undefined : name)}
         >
-          {label}
+          <img className="small" src={icon} alt="" aria-hidden="true" />
+          <span className="max">{label}</span>
         </button>
-      ))}
-    </div>
-    <div className="hud-list" role="tabpanel">
-      {(Object.keys(BuildingTypes) as BuildingType[])
-        .filter((type) => BuildingTypes[type].category === category)
-        .map((type) => {
-          // the construction material: planks or wood
-          const { wood, planks } = BuildingDefinition[type].cost;
-          const material = planks > 0 ? "planks" : "wood";
-          return (
-            <button
-              key={type}
-              className={`border hud-row ${selected === type ? "fill" : ""}`}
-              aria-label={getLabel(type)}
-              aria-pressed={selected === type}
-              onClick={() => onSelect(selected === type ? undefined : type)}
-            >
-              <img
-                className="small"
-                src={BuildingTypes[type].icon}
-                alt=""
-                aria-hidden="true"
-              />
-              <span className="max">{getLabel(type)}</span>
-              <span
-                className={chipClassName(
-                  unaffordableCosts(type, resources).has(material),
-                )}
-                data-testid={`build-cost-${type}`}
-              >
-                <i aria-hidden="true">{resourceIcons[material]}</i>
-                <span>{planks > 0 ? planks : wood}</span>
-              </span>
-            </button>
-          );
-        })}
-    </div>
+        {category === name && (
+          <BuildingRows
+            category={name}
+            selected={selected}
+            resources={resources}
+            onSelect={onSelect}
+          />
+        )}
+      </div>
+    ))}
   </section>
 );

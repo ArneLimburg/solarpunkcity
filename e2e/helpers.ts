@@ -14,17 +14,27 @@ export async function tilePosition(page: Page, coords: HexCoordinates) {
   return { x: box.x + position.x, y: box.y + position.y };
 }
 
-// opens the build panel if needed and selects a building by category tab and label
+// opens the list of a category (on phones via the Build menu) if it is not open yet
+export async function openCategory(page: Page, category: string) {
+  if ((page.viewportSize()?.width ?? 1280) < 600) {
+    const build = page.getByRole("button", { name: /^Build/ });
+    if ((await build.getAttribute("aria-expanded")) !== "true") {
+      await build.click();
+    }
+  }
+  const button = page.getByRole("button", { name: category, exact: true });
+  if ((await button.getAttribute("aria-expanded")) !== "true") {
+    await button.click();
+  }
+}
+
+// opens the category if needed and clicks a building (again: deselects it)
 export async function selectBuilding(
   page: Page,
   category: string,
   label: string,
 ) {
-  const build = page.getByRole("button", { name: /^Build/ });
-  if ((await build.getAttribute("aria-expanded")) !== "true") {
-    await build.click();
-  }
-  await page.getByRole("tab", { name: category, exact: true }).click();
+  await openCategory(page, category);
   await page.getByRole("button", { name: label, exact: true }).click();
 }
 

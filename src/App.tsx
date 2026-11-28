@@ -1,7 +1,14 @@
 import "beercss/dist/cdn/beer.min.css";
-import { useCallback, useEffect, useRef, useState, type FC } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type FC,
+} from "react";
 import { Map } from "./Map";
-import { BuildButton, BuildList } from "./Menu";
+import { BuildBar, BuildButton, BuildMenu, CancelButton } from "./Menu";
 import {
   getConstructionSites,
   getPlacedBuilding,
@@ -32,6 +39,19 @@ import { BuildingDetailsPanel } from "./BuildingDetailsPanel";
 import { BuildingInfo } from "./BuildingInfo";
 import { SettlerProfile } from "./SettlerProfile";
 import { StatusBar } from "./StatusBar";
+
+const desktopQuery = "(min-width: 600px)";
+
+// true on desktop: the build menu is a bottom bar, otherwise a menu at the top left
+const useDesktop = () =>
+  useSyncExternalStore(
+    (onChange) => {
+      const list = window.matchMedia(desktopQuery);
+      list.addEventListener("change", onChange);
+      return () => list.removeEventListener("change", onChange);
+    },
+    () => window.matchMedia(desktopQuery).matches,
+  );
 
 export const App: FC = () => {
   const [state, setState] = useState(getState);
@@ -150,12 +170,30 @@ export const App: FC = () => {
     },
     [showInfo],
   );
+  const desktop = useDesktop();
+  // phones: the menu is open; the open category is shared by both layouts
   const [buildOpen, setBuildOpen] = useState(false);
-  const [category, setCategory] = useState<BuildingCategory>("FARM");
+  const [category, setCategory] = useState<BuildingCategory | undefined>();
+  // a selected building closes the menu or the list but keeps the blueprint
+  const chooseBuildingType = useCallback(
+    (type: BuildingType | undefined) => {
+      selectBuildingType(type);
+      if (type) {
+        setBuildOpen(false);
+        setCategory(undefined);
+      }
+    },
+    [selectBuildingType],
+  );
+  const cancelPlacement = useCallback(
+    () => selectBuildingType(undefined),
+    [selectBuildingType],
+  );
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         setBuildOpen(false);
+        setCategory(undefined);
         selectBuildingType(undefined);
         setSettlerId(undefined);
       }
@@ -187,22 +225,27 @@ export const App: FC = () => {
       </main>
       <div className="hud-root">
         <div className="hud-top">
-          <BuildButton
-            open={buildOpen}
-            selected={selectedBuildingType}
-            onToggle={() => setBuildOpen(!buildOpen)}
-          />
+          {!desktop && (
+            <BuildButton
+              open={buildOpen}
+              selected={selectedBuildingType}
+              onToggle={() => setBuildOpen(!buildOpen)}
+            />
+          )}
+          {!desktop && selectedBuildingType && (
+            <CancelButton desktop={false} onCancel={cancelPlacement} />
+          )}
           <StatusBar state={state} sessionStart={sessionStart} />
         </div>
         <div className="hud-areas">
           <div className="hud-left">
-            {buildOpen && (
-              <BuildList
+            {!desktop && buildOpen && (
+              <BuildMenu
                 category={category}
                 selected={selectedBuildingType}
                 resources={state.resources}
                 onCategory={setCategory}
-                onSelect={selectBuildingType}
+                onSelect={chooseBuildingType}
               />
             )}
             {selectedBuildingType && !detailsHidden && (
@@ -239,6 +282,16 @@ export const App: FC = () => {
             )}
           </div>
         </div>
+        {desktop && (
+          <BuildBar
+            category={category}
+            selected={selectedBuildingType}
+            resources={state.resources}
+            onCategory={setCategory}
+            onSelect={chooseBuildingType}
+            onCancel={cancelPlacement}
+          />
+        )}
       </div>
     </>
   );

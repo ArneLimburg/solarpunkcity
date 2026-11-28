@@ -458,8 +458,6 @@ test("the river is water without trees and cannot be built on", async ({
   await grantWood(page);
   await selectBuilding(page, "Farms", "Farm");
   await page.getByRole("button", { name: "Hide building details" }).click();
-  // the collapsed list no longer covers the map either
-  await page.getByRole("button", { name: /^Build/ }).click();
   const tile = river.find(({ r }) => r === 0)!;
   const { x, y } = await tilePosition(page, tile);
   await page.mouse.move(x, y, { steps: 5 });
