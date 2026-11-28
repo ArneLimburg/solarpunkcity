@@ -158,8 +158,6 @@ export function removeResidents(roster: Roster, ids: number[]) {
 // ---- walkable tiles ----
 
 export const SETTLEMENT_BELT = 3; // hex distance to the nearest built tile
-export const MIN_LOOP_TILES = 3;
-export const MAX_LOOP_TILES = 6;
 
 const ORIGIN: HexCoordinates = { q: 0, r: 0 };
 const DIRECTIONS: readonly HexCoordinates[] = [
@@ -220,57 +218,8 @@ export function getUsableTiles(): HexCoordinates[] {
   return [...areaTiles];
 }
 
-function shuffle<T>(items: T[], owner: { seed: number }): T[] {
-  for (let i = items.length - 1; i > 0; i--) {
-    const j = Math.floor(random(owner) * (i + 1));
-    [items[i], items[j]] = [items[j], items[i]];
-  }
-  return items;
-}
-
 function isSame(a: HexCoordinates, b: HexCoordinates): boolean {
   return a.q === b.q && a.r === b.r;
-}
-
-// extends the path to a cycle of the given length
-function closeLoop(
-  path: HexCoordinates[],
-  length: number,
-  owner: { seed: number },
-): HexCoordinates[] | undefined {
-  const last = path[path.length - 1];
-  if (path.length === length) {
-    return hexDistance(last, path[0]) === 1 ? path : undefined;
-  }
-  for (const direction of shuffle([...DIRECTIONS], owner)) {
-    const next = { q: last.q + direction.q, r: last.r + direction.r };
-    if (isUsable(next) && !path.some((tile) => isSame(tile, next))) {
-      const loop = closeLoop([...path, next], length, owner);
-      if (loop) {
-        return loop;
-      }
-    }
-  }
-  return undefined;
-}
-
-// A loop of 3 to 6 usable tiles, each adjacent to the previous one and the
-// last adjacent to the start (which the walker reaches again).
-export function findLoop(
-  start: HexCoordinates,
-  owner: { seed: number },
-): HexCoordinates[] | undefined {
-  const lengths: number[] = [];
-  for (let n = MIN_LOOP_TILES; n <= MAX_LOOP_TILES; n++) {
-    lengths.push(n);
-  }
-  for (const length of shuffle(lengths, owner)) {
-    const loop = closeLoop([start], length, owner);
-    if (loop) {
-      return loop;
-    }
-  }
-  return undefined;
 }
 
 // ---- walking ----
@@ -279,7 +228,6 @@ export const WALK_SPEED = 0.5; // scene units per second
 export const TURN_SPEED = 6; // radians per second
 export const BOB_FREQUENCY = 9; // radians per second of walking
 export const BOB_HEIGHT = 0.012;
-export const PAUSE_CHANCE = 0.3; // after reaching a tile of the loop
 export const PAUSE_MIN = 1;
 export const PAUSE_MAX = 3; // seconds
 
@@ -287,12 +235,7 @@ export type Walker = {
   id: number;
   hobby: Hobby; // decides what the settler does during pauses
   seed: number; // own random numbers: movement does not depend on the frame rate
-  loop: HexCoordinates[]; // empty: the walker stays where it is
-  loopX: number[]; // scene coordinates of the loop's tiles
-  loopZ: number[];
-  rest: HexCoordinates; // tile of a walker without loop
-  segment: number; // index of the tile the walker comes from
-  progress: number; // distance walked on the segment
+  rest: HexCoordinates; // tile of a walker without route
   pause: number; // remaining seconds of standing still
   x: number;
   z: number;
@@ -300,14 +243,10 @@ export type Walker = {
   phase: number; // bobbing, radians
   walking: boolean;
   bob: number; // current height above the ground
-  // A walker first walks in a straight line from where it is to the first tile
-  // of its new loop (or rest tile): after the board changed under it.
-  approaching: boolean;
-  from: HexCoordinates; // tile the approach started on
-  goal: HexCoordinates; // tile the approach leads to
-  approachLength: number; // scene units of the approach when it started
   // The task: the workplace the settler walks to and works in (key of the
-  // workplace, its tiles). A settler with a task has no loop.
+  // workplace, its tiles). A settler without task and visit walks randomly
+  // from one tile of the settlement area to the next (`destination` is then
+  // the tile it walks to or rested on last).
   task: string | undefined;
   destination: HexCoordinates[];
   path: HexCoordinates[]; // planned route, from the tile it started on
@@ -353,45 +292,9 @@ export function tileZ(tile: HexCoordinates): number {
   return 1.5 * tile.r;
 }
 
-function segmentLength(walker: Walker, from: number, to: number): number {
-  return Math.hypot(
-    walker.loopX[to] - walker.loopX[from],
-    walker.loopZ[to] - walker.loopZ[from],
-  );
-}
-
-function nextIndex(walker: Walker, index: number): number {
-  return (index + 1) % walker.loop.length;
-}
-
-// the position on the loop from segment and progress
-function updatePosition(walker: Walker) {
-  const from = walker.segment;
-  const to = nextIndex(walker, from);
-  const fraction = walker.progress / segmentLength(walker, from, to);
-  walker.x =
-    walker.loopX[from] + (walker.loopX[to] - walker.loopX[from]) * fraction;
-  walker.z =
-    walker.loopZ[from] + (walker.loopZ[to] - walker.loopZ[from]) * fraction;
-}
-
-function setLoop(walker: Walker, loop: HexCoordinates[]) {
-  walker.loop = loop;
-  walker.loopX = loop.map(tileX);
-  walker.loopZ = loop.map(tileZ);
-  walker.rest = loop[0];
-  walker.segment = 0;
-  walker.progress = 0;
-  walker.pause = 0;
-  walker.approaching = false;
-}
-
 function stay(walker: Walker, tile: HexCoordinates) {
-  walker.approaching = false;
-  walker.loop = [];
-  walker.loopX = [];
-  walker.loopZ = [];
   walker.rest = tile;
+  walker.pause = 0;
   walker.walking = false;
   walker.bob = 0;
 }
@@ -404,23 +307,11 @@ export function getStandingTile(walker: Walker): HexCoordinates {
       Math.hypot(tileX(next) - walker.x, tileZ(next) - walker.z) < SQRT3 / 2;
     return walker.step === 0 || close ? next : walker.path[walker.step - 1];
   }
-  if (walker.approaching) {
-    const left = Math.hypot(
-      tileX(walker.goal) - walker.x,
-      tileZ(walker.goal) - walker.z,
-    );
-    return left * 2 < walker.approachLength ? walker.goal : walker.from;
-  }
-  if (walker.loop.length === 0) {
-    return walker.rest;
-  }
-  const from = walker.segment;
-  const half = segmentLength(walker, from, nextIndex(walker, from)) / 2;
-  return walker.loop[walker.progress < half ? from : nextIndex(walker, from)];
+  return walker.rest;
 }
 
-// a settler on a random tile of the settlement area (uniformly), on a random
-// spot of its loop
+// a settler on a random tile of the settlement area (uniformly) that waits
+// for the route of its first walk
 export function createWalker(
   id: number,
   seed: number,
@@ -430,12 +321,7 @@ export function createWalker(
     id,
     hobby,
     seed,
-    loop: [],
-    loopX: [],
-    loopZ: [],
     rest: ORIGIN,
-    segment: 0,
-    progress: 0,
     pause: 0,
     x: tileX(ORIGIN),
     z: tileZ(ORIGIN),
@@ -443,15 +329,11 @@ export function createWalker(
     phase: 0,
     walking: false,
     bob: 0,
-    approaching: false,
-    from: ORIGIN,
-    goal: ORIGIN,
-    approachLength: 0,
     task: undefined,
     destination: [],
     path: [],
     step: 0,
-    needsRoute: false,
+    needsRoute: true,
     blocked: false,
     working: false,
     visit: undefined,
@@ -461,51 +343,13 @@ export function createWalker(
   };
   walker.phase = random(walker) * Math.PI * 2;
   const tiles = getUsableTiles();
-  if (tiles.length === 0) {
-    return walker;
+  if (tiles.length > 0) {
+    const tile = tiles[Math.floor(random(walker) * tiles.length)];
+    stay(walker, tile);
+    walker.x = tileX(tile);
+    walker.z = tileZ(tile);
   }
-  const loop = findAnyLoop(walker, tiles);
-  if (!loop) {
-    stayAt(walker, tiles[Math.floor(random(walker) * tiles.length)]);
-    return walker;
-  }
-  setLoop(walker, loop);
-  walker.segment = Math.floor(random(walker) * loop.length);
-  walker.progress =
-    random(walker) *
-    segmentLength(walker, walker.segment, nextIndex(walker, walker.segment));
-  updatePosition(walker);
-  walker.heading = getHeading(walker);
   return walker;
-}
-
-// the loop of the first of the tiles (in random order) that has one
-function findAnyLoop(
-  walker: Walker,
-  tiles: HexCoordinates[],
-): HexCoordinates[] | undefined {
-  for (const tile of shuffle([...tiles], walker)) {
-    const loop = findLoop(tile, walker);
-    if (loop) {
-      return loop;
-    }
-  }
-  return undefined;
-}
-
-function stayAt(walker: Walker, tile: HexCoordinates) {
-  stay(walker, tile);
-  walker.x = tileX(tile);
-  walker.z = tileZ(tile);
-}
-
-function getHeading(walker: Walker): number {
-  const from = walker.segment;
-  const to = nextIndex(walker, from);
-  return Math.atan2(
-    walker.loopX[to] - walker.loopX[from],
-    walker.loopZ[to] - walker.loopZ[from],
-  );
 }
 
 function turn(walker: Walker, target: number, seconds: number) {
@@ -550,12 +394,6 @@ function walkToPoint(
 
 function isAt(walker: Walker, tile: HexCoordinates): boolean {
   return walker.x === tileX(tile) && walker.z === tileZ(tile);
-}
-
-function approach(walker: Walker, seconds: number): number {
-  const left = walkToward(walker, walker.goal, seconds);
-  walker.approaching = !isAt(walker, walker.goal);
-  return left;
 }
 
 // Walks along the planned route; returns the seconds that are left and whether
@@ -615,84 +453,50 @@ function advanceVisit(walker: Walker, visit: VisitPlan, seconds: number) {
   setBob(walker);
 }
 
-// Moves the walker along its loop by the elapsed seconds. Random numbers are
-// only drawn when a tile is reached, so the result hardly depends on how the
-// time is split into frames. Allocates nothing.
-export function advanceWalker(walker: Walker, seconds: number) {
+// Walks the planned route to the destination, pauses there and then asks for
+// the next route (needsRoute; the renderer plans it through its queue). Without
+// a route (waiting or blocked) the settler stands still.
+function advanceWalk(walker: Walker, seconds: number) {
   let remaining = seconds;
-  walker.walking = false;
-  walker.cooldown = Math.max(0, walker.cooldown - seconds);
-  if (walker.visit) {
-    advanceVisit(walker, walker.visit, remaining);
-    return;
-  }
-  if (walker.task !== undefined) {
-    advanceTask(walker, remaining);
-    return;
-  }
-  if (walker.approaching) {
-    remaining = approach(walker, remaining);
-  }
-  if (walker.approaching || walker.loop.length === 0) {
-    walker.bob = walker.walking
-      ? Math.abs(Math.sin(walker.phase)) * BOB_HEIGHT
-      : 0;
-    return;
-  }
   while (remaining > 0) {
-    const from = walker.segment;
-    const to = nextIndex(walker, from);
-    const target = getHeading(walker);
-    if (walker.pause > 0) {
+    if (walker.path.length > 0) {
+      const [left, arrived] = followPath(walker, remaining);
+      remaining = left;
+      if (!arrived) {
+        break;
+      }
+      walker.pause = PAUSE_MIN + random(walker) * (PAUSE_MAX - PAUSE_MIN);
+    } else if (walker.pause > 0) {
       const step = Math.min(walker.pause, remaining);
       walker.pause -= step;
       remaining -= step;
-      turn(walker, target, step);
-      continue;
-    }
-    walker.walking = true;
-    const length = segmentLength(walker, from, to);
-    const step = Math.min(remaining, (length - walker.progress) / WALK_SPEED);
-    walker.progress += step * WALK_SPEED;
-    walker.phase += step * BOB_FREQUENCY;
-    remaining -= step;
-    turn(walker, target, step);
-    if (walker.progress >= length - 1e-9) {
-      walker.segment = to;
-      walker.progress = 0;
-      if (random(walker) < PAUSE_CHANCE) {
-        walker.pause = PAUSE_MIN + random(walker) * (PAUSE_MAX - PAUSE_MIN);
-      }
+      walker.needsRoute = walker.pause <= 0;
+    } else {
+      break;
     }
   }
-  updatePosition(walker);
-  walker.bob = walker.walking
-    ? Math.abs(Math.sin(walker.phase)) * BOB_HEIGHT
-    : 0;
+  setBob(walker);
 }
 
-function nearestTile(
-  tiles: HexCoordinates[],
-  from: HexCoordinates,
-): HexCoordinates {
-  return tiles.reduce((best, tile) =>
-    hexDistance(tile, from) < hexDistance(best, from) ? tile : best,
-  );
-}
-
-// whether the board changed so that the walker has to find another way
-function isAffected(walker: Walker): boolean {
-  return (
-    walker.task === undefined &&
-    walker.visit === undefined &&
-    (walker.loop.length === 0 || !walker.loop.every(isUsable))
-  );
+// Moves the walker by the elapsed seconds. Random numbers are only drawn when
+// a tile is reached, so the result hardly depends on how the time is split into
+// frames. Allocates nothing.
+export function advanceWalker(walker: Walker, seconds: number) {
+  walker.walking = false;
+  walker.cooldown = Math.max(0, walker.cooldown - seconds);
+  if (walker.visit) {
+    advanceVisit(walker, walker.visit, seconds);
+  } else if (walker.task !== undefined) {
+    advanceTask(walker, seconds);
+  } else {
+    advanceWalk(walker, seconds);
+  }
 }
 
 // ---- tasks and routes ----
 
 // what the settler does now; Gardening and Observing a butterfly are flavor
-// activities during the pauses of a loop (they change nothing in the game)
+// activities during the pauses after a walk (they change nothing in the game)
 export function getActivity(walker: Walker): Activity {
   if (walker.working) {
     return "Working";
@@ -792,9 +596,9 @@ export function startVisit(
   walker.needsRoute = true;
 }
 
-// Ends the visit (or drops its plan); the settler picks another way like after
-// a change of the board (updateWalkers). With `rest` the next visit has to wait
-// for the cooldown.
+// Ends the visit (or drops its plan); the settler continues with a random walk
+// (it waits for its route). With `rest` the next visit has to wait for the
+// cooldown.
 export function endVisit(walker: Walker, rest: boolean) {
   stay(walker, getStandingTile(walker));
   walker.path = [];
@@ -802,14 +606,14 @@ export function endVisit(walker: Walker, rest: boolean) {
   walker.visit = undefined;
   walker.destination = [];
   walker.blocked = false;
-  walker.needsRoute = false;
+  walker.needsRoute = true;
   if (rest) {
     walker.cooldown = VISIT_COOLDOWN;
   }
 }
 
-// Takes the workplace away; the settler picks another way like after a change
-// of the board (updateWalkers).
+// Takes the workplace away; the settler continues with a random walk (it
+// waits for its route).
 export function clearTask(walker: Walker) {
   stay(walker, getStandingTile(walker));
   walker.path = [];
@@ -818,7 +622,7 @@ export function clearTask(walker: Walker) {
   walker.destination = [];
   walker.working = false;
   walker.blocked = false;
-  walker.needsRoute = false;
+  walker.needsRoute = true;
 }
 
 // Searches the route from the tile the settler is standing on. Without one the
@@ -852,52 +656,48 @@ export function replanRoute(walker: Walker) {
   walker.needsRoute = true;
 }
 
-export type Route = {
-  start: HexCoordinates; // tile of the settlement area to walk to
-  loop?: HexCoordinates[]; // loop that starts there; none: rest on the tile
-};
+// ---- random walks ----
 
-// Chooses where a walker goes next, independent of how it gets there (the
-// animation in advanceWalker): the tile of the settlement area nearest to
-// `from` (that tile itself if it belongs to the area) and a loop starting
-// there. Without a loop nearby the walker rests on that tile; it never picks a
-// loop elsewhere. Undefined if the settlement area is empty.
-export function pickRoute(
-  walker: { seed: number },
-  from: HexCoordinates,
-): Route | undefined {
-  const tiles = getUsableTiles();
-  if (tiles.length === 0) {
-    return undefined;
-  }
-  const start = isUsable(from) ? from : nearestTile(tiles, from);
-  return { start, loop: findLoop(start, walker) };
+// whether the settler has neither task nor visit and walks randomly
+export function isRoaming(walker: Walker): boolean {
+  return walker.task === undefined && walker.visit === undefined;
 }
 
-// Sends walkers whose loop (or standing tile) is no longer usable to a new
-// route. They walk there from where they are, they never jump. Without any
-// usable tile they stay.
-export function updateWalkers(walkers: Walker[]) {
-  for (const walker of walkers.filter(isAffected)) {
-    const standing = getStandingTile(walker);
-    const route = pickRoute(walker, standing);
-    if (!route) {
-      stay(walker, standing);
-      continue;
+// Picks a random tile of the settlement area (not the one the settler stands
+// on, not the last destination unless there is no other) and searches the
+// route to it from the tile the settler is standing on; tiles without a route
+// are skipped. Without any reachable tile the settler stands still (blocked)
+// until the board changes.
+export function planWalk(walker: Walker) {
+  walker.needsRoute = false;
+  walker.path = [];
+  walker.step = 0;
+  walker.blocked = true;
+  const from = getStandingTile(walker);
+  const last = walker.destination[0];
+  const others = getUsableTiles().filter((tile) => !isSame(tile, from));
+  const fresh = others.filter((tile) => !last || !isSame(tile, last));
+  const candidates = fresh.length > 0 ? fresh : others;
+  while (candidates.length > 0) {
+    const index = Math.floor(random(walker) * candidates.length);
+    const [target] = candidates.splice(index, 1);
+    const route = findRoute(from, [target]);
+    if (route) {
+      walker.destination = [target];
+      walker.path = route;
+      walker.blocked = false;
+      return;
     }
-    if (route.loop) {
-      setLoop(walker, route.loop);
-    } else {
-      stay(walker, route.start);
-    }
-    walker.from = standing;
-    walker.goal = route.start;
-    walker.approachLength = Math.hypot(
-      tileX(route.start) - walker.x,
-      tileZ(route.start) - walker.z,
-    );
-    walker.approaching = walker.approachLength > 1e-9;
-    walker.bob = 0;
-    walker.walking = false;
   }
+}
+
+// whether the board changed so that a random walk needs a new route: nothing
+// was reachable, the destination left the settlement area or the rest of the
+// route is not walkable any more
+export function isWalkAffected(walker: Walker): boolean {
+  return (
+    walker.blocked ||
+    (walker.path.length > 0 &&
+      (!isUsable(walker.destination[0]) || isRouteBlocked(walker)))
+  );
 }

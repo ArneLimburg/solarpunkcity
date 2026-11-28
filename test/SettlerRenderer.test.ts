@@ -500,6 +500,68 @@ test("route searches are spread across the frames", () => {
   expect(renderer.getSettlers()).toHaveLength(1);
 });
 
+test("random walks are planned through the shared queue, a few per frame", async () => {
+  const board = await import("../src/board");
+  const { BuildingDefinition } = await import("../src/gameDefinitions");
+  const renderer = createSettlerRenderer(createScene(), 1);
+  renderer.sync(syncRoster(createRoster(3), 20));
+  const walking = () =>
+    renderer.getSettlers().filter((settler) => settler.walking).length;
+  expect(walking()).toBe(0);
+  frame.render();
+  expect(walking()).toBe(ROUTES_PER_FRAME);
+  frame.render();
+  expect(walking()).toBe(2 * ROUTES_PER_FRAME);
+  runFrames(2);
+  expect(walking()).toBe(20);
+
+  // they keep walking from destination to destination and rest in between
+  const seen = new Set<string>();
+  for (let i = 0; i < 600; i++) {
+    frame.render();
+    seen.add(renderer.getActivity(1)!);
+  }
+  expect(seen).toContain("Walking");
+  expect(seen.has("Gardening") || seen.has("Observing a butterfly")).toBe(true);
+
+  // everything around the camp is built over: nobody can go anywhere and all
+  // wait for the next board change
+  const tiles: { q: number; r: number }[] = [];
+  for (let q = -3; q <= 3; q++) {
+    for (let r = -3; r <= 3; r++) {
+      if (
+        Math.max(Math.abs(q), Math.abs(r), Math.abs(q + r)) <= 3 &&
+        (q !== 0 || r !== 0)
+      ) {
+        tiles.push({ q, r });
+        board.setBuilding({ q, r }, BuildingDefinition.WoodStorage);
+      }
+    }
+  }
+  const walled = () =>
+    renderer
+      .getSettlers()
+      .filter(({ tile }) =>
+        tiles.some(
+          (t) =>
+            t.q === tile.q &&
+            t.r === tile.r &&
+            Math.max(Math.abs(t.q), Math.abs(t.r), Math.abs(t.q + t.r)) <= 2,
+        ),
+      );
+  renderer.boardChanged();
+  runFrames(5);
+  expect(walled().length).toBeGreaterThan(0);
+  expect(walled().every(({ walking }) => !walking)).toBe(true);
+  renderer.boardChanged();
+  runFrames(5);
+  expect(walled().every(({ walking }) => !walking)).toBe(true);
+  await restoreForest(tiles);
+  renderer.boardChanged();
+  runFrames(5);
+  expect(walking()).toBeGreaterThan(0);
+});
+
 test("a blocked route is searched again, none at all makes the settler wait", async () => {
   const board = await import("../src/board");
   const { BuildingDefinition } = await import("../src/gameDefinitions");

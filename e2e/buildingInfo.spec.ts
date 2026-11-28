@@ -90,13 +90,22 @@ test("opens, updates, switches and closes the building info", async ({
   );
   await expect(info(page).getByTestId("info-builders")).toContainText("/ 6");
   await expect(info(page).getByTestId("info-residents")).toHaveCount(0);
-  const percent = (await info(page)
-    .getByTestId("info-progress")
-    .textContent())!.replace(/% complete$/, "");
-  // the map label shows the same value
+  // the map label shows the same value; compare both in one read, because the
+  // percentage can change between two reads when the settlers are slow
   await expect
-    .poll(() => page.evaluate(() => window.__solarpunk?.getProgressLabel()))
-    .toBe(`${percent}%`);
+    .poll(
+      async () => {
+        const text = await info(page)
+          .getByTestId("info-progress")
+          .textContent();
+        const label = await page.evaluate(() =>
+          window.__solarpunk?.getProgressLabel(),
+        );
+        return label === `${text?.replace(/ complete$/, "")}`;
+      },
+      { timeout: 30_000 },
+    )
+    .toBe(true);
 
   // the house needs planks that do not exist, so nobody builds it
   await expect(info(page).getByTestId("info-waiting")).toHaveText(
