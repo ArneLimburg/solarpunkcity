@@ -74,6 +74,9 @@ Always run `npm run lint`, `npm run build` and `npm test` before considering a c
 - `src/visits.ts` – garden visits of idle gardeners (pure `assignVisits`: two reserved spots per
   finished community garden, nearest first; timers and walking live in `settlers.ts` /
   `SettlerRenderer.ts`, purely visual)
+- `src/lifeStages.ts` – life stages (`getLifeStage`: Child, Adult, Retired) and age-dependent
+  mortality from 65 on (reproducible draw per resident ID and birthday, certain death at 120),
+  used by `calculateWeek` (pure)
 - `src/SettlerProfile.tsx` – card of the selected settler (name, age, activity); selection by
   resident ID lives in `App.tsx`, hit testing (`pick`) and the marker in `SettlerRenderer.ts`
   (only on taps outside build mode; the figures stay out of ground picking)

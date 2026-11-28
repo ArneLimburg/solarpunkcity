@@ -114,6 +114,19 @@ test("newcomers are as old as their starting age in the week they appear", async
   }
 });
 
+test("a resident who turns 120 dies, the others keep their IDs and the population never drops below 1", () => {
+  const [first, second] = game.getState().residents;
+  game.expireResident(first.id);
+  let state = game.calculateWeek();
+  expect(state.population).toBe(1);
+  expect(state.residents.map(({ id }) => id)).toEqual([second.id]);
+  // the last resident survives even at 120
+  game.expireResident(second.id);
+  state = game.calculateWeek();
+  expect(state.population).toBe(1);
+  expect(state.residents.map(({ id }) => id)).toEqual([second.id]);
+});
+
 test("homestead lets the population grow", () => {
   board.setBuilding(
     { q: 0, r: 0 },

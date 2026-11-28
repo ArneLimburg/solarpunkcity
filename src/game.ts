@@ -40,7 +40,14 @@ import {
   toHomeEnergyReport,
   type HomeEnergyReport,
 } from "./homeEnergy";
-import { createRoster, syncRoster, type Resident } from "./settlers";
+import {
+  createRoster,
+  removeResidents,
+  syncRoster,
+  type Resident,
+} from "./settlers";
+import { getDeaths, MAX_LIFE_AGE } from "./lifeStages";
+import { birthTime } from "./calendar";
 import type { WorkSlot } from "./tasks";
 import {
   assignHarvestTiles,
@@ -467,6 +474,16 @@ export function takeCompletedBuildings() {
   return completed;
 }
 
+// makes the resident turn 120 with the next weekly tick, so they die then
+// (cheat for the e2e tests)
+export function expireResident(id: number) {
+  const index = roster.residents.findIndex((resident) => resident.id === id);
+  roster.residents[index] = {
+    ...roster.residents[index],
+    birthDate: birthTime(currentWeek + 1, MAX_LIFE_AGE, 0),
+  };
+}
+
 export function getState(): GameState {
   return {
     achieved: getAchieved(),
@@ -625,6 +642,11 @@ function getFoodBuildingsByEfficiency(): PlacedBuilding[] {
 
 function calculateDevelopment() {
   reports = new Map();
+  // residents who die of old age leave before hunger and growth
+  const dead = getDeaths(roster, currentWeek);
+  removeResidents(roster, dead);
+  currentPopulation -= dead.length;
+  updateHomes();
   const startPopulation = currentPopulation;
   // labor is not stockpiled: it equals the population
   let labor = startPopulation;

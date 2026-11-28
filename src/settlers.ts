@@ -149,6 +149,12 @@ export function syncRoster(
   return [...roster.residents];
 }
 
+// Removes the residents with the given IDs; the others keep their IDs.
+export function removeResidents(roster: Roster, ids: number[]) {
+  const gone = new Set(ids);
+  roster.residents = roster.residents.filter(({ id }) => !gone.has(id));
+}
+
 // ---- walkable tiles ----
 
 export const SETTLEMENT_BELT = 3; // hex distance to the nearest built tile
