@@ -337,6 +337,14 @@ export type Activity =
   | "Walking"
   | "Walking to the community garden"
   | "Tending the community garden"
+  | "Walking to construction site"
+  | "Building"
+  | "Walking to farm"
+  | "Farming"
+  | "Walking to forest"
+  | "Working in the forest"
+  | "Walking to sawmill"
+  | "Sawing planks"
   | "Working"
   | "Gardening"
   | "Observing a butterfly"
@@ -691,11 +699,74 @@ function isAffected(walker: Walker): boolean {
 
 // ---- tasks and routes ----
 
+type Job = {
+  occupation: string;
+  travelling: Activity; // on the route to the workplace
+  working: Activity; // at the workplace
+};
+
+const BUILDER: Job = {
+  occupation: "Builder",
+  travelling: "Walking to construction site",
+  working: "Building",
+};
+const FARM_WORKER: Job = {
+  occupation: "Farm worker",
+  travelling: "Walking to farm",
+  working: "Farming",
+};
+const FORESTRY_WORKER: Job = {
+  occupation: "Forestry worker",
+  travelling: "Walking to forest",
+  working: "Working in the forest",
+};
+const SAWMILL_WORKER: Job = {
+  occupation: "Sawmill worker",
+  travelling: "Walking to sawmill",
+  working: "Sawing planks",
+};
+const WORKER: Job = {
+  occupation: "Worker",
+  travelling: "Walking",
+  working: "Working",
+};
+
+// The job at the workplace of a task (key: center of the placed building),
+// derived from the board: a construction site, or the type of the building.
+function getJob(task: string): Job {
+  const [q, r] = task.split(",").map(Number);
+  const placed = getPlacedBuilding({ q, r });
+  if (!placed) {
+    return WORKER;
+  }
+  if (placed.remainingWork !== undefined) {
+    return BUILDER;
+  }
+  if (placed.building.type === "Sawmill") {
+    return SAWMILL_WORKER;
+  }
+  const category = BuildingTypes[placed.building.type].category;
+  if (category === "FARM") {
+    return FARM_WORKER;
+  }
+  return category === "FOREST" ? FORESTRY_WORKER : WORKER;
+}
+
+// the job of the settler's current task, as shown in the profile
+export function getOccupation(walker: Walker): string {
+  return walker.task === undefined
+    ? "No current job"
+    : getJob(walker.task).occupation;
+}
+
 // what the settler does now; Gardening and Observing a butterfly are flavor
 // activities during the pauses of a loop (they change nothing in the game)
 export function getActivity(walker: Walker): Activity {
   if (walker.working) {
-    return "Working";
+    return (walker.task === undefined ? WORKER : getJob(walker.task)).working;
+  }
+  if (walker.task !== undefined && !walker.blocked) {
+    return getJob(walker.task).travelling;
   }
   if (walker.visit) {
     return walker.visitStage === "tending"

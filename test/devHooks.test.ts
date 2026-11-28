@@ -74,6 +74,7 @@ function setup() {
       select: vi.fn(),
       getMarker: () => ({ id: 2, visible: true }),
       getActivity: () => "Idle",
+      getOccupation: () => "No current job",
       assignWork,
       getRoute: () => ({ visible: false, tiles: [] }),
       getTriangleCount: () => 164,

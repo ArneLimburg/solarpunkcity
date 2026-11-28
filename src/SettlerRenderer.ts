@@ -17,6 +17,7 @@ import {
   createWalker,
   endVisit,
   getActivity,
+  getOccupation,
   getStandingTile,
   isRouteBlocked,
   planRoute,
@@ -70,6 +71,8 @@ export type SettlerRenderer = {
   getMarker: () => { id: number | undefined; visible: boolean };
   // what the resident does now, undefined for an unknown ID
   getActivity: (id: number) => Activity | undefined;
+  // the job of the resident's current task, undefined for an unknown ID
+  getOccupation: (id: number) => string | undefined;
   // The settlers take the places that the weekly simulation staffed (those
   // with an unchanged workplace keep walking), the others have no task.
   assignWork: (slots: WorkSlot[]) => void;
@@ -481,6 +484,10 @@ export function createSettlerRenderer(
     getActivity: (id) => {
       const walker = walkers.find((w) => w.id === id);
       return walker && getActivity(walker);
+    },
+    getOccupation: (id) => {
+      const walker = walkers.find((w) => w.id === id);
+      return walker && getOccupation(walker);
     },
     getTriangleCount: () =>
       parts.reduce((sum, part) => sum + part.mesh.getTotalIndices() / 3, 0),

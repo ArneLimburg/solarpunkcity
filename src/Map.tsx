@@ -73,6 +73,7 @@ export const Map = forwardRef<
     // fills the blueprint of the construction site at the center
     setProgress: (center: HexCoordinates, percent: number) => void;
     getSettlerActivity: (id: number) => Activity | undefined;
+    getSettlerOccupation: (id: number) => string | undefined;
     assignWork: (slots: WorkSlot[]) => void;
   },
   {
@@ -167,6 +168,7 @@ export const Map = forwardRef<
       setProgress: (center, percent) =>
         sitesRef.current[tileKey(center)]?.setProgress(percent),
       getSettlerActivity: (id) => settlersRef.current!.getActivity(id),
+      getSettlerOccupation: (id) => settlersRef.current!.getOccupation(id),
       assignWork: (slots) => settlersRef.current!.assignWork(slots),
     }));
 
