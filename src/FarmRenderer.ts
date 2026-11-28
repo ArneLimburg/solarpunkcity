@@ -9,6 +9,7 @@ import { buildGeometry } from "./farmGeometry";
 import { getApartmentLayout, getApartmentRotorLayout } from "./apartment";
 import { getHydroPowerPlantLayout } from "./hydroPowerPlant";
 import { getSawmillLayout } from "./sawmill";
+import { getWoodcutterLayout } from "./woodcutterModel";
 import { getSolarFieldLayout } from "./solarField";
 import { getCommunityGardenLayout } from "./communityGarden";
 import { getWoodenHouseLayout } from "./woodenHouse";
@@ -31,6 +32,7 @@ export type ModelType =
   | "WoodenHouse"
   | "SettlersCamp"
   | "Sawmill"
+  | "Woodcutter"
   | "Supermarket"
   | "HydroPowerPlant"
   | "SolarField"
@@ -44,6 +46,7 @@ export function isModelType(type: string): type is ModelType {
     type === "WoodenHouse" ||
     type === "SettlersCamp" ||
     type === "Sawmill" ||
+    type === "Woodcutter" ||
     type === "Supermarket" ||
     type === "HydroPowerPlant" ||
     type === "SolarField" ||
@@ -58,6 +61,9 @@ function getLayout(type: ModelType, hexSize: number): FarmPart[] {
   }
   if (type === "Sawmill") {
     return getSawmillLayout(hexSize);
+  }
+  if (type === "Woodcutter") {
+    return getWoodcutterLayout(hexSize);
   }
   if (type === "WoodenHouse") {
     return getWoodenHouseLayout(hexSize);

@@ -55,6 +55,8 @@ Always run `npm run lint`, `npm run build` and `npm test` before considering a c
 - `src/farms.ts`, `src/apartment.ts`, `src/farmGeometry.ts`, `src/FarmRenderer.ts` – building
   models built from code (layout, geometry, instanced rendering)
 - `src/sawmill.ts` – layout of the sawmill model (pure parts, rendered by `FarmRenderer.ts`)
+- `src/woodcutterModel.ts` – layout of the woodcutter model (open timber shelter, chopping block
+  and a log stack, pure parts rendered by `FarmRenderer.ts`)
 - `src/solarField.ts` – layout of the solar field model (three tilted panel rows on timber posts and
   an inverter box, pure parts, rendered by `FarmRenderer.ts`)
 - `src/communityGarden.ts` – layout of the community garden model (gravel path, four raised beds,

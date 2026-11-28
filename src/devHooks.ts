@@ -182,6 +182,14 @@ export function createDevHooks({
         showBuilding(coords, type),
       );
     },
+    addWoodcutter: (coords) => {
+      // the wood pays for the woodcutter, so the stock stays as it was
+      grantResources({ wood: BuildingDefinition.Woodcutter.cost.wood });
+      build("Woodcutter", coords);
+      finishConstruction().forEach(({ coords, type }) =>
+        showBuilding(coords, type),
+      );
+    },
     finishConstruction: () =>
       finishConstruction().forEach(({ coords, type }) =>
         showBuilding(coords, type),

@@ -135,6 +135,19 @@ test("all sawmills share one opaque mesh with vertex colors", () => {
   expect(second.triangles).toBe(first.triangles);
 });
 
+test("all woodcutters share one opaque mesh with vertex colors", () => {
+  meshes.length = 0;
+  const renderer = createFarmRenderer({} as Scene, 1);
+  const first = renderer.create("Woodcutter", { x: 0, z: 0 });
+  const second = renderer.create("Woodcutter", { x: 5, z: 5 });
+  expect(meshes).toHaveLength(1);
+  expect(meshes[0].instances).toHaveLength(2);
+  expect(first.triangles).toBeGreaterThan(0);
+  expect(first.triangles).toBeLessThanOrEqual(1000);
+  expect(second.triangles).toBe(first.triangles);
+  expect(isModelType("Woodcutter")).toBe(true);
+});
+
 test("all supermarkets share an opaque and a glass mesh", () => {
   meshes.length = 0;
   const renderer = createFarmRenderer({} as Scene, 1);

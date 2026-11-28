@@ -211,6 +211,14 @@ test("addCommunityGarden places a finished garden and shows it", () => {
   expect(hooks.isUnderConstruction({ q: 9, r: 9 })).toBe(false);
 });
 
+test("addWoodcutter places a finished woodcutter and shows it", () => {
+  const { hooks, showBuilding } = setup();
+  hooks.addWoodcutter({ q: 6, r: 6 });
+  expect(showBuilding).toHaveBeenCalledWith({ q: 6, r: 6 }, "Woodcutter");
+  expect(hooks.getBuildingType({ q: 6, r: 6 })).toBe("Woodcutter");
+  expect(hooks.isUnderConstruction({ q: 6, r: 6 })).toBe(false);
+});
+
 test("tileToScreen scales projected positions to the canvas size", () => {
   const { hooks, toGlobal } = setup();
   project.mockReturnValue({ x: 100, y: 50, z: 0.5 });

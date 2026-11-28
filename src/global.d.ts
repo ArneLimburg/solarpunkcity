@@ -88,6 +88,8 @@ declare global {
       // the current rotor matrix (16 values) of the finished wind turbine on a
       // tile; undefined without one, also on a construction site
       getRotorMatrix(coords: HexCoordinates): number[] | undefined;
+      // places a finished woodcutter without any checks
+      addWoodcutter(coords: HexCoordinates): void;
       // places a finished community garden without any checks
       addCommunityGarden(coords: HexCoordinates): void;
       // finishes all construction sites at once
