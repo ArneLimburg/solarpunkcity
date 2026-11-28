@@ -7,6 +7,7 @@ import {
   StandardMaterial,
   type Observer,
   type PointerInfo,
+  type Scene,
 } from "@babylonjs/core";
 import type { HexCoordinates } from "./board";
 import type { BuildingType } from "./gameDefinitions";
@@ -48,6 +49,7 @@ import {
 import { createHologram } from "./Hologram";
 import { createSeaRenderer } from "./SeaRenderer";
 import { createSettlerRenderer, type SettlerRenderer } from "./SettlerRenderer";
+import { attachSettlerPreview } from "./SettlerPreviewRenderer";
 import {
   createRoster,
   syncRoster,
@@ -74,6 +76,9 @@ export const Map = forwardRef<
     setProgress: (center: HexCoordinates, percent: number) => void;
     getSettlerActivity: (id: number) => Activity | undefined;
     assignWork: (slots: WorkSlot[]) => void;
+    // shows a live view of the settler in the canvas; returns the function that
+    // removes it again (throws if the preview cannot be set up)
+    attachSettlerPreview: (canvas: HTMLCanvasElement, id: number) => () => void;
   },
   {
     onSelected: (coordinates: HexCoordinates) => void;
@@ -112,6 +117,7 @@ export const Map = forwardRef<
     const apartmentRotorsRef = useRef<WindTurbineRenderer | null>(null);
     const cornersRef = useRef<CornerRenderer | null>(null);
     const settlersRef = useRef<SettlerRenderer | null>(null);
+    const sceneRef = useRef<Scene | null>(null);
     // the residents to show; DEV benchmarks replace them with generated ones
     const residentsRef = useRef(residents);
     residentsRef.current = residents;
@@ -168,11 +174,19 @@ export const Map = forwardRef<
         sitesRef.current[tileKey(center)]?.setProgress(percent),
       getSettlerActivity: (id) => settlersRef.current!.getActivity(id),
       assignWork: (slots) => settlersRef.current!.assignWork(slots),
+      attachSettlerPreview: (previewCanvas, id) =>
+        attachSettlerPreview(
+          sceneRef.current!,
+          settlersRef.current!,
+          previewCanvas,
+          id,
+        ),
     }));
 
     useEffect(() => {
       const canvas = canvasRef.current!;
       const { engine, scene, camera, dispose } = setupScene(canvas);
+      sceneRef.current = scene;
 
       const materials = createGroundMaterials(scene);
       materialsRef.current = materials;

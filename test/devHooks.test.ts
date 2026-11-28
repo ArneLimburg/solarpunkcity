@@ -38,33 +38,58 @@ function setup() {
     drawCalls: 0,
     beforeRender: () => {},
     afterRender: () => {},
+    beginFrame: () => {},
+    endFrame: () => {},
   };
-  const hooks = createDevHooks({
-    engine: {
-      getRenderWidth: () => 200,
-      getRenderHeight: () => 100,
-      _drawCalls: {
-        get current() {
-          return frame.drawCalls;
-        },
+  const originalRegisterView = vi.fn();
+  const engine = {
+    getRenderWidth: () => 200,
+    getRenderHeight: () => 100,
+    registerView: originalRegisterView,
+    views: [{}, {}] as unknown[] | undefined,
+    onBeginFrameObservable: {
+      add: (callback: () => void) => {
+        frame.beginFrame = callback;
       },
-    } as unknown as Engine,
+    },
+    onEndFrameObservable: {
+      add: (callback: () => void) => {
+        frame.endFrame = callback;
+      },
+    },
+    _drawCalls: {
+      get current() {
+        return frame.drawCalls;
+      },
+    },
+  };
+  const cameras: {
+    name: string;
+    layerMask: number;
+    getTarget: () => unknown;
+  }[] = [];
+  const hooks = createDevHooks({
+    engine: engine as unknown as Engine,
     scene: {
-      getTransformMatrix: () => "matrix",
+      cameras,
       onBeforeRenderObservable: {
+        observers: [1, 2],
         add: (callback: () => void) => {
           frame.beforeRender = callback;
         },
       },
       onAfterRenderObservable: {
+        observers: [3],
         add: (callback: () => void) => {
           frame.afterRender = callback;
         },
       },
+      getTransformMatrix: () => "matrix",
     } as unknown as Scene,
     settlers: {
       sync: vi.fn(),
       boardChanged: vi.fn(),
+      getPose: vi.fn(),
       getSettlers: () =>
         [
           { id: 1, x: 0, z: 0 },
@@ -81,7 +106,14 @@ function setup() {
     },
     showSettlers,
     backdrop,
-    camera: { viewport: { toGlobal } } as unknown as ArcRotateCamera,
+    camera: {
+      viewport: { toGlobal },
+      alpha: 1,
+      beta: 2,
+      radius: 3,
+      target: { x: 4, y: 5, z: 6 },
+      layerMask: 0xffffffff,
+    } as unknown as ArcRotateCamera,
     canvas: { clientWidth: 100, clientHeight: 50 } as HTMLCanvasElement,
     ring: {
       tile: { q: 1, r: 1 },
@@ -115,8 +147,62 @@ function setup() {
     assignWork,
     frame,
     backdrop,
+    engine,
+    cameras,
+    originalRegisterView,
   };
 }
+
+test("the frame stats count the passes and draw calls of the whole frame", () => {
+  const { hooks, frame } = setup();
+  frame.beginFrame();
+  frame.afterRender();
+  frame.afterRender();
+  frame.drawCalls = 30;
+  frame.endFrame();
+  expect(hooks.getFrameStats()).toEqual({ passes: 2, drawCalls: 30 });
+});
+
+test("the preview stats report views, cameras, target, main camera and layers", () => {
+  const { hooks, engine, cameras } = setup();
+  expect(hooks.getPreviewStats()).toEqual({
+    views: 2,
+    cameras: 0,
+    observers: 3,
+    target: undefined,
+    mainCamera: { alpha: 1, beta: 2, radius: 3, target: { x: 4, y: 5, z: 6 } },
+    markerOnPreview: false,
+    markerOnMain: true,
+    routeOnPreview: false,
+    routeOnMain: true,
+  });
+  engine.views = undefined;
+  cameras.push(
+    { name: "other", layerMask: 0, getTarget: () => undefined },
+    {
+      name: "settlerPreviewCamera",
+      layerMask: 0x0fffffff,
+      getTarget: () => ({ x: 1, y: 2, z: 3 }),
+    },
+  );
+  expect(hooks.getPreviewStats()).toMatchObject({
+    views: 0,
+    cameras: 1,
+    target: { x: 1, y: 2, z: 3 },
+    markerOnPreview: false,
+    routeOnPreview: true,
+  });
+});
+
+test("failPreviews makes registering a view throw until it is switched off", () => {
+  const { hooks, engine, originalRegisterView } = setup();
+  hooks.failPreviews(true);
+  expect(() => engine.registerView({} as never, {} as never)).toThrow(
+    "preview failed on purpose",
+  );
+  hooks.failPreviews(false);
+  expect(engine.registerView).toBe(originalRegisterView);
+});
 
 test("sendSettlers sends everybody to the building at the tile, or nowhere", () => {
   const { hooks, assignWork } = setup();

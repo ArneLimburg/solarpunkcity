@@ -47,6 +47,7 @@ export const App: FC = () => {
     setProgress: (center: HexCoordinates, percent: number) => void;
     getSettlerActivity: (id: number) => Activity | undefined;
     assignWork: (slots: WorkSlot[]) => void;
+    attachSettlerPreview: (canvas: HTMLCanvasElement, id: number) => () => void;
   } | null>(null);
 
   useEffect(() => {
@@ -104,6 +105,11 @@ export const App: FC = () => {
   );
   const getSettlerActivity = useCallback(
     (id: number) => mapRef.current!.getSettlerActivity(id),
+    [],
+  );
+  const attachSettlerPreview = useCallback(
+    (canvas: HTMLCanvasElement, id: number) =>
+      mapRef.current!.attachSettlerPreview(canvas, id),
     [],
   );
   const selectBuildingType = useCallback(
@@ -220,6 +226,7 @@ export const App: FC = () => {
                 week={state.week}
                 home={getHome(settler.id)}
                 getActivity={getSettlerActivity}
+                attachPreview={attachSettlerPreview}
                 onOpenHome={openHome}
                 onClose={closeSettler}
               />

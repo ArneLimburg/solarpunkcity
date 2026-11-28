@@ -75,6 +75,12 @@ Always run `npm run lint`, `npm run build` and `npm test` before considering a c
 - `src/SettlerProfile.tsx` – card of the selected settler (name, age, activity); selection by
   resident ID lives in `App.tsx`, hit testing (`pick`) and the marker in `SettlerRenderer.ts`
   (only on taps outside build mode; the figures stay out of ground picking)
+- `src/settlerPreview.ts`, `src/SettlerPreviewRenderer.ts` – live follow camera in the settler
+  profile: pure camera math (position behind the figure, yaw smoothing, canvas size cap) and the
+  Babylon part (second engine view of the same scene, rendered every second frame; the engine's
+  `_renderViews` is wrapped while a preview exists so that the map still renders after it). The
+  selection marker has its own layer (`MARKER_LAYER_MASK`) that the preview camera leaves out;
+  `Map.tsx` exposes `attachSettlerPreview(canvas, id)`, `SettlerProfile.tsx` calls it in an effect
 - `src/Menu.tsx` – building selection app bar
 - `public/` – icons, skybox; referenced by relative paths
 

@@ -56,6 +56,7 @@ vi.mock("@babylonjs/core", () => {
     upperBetaLimit = 0;
     beta = 1;
     minZ = 1;
+    layerMask = 0;
   }
   const mesh = (name: string) => {
     const result = { name, material: undefined, isPickable: true };
@@ -126,6 +127,8 @@ test("the scene has a skybox, a camera, a background ground and a render loop", 
   expect(camera.upperRadiusLimit).toBe(90);
   expect(camera.upperBetaLimit).toBe(MAX_CAMERA_BETA);
   expect(camera.minZ).toBe(0.1);
+  // all layers: the main map also draws the selection marker
+  expect(camera.layerMask).toBe(0xffffffff);
   expect(state.meshes.map((mesh) => mesh.name)).toEqual(["skyBox", "ground"]);
   expect(state.meshes[1].material).toEqual({
     name: "land",

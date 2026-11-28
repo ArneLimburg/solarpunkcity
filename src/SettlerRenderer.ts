@@ -44,6 +44,18 @@ const MARKER_SIZE = 0.1;
 export const ROUTES_PER_FRAME = 8;
 const ROUTE_HEIGHT = TILE_TOP + 0.02;
 
+// the marker has a layer of its own, so that the preview camera can leave it out
+export const MARKER_LAYER_MASK = 0x10000000;
+export const DEFAULT_LAYER_MASK = 0x0fffffff;
+
+export type SettlerPose = {
+  x: number;
+  z: number;
+  bob: number;
+  heading: number;
+  pausing: boolean;
+};
+
 export type SettlerInfo = {
   id: number;
   x: number;
@@ -68,6 +80,8 @@ export type SettlerRenderer = {
   // disappears when the resident is gone
   select: (id: number | undefined) => void;
   getMarker: () => { id: number | undefined; visible: boolean };
+  // where one resident stands now, undefined for an unknown ID
+  getPose: (id: number) => SettlerPose | undefined;
   // what the resident does now, undefined for an unknown ID
   getActivity: (id: number) => Activity | undefined;
   // The settlers take the places that the weekly simulation staffed (those
@@ -174,6 +188,7 @@ export function createSettlerRenderer(
   markerMaterial.specularColor = Color3.Black();
   marker.material = markerMaterial;
   marker.isPickable = false;
+  marker.layerMask = MARKER_LAYER_MASK;
   marker.setEnabled(false);
 
   let walkers: Walker[] = [];
@@ -328,10 +343,12 @@ export function createSettlerRenderer(
   };
 
   scene.onBeforeRenderObservable.add(() => {
-    const seconds = Math.min(
-      scene.getEngine().getDeltaTime() / 1000,
-      MAX_FRAME_SECONDS,
-    );
+    const engine = scene.getEngine();
+    // the preview renders the same state again: no second simulation step
+    if (engine.activeView) {
+      return;
+    }
+    const seconds = Math.min(engine.getDeltaTime() / 1000, MAX_FRAME_SECONDS);
     planRoutes();
     for (let i = 0; i < walkers.length; i++) {
       const walker = walkers[i];
@@ -478,6 +495,18 @@ export function createSettlerRenderer(
       updateRouteLine();
     },
     getMarker: () => ({ id: selectedId, visible: marker.isEnabled() }),
+    getPose: (id) => {
+      const walker = walkers.find((w) => w.id === id);
+      return (
+        walker && {
+          x: walker.x,
+          z: walker.z,
+          bob: walker.bob,
+          heading: walker.heading,
+          pausing: walker.pause > 0,
+        }
+      );
+    },
     getActivity: (id) => {
       const walker = walkers.find((w) => w.id === id);
       return walker && getActivity(walker);

@@ -22,7 +22,7 @@ async function settlerPosition(
   id: number,
   part: "head" | "body" = "body",
 ) {
-  const box = (await page.locator("canvas").boundingBox())!;
+  const box = (await page.locator("main canvas").boundingBox())!;
   const position = await page.evaluate(
     ([i, p]) => window.__solarpunk!.settlerToScreen(i as number, p as never),
     [id, part] as const,

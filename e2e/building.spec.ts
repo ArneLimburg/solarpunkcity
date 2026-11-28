@@ -77,7 +77,7 @@ test.describe("mouse", () => {
     const { x, y } = await tilePosition(page, origin);
     await page.mouse.move(x, y, { steps: 5 });
     await expect.poll(() => ringTile(page)).toEqual(origin);
-    const box = await page.locator("canvas").boundingBox();
+    const box = await page.locator("main canvas").boundingBox();
     // the top right corner hits no mesh (not even the skybox), unlike the top centre
     await page.mouse.move((box?.x ?? 0) + (box?.width ?? 0) - 1, box?.y ?? 0);
     await expect.poll(() => ringTile(page)).toBeNull();
@@ -108,7 +108,7 @@ test("hovering the ground outside the board hides the ring", async ({
   let target: { x: number; y: number } | undefined;
   await expect
     .poll(async () => {
-      const box = await page.locator("canvas").boundingBox();
+      const box = await page.locator("main canvas").boundingBox();
       const positions = await page.evaluate(
         (tiles) => tiles.map((c) => window.__solarpunk?.tileToScreen(c)),
         candidates,
@@ -146,7 +146,10 @@ test("tileToScreen returns null for a tile outside the visible area", async ({
 test("resizing the viewport resizes the render size", async ({ page }) => {
   await setup(page);
   const width = () =>
-    page.evaluate(() => document.querySelector("canvas")?.width ?? 0);
+    page.evaluate(
+      () =>
+        document.querySelector<HTMLCanvasElement>("main canvas")?.width ?? 0,
+    );
   const before = await width();
   await page.setViewportSize({ width: 700, height: 500 });
   await expect.poll(width, { timeout: 20_000 }).toBeLessThan(before);
@@ -722,7 +725,7 @@ test("the ring turns red when the footprint leaves the board", async ({
     { q: -GRID_RADIUS, r: GRID_RADIUS },
   ];
   // zoom out until a board corner is visible, then hover it
-  const box = await page.locator("canvas").boundingBox();
+  const box = await page.locator("main canvas").boundingBox();
   await page.mouse.move((box?.x ?? 0) + 10, (box?.y ?? 0) + 10);
   await page.mouse.wheel(0, 3000);
   await expect
