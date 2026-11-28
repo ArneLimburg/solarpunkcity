@@ -18,14 +18,16 @@ import {
   endVisit,
   getActivity,
   getStandingTile,
+  isRoaming,
   isRouteBlocked,
+  isWalkAffected,
   planRoute,
+  planWalk,
   replanRoute,
   startTask,
   startVisit,
   tileX,
   tileZ,
-  updateWalkers,
   type Activity,
   type Resident,
   type Walker,
@@ -181,6 +183,7 @@ export function createSettlerRenderer(
   let selectedId: number | undefined;
   let tasks = new Map<number, string>();
   let routeQueue: Walker[] = [];
+  const queued = new Set<Walker>();
   // the reserved garden spots by resident ID
   let visits = new Map<number, Visit>();
 
@@ -265,10 +268,21 @@ export function createSettlerRenderer(
     }
   };
 
+  // every settler waits in the queue at most once
+  const enqueue = (walker: Walker) => {
+    if (!queued.has(walker)) {
+      queued.add(walker);
+      routeQueue.push(walker);
+    }
+  };
+
   // searches the routes of the next few settlers that wait for one
   const planRoutes = () => {
     for (const walker of routeQueue.splice(0, ROUTES_PER_FRAME)) {
-      if (walker.needsRoute) {
+      queued.delete(walker);
+      if (isRoaming(walker)) {
+        planWalk(walker);
+      } else {
         planRoute(walker);
         if (walker.visit && walker.blocked) {
           stopVisit(walker, false); // no way to the garden: the spot is free
@@ -277,16 +291,15 @@ export function createSettlerRenderer(
     }
   };
 
-  // frees the spot of the walker and sends it back to a loop
+  // frees the spot of the walker, which continues with a random walk
   const stopVisit = (walker: Walker, rest: boolean) => {
     visits.delete(walker.id);
     endVisit(walker, rest);
-    updateWalkers([walker]);
   };
 
   const requestRoute = (walker: Walker) => {
     replanRoute(walker);
-    routeQueue.push(walker);
+    enqueue(walker);
   };
 
   // The idle gardeners get a spot of a finished garden; visits that are no
@@ -323,7 +336,7 @@ export function createSettlerRenderer(
         },
         garden.tiles,
       );
-      routeQueue.push(walker);
+      enqueue(walker);
     }
   };
 
@@ -332,6 +345,11 @@ export function createSettlerRenderer(
       scene.getEngine().getDeltaTime() / 1000,
       MAX_FRAME_SECONDS,
     );
+    for (const walker of walkers) {
+      if (walker.needsRoute) {
+        enqueue(walker); // a new walk, a new task or a new visit
+      }
+    }
     planRoutes();
     for (let i = 0; i < walkers.length; i++) {
       const walker = walkers[i];
@@ -374,6 +392,11 @@ export function createSettlerRenderer(
       }
       const present = new Set(walkers);
       routeQueue = routeQueue.filter((walker) => present.has(walker));
+      for (const walker of queued) {
+        if (!present.has(walker)) {
+          queued.delete(walker);
+        }
+      }
       const ids = new Set(walkers.map(({ id }) => id));
       visits = new Map([...visits].filter(([id]) => ids.has(id)));
       residents.forEach((resident, i) => {
@@ -395,8 +418,10 @@ export function createSettlerRenderer(
         // a blocked route is searched again from where the settler stands, and
         // so is the wait without any route
         if (
-          walker.blocked ||
-          (walker.path.length > 0 && isRouteBlocked(walker))
+          isRoaming(walker)
+            ? isWalkAffected(walker)
+            : walker.blocked ||
+              (walker.path.length > 0 && isRouteBlocked(walker))
         ) {
           requestRoute(walker);
         }
@@ -408,7 +433,6 @@ export function createSettlerRenderer(
           stopVisit(walker, false);
         }
       }
-      updateWalkers(walkers);
       write();
     },
     assignWork: (slots) => {
@@ -427,11 +451,10 @@ export function createSettlerRenderer(
           clearTask(walker);
         } else {
           startTask(walker, task, tiles.get(task)!);
-          routeQueue.push(walker);
+          enqueue(walker);
         }
       }
       assignGardenVisits();
-      updateWalkers(walkers); // the settlers without a task go back to a loop
       write();
     },
     getRoute: () => {

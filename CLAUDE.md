@@ -69,7 +69,7 @@ Always run `npm run lint`, `npm run build` and `npm test` before considering a c
 - `src/forest.ts`, `src/ForestRenderer.ts` – procedural forest with thin instances
 - `src/forestFloor.ts` – pure pixel generator of the forest floor texture
 - `src/settlers.ts`, `src/SettlerRenderer.ts` – residents (roster with stable IDs and colors),
-  walkability (`isWalkable`: forest tiles only), loops and movement of the settlers (pure), and
+  walkability (`isWalkable`: forest tiles only), random local walks and movement of the settlers (pure), and
   their pawns as two thin-instance meshes (benchmark: `e2e/settlerBenchmark.spec.ts`)
 - `src/visits.ts` – garden visits of idle gardeners (pure `assignVisits`: two reserved spots per
   finished community garden, nearest first; timers and walking live in `settlers.ts` /
