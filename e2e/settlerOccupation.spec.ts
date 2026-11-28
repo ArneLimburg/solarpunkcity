@@ -11,7 +11,7 @@ const site = { q: -2, r: -2 }; // forest tile near the camp
 test("a builder's profile shows the occupation and the way to the construction site", async ({
   page,
 }) => {
-  test.setTimeout(240_000);
+  test.setTimeout(420_000);
   // no week is calculated until the test runs one by hand: the site stays open
   await installClockWithNativeFrames(page);
   await page.goto("./");
@@ -66,7 +66,8 @@ test("a builder's profile shows the occupation and the way to the construction s
   );
   const activity = page.getByTestId("settler-activity");
   await expect(activity).toHaveText("Walking to construction site");
-  await expect(activity).toHaveText("Building", { timeout: 120_000 });
+  // slow CI frames are capped per frame, so the walk takes much longer there
+  await expect(activity).toHaveText("Building", { timeout: 240_000 });
   await expect(page.getByTestId("settler-occupation")).toHaveText(
     "Occupation: Builder",
   );
