@@ -82,6 +82,7 @@ declare global {
       addWoodStorage(coords: HexCoordinates): void;
       // shows the model of a hydro power plant on a river tile without any checks
       addHydroPowerPlant(coords: HexCoordinates): void;
+      addSolarField(coords: HexCoordinates): void;
       // places a finished wind turbine (free) without any checks
       addWindTurbine(coords: HexCoordinates): void;
       // the current rotor matrix (16 values) of the finished wind turbine on a
