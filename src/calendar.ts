@@ -31,6 +31,11 @@ export function weekToTime(week: number): number {
   return START + week * 7 * MS_PER_DAY;
 }
 
+// the month (0 = January) of a week
+export function weekToMonth(week: number): number {
+  return new Date(weekToTime(week)).getUTCMonth();
+}
+
 function weekToDate(week: number): Date {
   return new Date(weekToTime(week));
 }
