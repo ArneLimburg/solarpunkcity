@@ -27,6 +27,13 @@ import {
   type Resources,
 } from "./resources";
 import { assignHomes, getOccupantIds, type Assignments } from "./housing";
+import {
+  getGridRequest,
+  isApartment,
+  milli,
+  toHomeEnergyReport,
+  type HomeEnergyReport,
+} from "./homeEnergy";
 import { createRoster, syncRoster, type Resident } from "./settlers";
 import type { WorkSlot } from "./tasks";
 
@@ -101,6 +108,9 @@ export type BuildingReport = {
 
 // consumers that got no energy in the current weekly tick
 let unpoweredBuildings = new Set<PlacedBuilding>();
+
+// energy report of the last weekly tick per apartment building
+let homeEnergy = new Map<PlacedBuilding, HomeEnergyReport>();
 
 // reports of the last week by placed building; a replaced or new building has none
 let reports = new Map<PlacedBuilding, BuildingReport>();
@@ -444,30 +454,49 @@ export type EnergyDistribution = {
   surplus: number; // produced - used
   deficit: number; // demand of the consumers without energy
   unpowered: Set<PlacedBuilding>; // consumers that got no energy
+  homes: Map<PlacedBuilding, HomeEnergyReport>; // per apartment building
 };
 
+// the energy report of an apartment building in the last weekly tick
+export function getHomeEnergyReport(
+  center: HexCoordinates,
+): HomeEnergyReport | undefined {
+  const placed = getPlacedBuilding(center);
+  return placed && homeEnergy.get(placed);
+}
+
 // distributes the energy of this week to the finished buildings that consume
-// energy: food producers first, then all others, each group in placement
-// order; a consumer gets its full demand or nothing (no partial supply).
+// energy: food producers first, then apartment buildings (by occupancy), then
+// all others, each group in placement order; a consumer gets its full demand
+// or nothing (no partial supply). Computed in milli-energy so sums are exact.
 // Batteries will later charge from the surplus and discharge into the deficit.
 export function distributeEnergy(): EnergyDistribution {
   const finished = getPlacedBuildings();
   let produced = 0;
   for (const { building } of finished) {
-    produced += building.produces.energy;
+    produced += milli(building.produces.energy);
   }
-  const isFood = ({ building }: PlacedBuilding) => building.produces.food > 0;
+  const occupants = new Map<PlacedBuilding, number>();
+  const requests = new Map<PlacedBuilding, number>();
+  for (const placed of finished) {
+    if (isApartment(placed.building)) {
+      const count = getOccupantIds(homes, placed).length;
+      occupants.set(placed, count);
+      requests.set(placed, getGridRequest(count));
+    } else {
+      requests.set(placed, milli(placed.building.consumes.energy));
+    }
+  }
+  const priority = ({ building }: PlacedBuilding) =>
+    building.produces.food > 0 ? 0 : isApartment(building) ? 1 : 2;
   const consumers = finished
-    .filter(({ building }) => building.consumes.energy > 0)
-    .sort(
-      (a, b) =>
-        Number(isFood(b)) - Number(isFood(a)) || a.sequence - b.sequence,
-    );
+    .filter((placed) => requests.get(placed)! > 0)
+    .sort((a, b) => priority(a) - priority(b) || a.sequence - b.sequence);
   let remaining = produced;
   let deficit = 0;
   const unpowered = new Set<PlacedBuilding>();
   for (const consumer of consumers) {
-    const demand = consumer.building.consumes.energy;
+    const demand = requests.get(consumer)!;
     if (demand <= remaining) {
       remaining -= demand;
     } else {
@@ -475,12 +504,17 @@ export function distributeEnergy(): EnergyDistribution {
       unpowered.add(consumer);
     }
   }
+  const homeReports = new Map<PlacedBuilding, HomeEnergyReport>();
+  for (const [placed, count] of occupants) {
+    homeReports.set(placed, toHomeEnergyReport(count, !unpowered.has(placed)));
+  }
   return {
-    produced,
-    used: produced - remaining,
-    surplus: remaining,
-    deficit,
+    produced: produced / 1000,
+    used: (produced - remaining) / 1000,
+    surplus: remaining / 1000,
+    deficit: deficit / 1000,
     unpowered,
+    homes: homeReports,
   };
 }
 
@@ -556,6 +590,7 @@ function calculateDevelopment() {
   // energy is a weekly flow: only the surplus of this week is left
   const energy = distributeEnergy();
   unpoweredBuildings = energy.unpowered;
+  homeEnergy = energy.homes;
   currentEnergyProduced = energy.produced;
   currentEnergyUsed = energy.used;
   currentBuildingsWithoutEnergy = energy.unpowered.size;
