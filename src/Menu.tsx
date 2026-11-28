@@ -10,6 +10,7 @@ import {
   type BuildingType,
 } from "./gameDefinitions";
 import { resourceIcons } from "./resourceIcons";
+import { getLockReason, type Resource } from "./achievements";
 import type { Resources } from "./resources";
 
 // the Cancel placement button, it clears the blueprint
@@ -50,8 +51,9 @@ const BuildingRows: FC<{
   category: BuildingCategory;
   selected: BuildingType | undefined;
   resources: Resources;
+  achieved: Resource[];
   onSelect: (buildingType: BuildingType | undefined) => void;
-}> = ({ category, selected, resources, onSelect }) => (
+}> = ({ category, selected, resources, achieved, onSelect }) => (
   <div className="hud-list">
     {(Object.keys(BuildingTypes) as BuildingType[])
       .filter(
@@ -62,13 +64,20 @@ const BuildingRows: FC<{
         // the construction material: planks or wood
         const { wood, planks } = BuildingDefinition[type].cost;
         const material = planks > 0 ? "planks" : "wood";
+        const lockReason = getLockReason(type, new Set(achieved));
         return (
           <button
             key={type}
             className={`border hud-row ${selected === type ? "fill" : ""}`}
             aria-label={getLabel(type)}
             aria-pressed={selected === type}
-            onClick={() => onSelect(selected === type ? undefined : type)}
+            aria-disabled={lockReason !== undefined}
+            data-locked={lockReason !== undefined}
+            onClick={() => {
+              if (lockReason === undefined) {
+                onSelect(selected === type ? undefined : type);
+              }
+            }}
           >
             <img
               className="small"
@@ -77,15 +86,30 @@ const BuildingRows: FC<{
               aria-hidden="true"
             />
             <span className="max">{getLabel(type)}</span>
-            <span
-              className={chipClassName(
-                unaffordableCosts(type, resources).has(material),
-              )}
-              data-testid={`build-cost-${type}`}
-            >
-              <i aria-hidden="true">{resourceIcons[material]}</i>
-              <span>{planks > 0 ? planks : wood}</span>
-            </span>
+            {lockReason === undefined ? (
+              <span
+                className={chipClassName(
+                  unaffordableCosts(type, resources).has(material),
+                )}
+                data-testid={`build-cost-${type}`}
+              >
+                <i aria-hidden="true">{resourceIcons[material]}</i>
+                <span>{planks > 0 ? planks : wood}</span>
+              </span>
+            ) : (
+              <>
+                <i aria-hidden="true" data-testid={`build-lock-${type}`}>
+                  lock
+                </i>
+                <div
+                  className="tooltip"
+                  role="tooltip"
+                  data-testid={`build-lock-reason-${type}`}
+                >
+                  {lockReason}
+                </div>
+              </>
+            )}
           </button>
         );
       })}
@@ -97,6 +121,7 @@ type MenuProps = {
   category: BuildingCategory | undefined;
   selected: BuildingType | undefined;
   resources: Resources;
+  achieved: Resource[];
   onCategory: (category: BuildingCategory | undefined) => void;
   onSelect: (buildingType: BuildingType | undefined) => void;
 };
@@ -107,6 +132,7 @@ export const BuildBar: FC<MenuProps & { onCancel: () => void }> = ({
   category,
   selected,
   resources,
+  achieved,
   onCategory,
   onSelect,
   onCancel,
@@ -135,6 +161,7 @@ export const BuildBar: FC<MenuProps & { onCancel: () => void }> = ({
                 category={name}
                 selected={selected}
                 resources={resources}
+                achieved={achieved}
                 onSelect={onSelect}
               />
             </section>
@@ -151,6 +178,7 @@ export const BuildMenu: FC<MenuProps> = ({
   category,
   selected,
   resources,
+  achieved,
   onCategory,
   onSelect,
 }) => (
@@ -175,6 +203,7 @@ export const BuildMenu: FC<MenuProps> = ({
             category={name}
             selected={selected}
             resources={resources}
+            achieved={achieved}
             onSelect={onSelect}
           />
         )}

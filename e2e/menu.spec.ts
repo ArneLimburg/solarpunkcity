@@ -152,6 +152,60 @@ test("a click on the map builds and keeps the blueprint", async ({ page }) => {
   );
 });
 
+test.describe("locked building types", () => {
+  test.use({ unlockAll: false });
+
+  test("the apartment building needs a sawmill, which needs a power plant", async ({
+    page,
+  }) => {
+    await setup(page);
+    await openCategory(page, "Residential");
+    const apartment = button(page, "Apartment building");
+    await expect(apartment).toHaveAttribute("aria-disabled", "true");
+    await expect(
+      page.getByTestId("build-lock-AppartmentBuilding"),
+    ).toBeVisible();
+    await expect(page.getByTestId("build-cost-AppartmentBuilding")).toHaveCount(
+      0,
+    );
+    await expect(
+      page.getByTestId("build-lock-reason-AppartmentBuilding"),
+    ).toHaveText("Needs a sawmill");
+    // a locked entry cannot be selected
+    await apartment.click();
+    await expect(apartment).toHaveAttribute("aria-pressed", "false");
+    await expect(cancelButton(page)).toHaveCount(0);
+    await expect(button(page, "Wooden house")).not.toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
+    await openCategory(page, "Production");
+    await expect(page.getByTestId("build-lock-reason-Sawmill")).toHaveText(
+      "Needs a power plant",
+    );
+    await openCategory(page, "Farms");
+    await expect(
+      page.getByTestId("build-lock-reason-AgroIndustrial"),
+    ).toHaveText("Needs a sawmill and a power plant");
+
+    // a power plant unlocks the sawmill, the sawmill the apartment building
+    await page.evaluate(() => {
+      window.__solarpunk?.addSolarField({ q: 5, r: 5 });
+      window.__solarpunk?.finishConstruction();
+    });
+    await selectBuilding(page, "Production", "Sawmill");
+    await clickOrigin(page);
+    expect(await buildingAt(page, origin)).toBe("Sawmill");
+    await page.evaluate(() => window.__solarpunk?.finishConstruction());
+    await openCategory(page, "Residential");
+    await expect(apartment).not.toHaveAttribute("aria-disabled", "true");
+    await apartment.click();
+    await expect(apartment).toHaveAttribute("aria-pressed", "true");
+    await clickOrigin(page);
+    expect(await buildingAt(page, origin)).toBe("AppartmentBuilding");
+  });
+});
+
 test("all menu icons load and the farm types differ", async ({ page }) => {
   await setup(page);
   await openCategory(page, "Farms");

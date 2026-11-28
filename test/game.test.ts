@@ -161,6 +161,7 @@ test("a building that cannot produce is skipped, the loop continues", () => {
 });
 
 test("canBuild does not check the wood stock", () => {
+  game.unlockAll();
   game.grantResources({ wood: -10 }); // no wood at all
   expect(game.canBuild("OrganicHomestead", { q: 0, r: 0 })).toBe(true);
   expect(game.canBuild("Farm", { q: 0, r: 0 })).toBe(true);
@@ -168,6 +169,7 @@ test("canBuild does not check the wood stock", () => {
 });
 
 test("canBuild is false when other resources are missing", () => {
+  game.unlockAll();
   const homestead = definitions.BuildingDefinition.OrganicHomestead;
   homestead.cost = { ...homestead.cost, ore: 5 };
   expect(game.canBuild("OrganicHomestead", { q: 0, r: 0 })).toBe(false);

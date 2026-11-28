@@ -90,6 +90,8 @@ declare global {
       getRotorMatrix(coords: HexCoordinates): number[] | undefined;
       // places a finished community garden without any checks
       addCommunityGarden(coords: HexCoordinates): void;
+      // achieves all resources, so that every building type is unlocked
+      unlockAll(): void;
       // finishes all construction sites at once
       finishConstruction(): void;
     };

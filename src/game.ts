@@ -26,6 +26,12 @@ import {
   subtractResources,
   type Resources,
 } from "./resources";
+import {
+  INITIAL_ACHIEVED,
+  getProducedResources,
+  isUnlocked,
+  type Resource,
+} from "./achievements";
 import { assignHomes, getOccupantIds, type Assignments } from "./housing";
 import {
   getGridRequest,
@@ -53,6 +59,32 @@ let currentPopulation = INITIAL_POPULATION;
 // one record per person, in sync with the population
 const roster = createRoster(Math.floor(Math.random() * 2 ** 32));
 syncRoster(roster, INITIAL_POPULATION);
+// the resources the settlement has achieved; permanent for the game
+const achieved = new Set<Resource>(INITIAL_ACHIEVED);
+
+// adds what the finished buildings produce; called before anything reads or
+// replaces buildings, so a demolished producer has been counted already
+function updateAchievements() {
+  for (const { building } of getPlacedBuildings()) {
+    for (const resource of getProducedResources(building.type)) {
+      achieved.add(resource);
+    }
+  }
+}
+
+// the achieved resources right now
+export function getAchieved(): Resource[] {
+  updateAchievements();
+  return [...achieved];
+}
+
+// achieves every resource (cheat for the tests)
+export function unlockAll() {
+  for (const resource of Object.keys(emptyResources) as Resource[]) {
+    achieved.add(resource);
+  }
+}
+
 // the home of every housed resident (resident ID -> placed building)
 const homes: Assignments = new Map();
 
@@ -241,7 +273,8 @@ export function canBuild(
   buildingType: BuildingType,
   coords: HexCoordinates,
 ): boolean {
-  if (!canPlace(buildingType, coords)) {
+  updateAchievements();
+  if (!isUnlocked(buildingType, achieved) || !canPlace(buildingType, coords)) {
     return false;
   }
   const buildingDefinition = BuildingDefinition[buildingType];
@@ -307,6 +340,7 @@ export function grantResources(resources: Partial<Resources>) {
 }
 
 export function build(buildingType: BuildingType, coords: HexCoordinates) {
+  updateAchievements();
   const newBuilding = BuildingDefinition[buildingType];
   let newResources = currentResources;
   for (const tile of getFootprintOf(newBuilding, coords)) {
@@ -362,6 +396,7 @@ export function build(buildingType: BuildingType, coords: HexCoordinates) {
 }
 
 export type GameState = {
+  achieved: Resource[]; // resources a finished building has produced; permanent
   resources: Resources;
   capacity: Resources;
   population: number;
@@ -423,6 +458,7 @@ function collectCompletedBuildings() {
     })),
   );
   updateHomes(); // completed homes take unhoused residents
+  updateAchievements();
 }
 
 export function takeCompletedBuildings() {
@@ -433,6 +469,7 @@ export function takeCompletedBuildings() {
 
 export function getState(): GameState {
   return {
+    achieved: getAchieved(),
     resources: { ...currentResources },
     capacity: getCapacity(),
     population: currentPopulation,

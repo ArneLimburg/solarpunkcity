@@ -23,6 +23,7 @@ import {
   build,
   calculateWeek,
   canBuild,
+  getAchieved,
   getBuildingReport,
   getConstructionReport,
   getFieldEfficiency,
@@ -244,6 +245,7 @@ export const App: FC = () => {
                 category={category}
                 selected={selectedBuildingType}
                 resources={state.resources}
+                achieved={getAchieved()}
                 onCategory={setCategory}
                 onSelect={chooseBuildingType}
               />
@@ -287,6 +289,7 @@ export const App: FC = () => {
             category={category}
             selected={selectedBuildingType}
             resources={state.resources}
+            achieved={getAchieved()}
             onCategory={setCategory}
             onSelect={chooseBuildingType}
             onCancel={cancelPlacement}
