@@ -746,13 +746,16 @@ test("the ring is red over a building, and never without selection", async ({
   page,
 }) => {
   test.slow();
-  await page.goto("./");
-  await page.waitForFunction(() => window.__solarpunk !== undefined);
   await setup(page);
   const { x, y } = await tilePosition(page, origin);
   await page.mouse.move(x, y, { steps: 5 });
+  // click only once the slow software-rendered scene has picked the tile under the pointer
+  await expect.poll(() => ringTile(page)).toEqual(origin);
+  await expect.poll(() => ringBlocked(page)).toBe(false);
   await page.mouse.click(x, y);
-  await expect.poll(() => buildingAt(page, origin)).toBe("OrganicHomestead");
+  await expect
+    .poll(() => buildingAt(page, origin), { timeout: 15000 })
+    .toBe("OrganicHomestead");
 
   // the building stays selected, so its own site blocks the ring
   // (move again on every poll: the software-rendered scene can be slow to pick)
