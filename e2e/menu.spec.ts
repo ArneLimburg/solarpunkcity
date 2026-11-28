@@ -172,7 +172,8 @@ test.describe("locked building types", () => {
       page.getByTestId("build-lock-reason-AppartmentBuilding"),
     ).toHaveText("Needs a sawmill");
     // a locked entry cannot be selected
-    await apartment.click();
+    // (Playwright waits for aria-disabled buttons to be enabled, so force it)
+    await apartment.click({ force: true });
     await expect(apartment).toHaveAttribute("aria-pressed", "false");
     await expect(cancelButton(page)).toHaveCount(0);
     await expect(button(page, "Wooden house")).not.toHaveAttribute(
