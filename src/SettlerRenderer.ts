@@ -9,17 +9,20 @@ import {
   type Scene,
 } from "@babylonjs/core";
 import type { HexCoordinates } from "./board";
-import { TILE_TOP } from "./hexGeometry";
+import { getVisitorSpots } from "./communityGarden";
+import { HEX_SIZE, TILE_TOP } from "./hexGeometry";
 import {
   advanceWalker,
   clearTask,
   createWalker,
+  endVisit,
   getActivity,
   getStandingTile,
   isRouteBlocked,
   planRoute,
   replanRoute,
   startTask,
+  startVisit,
   tileX,
   tileZ,
   updateWalkers,
@@ -28,6 +31,7 @@ import {
   type Walker,
 } from "./settlers";
 import { assignTasks, type WorkSlot } from "./tasks";
+import { SPOT_HEADINGS, assignVisits, getGardens, type Visit } from "./visits";
 
 const BODY_HEIGHT = 0.2;
 const HEAD_DIAMETER = 0.09;
@@ -177,6 +181,8 @@ export function createSettlerRenderer(
   let selectedId: number | undefined;
   let tasks = new Map<number, string>();
   let routeQueue: Walker[] = [];
+  // the reserved garden spots by resident ID
+  let visits = new Map<number, Visit>();
 
   // the route line of the selected settler: a thin line mesh that is built
   // again when the remaining route changes (a step, a new route)
@@ -264,13 +270,61 @@ export function createSettlerRenderer(
     for (const walker of routeQueue.splice(0, ROUTES_PER_FRAME)) {
       if (walker.needsRoute) {
         planRoute(walker);
+        if (walker.visit && walker.blocked) {
+          stopVisit(walker, false); // no way to the garden: the spot is free
+        }
       }
     }
+  };
+
+  // frees the spot of the walker and sends it back to a loop
+  const stopVisit = (walker: Walker, rest: boolean) => {
+    visits.delete(walker.id);
+    endVisit(walker, rest);
+    updateWalkers([walker]);
   };
 
   const requestRoute = (walker: Walker) => {
     replanRoute(walker);
     routeQueue.push(walker);
+  };
+
+  // The idle gardeners get a spot of a finished garden; visits that are no
+  // longer valid (a task, a missing garden) end here, the others go on.
+  const assignGardenVisits = () => {
+    const gardens = getGardens();
+    visits = assignVisits(
+      visits,
+      walkers.map((walker) => ({
+        id: walker.id,
+        gardener: walker.hobby === "Gardening",
+        hasTask: tasks.has(walker.id),
+        ready: walker.cooldown <= 0,
+        tile: getStandingTile(walker),
+      })),
+      gardens,
+    );
+    for (const walker of walkers) {
+      const visit = visits.get(walker.id);
+      // no spot (a task already ended the visit of the walker), or an
+      // unchanged visit that keeps walking or tending
+      if (visit === undefined || visit.garden === walker.visit?.garden) {
+        continue;
+      }
+      const garden = gardens.find(({ key }) => key === visit.garden)!;
+      const spot = getVisitorSpots(HEX_SIZE)[visit.spot];
+      startVisit(
+        walker,
+        {
+          garden: garden.key,
+          x: tileX(garden.center) + spot.x,
+          z: tileZ(garden.center) + spot.z,
+          heading: SPOT_HEADINGS[visit.spot],
+        },
+        garden.tiles,
+      );
+      routeQueue.push(walker);
+    }
   };
 
   scene.onBeforeRenderObservable.add(() => {
@@ -280,7 +334,15 @@ export function createSettlerRenderer(
     );
     planRoutes();
     for (let i = 0; i < walkers.length; i++) {
-      advanceWalker(walkers[i], seconds);
+      const walker = walkers[i];
+      advanceWalker(walker, seconds);
+      if (
+        walker.visit &&
+        walker.visitStage === "tending" &&
+        walker.visitLeft <= 0
+      ) {
+        stopVisit(walker, true);
+      }
     }
     write();
   });
@@ -312,6 +374,8 @@ export function createSettlerRenderer(
       }
       const present = new Set(walkers);
       routeQueue = routeQueue.filter((walker) => present.has(walker));
+      const ids = new Set(walkers.map(({ id }) => id));
+      visits = new Map([...visits].filter(([id]) => ids.has(id)));
       residents.forEach((resident, i) => {
         writeColor(body.colors, i, resident.clothing);
         writeColor(head.colors, i, resident.skin);
@@ -337,6 +401,13 @@ export function createSettlerRenderer(
           requestRoute(walker);
         }
       }
+      // a demolished or replaced garden frees its spots at once
+      const gardens = new Set(getGardens().map(({ key }) => key));
+      for (const walker of walkers) {
+        if (walker.visit && !gardens.has(walker.visit.garden)) {
+          stopVisit(walker, false);
+        }
+      }
       updateWalkers(walkers);
       write();
     },
@@ -359,6 +430,7 @@ export function createSettlerRenderer(
           routeQueue.push(walker);
         }
       }
+      assignGardenVisits();
       updateWalkers(walkers); // the settlers without a task go back to a loop
       write();
     },
