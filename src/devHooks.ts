@@ -14,7 +14,13 @@ import {
   type HexCoordinates,
 } from "./board";
 import { BuildingDefinition, type BuildingType } from "./gameDefinitions";
-import { build, finishConstruction, grantResources, toWorkSlot } from "./game";
+import {
+  build,
+  finishConstruction,
+  grantResources,
+  toWorkSlot,
+  unlockAll,
+} from "./game";
 import { TILE_TOP, hexToPixel, tileKey } from "./hexGeometry";
 import type { Ring } from "./SelectionRing";
 import type { SeaRenderer } from "./SeaRenderer";
@@ -182,6 +188,7 @@ export function createDevHooks({
         showBuilding(coords, type),
       );
     },
+    unlockAll,
     finishConstruction: () =>
       finishConstruction().forEach(({ coords, type }) =>
         showBuilding(coords, type),

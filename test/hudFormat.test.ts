@@ -16,6 +16,7 @@ import {
 import { emptyResources } from "../src/resources";
 
 const state: GameState = {
+  achieved: ["wood", "food", "labor"],
   resources: { ...emptyResources, food: 18.7, wood: 38.2, labor: 3 },
   capacity: { ...emptyResources, wood: 100, food: 100 },
   population: 12.4,

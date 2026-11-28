@@ -42,6 +42,7 @@ test("the capacity is 100 wood per wood storage", () => {
 test("cleared wood that does not fit anywhere is lost", () => {
   board.setBuilding({ q: -5, r: 3 }, definitions.BuildingDefinition.Sawmill);
   const sawmill = board.getPlacedBuilding({ q: -5, r: 3 })!;
+  game.unlockAll();
   expect(game.canBuild("AgroIndustrial", { q: 0, r: 0 })).toBe(true);
   game.build("AgroIndustrial", { q: 0, r: 0 });
   expect(sawmill.sawmillWood).toBe(4);
@@ -51,6 +52,7 @@ test("cleared wood that does not fit anywhere is lost", () => {
 test("a full storage does not stop building, the stock is capped", () => {
   placeStorage();
   game.grantResources({ wood: 47 }); // 50 wood
+  game.unlockAll();
   expect(game.canBuild("AgroIndustrial", { q: 0, r: 0 })).toBe(true);
   game.build("AgroIndustrial", { q: 0, r: 0 });
   expect(game.getState().resources.wood).toBe(100);

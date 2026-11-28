@@ -227,6 +227,7 @@ test("planks of a plank building do not go into the wood storage", () => {
 });
 
 test("an agro-industrial farm on 19 forest tiles loses the wood that does not fit", () => {
+  game.unlockAll();
   const farm = { q: -15, r: 5 };
   expect(game.canBuild("AgroIndustrial", farm)).toBe(true); // no storage
   game.build("AgroIndustrial", farm);
@@ -239,6 +240,7 @@ test("an agro-industrial farm on 19 forest tiles loses the wood that does not fi
 });
 
 test("canBuild does not check the plank stock", () => {
+  game.unlockAll();
   addWoodStorage();
   expect(game.getState().resources.planks).toBe(0);
   expect(game.canBuild("AppartmentBuilding", SITE)).toBe(true);

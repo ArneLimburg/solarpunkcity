@@ -78,6 +78,7 @@ What happens when you place a building:
 
 Building is **not possible** if
 
+- the building type is still locked (see "Achievements and locked buildings" below),
 - part of the building would lie outside the board,
 - part of the building would lie on a tile that already holds a building, or a construction site
   (only forest can be cleared; the river cannot be built over), or
@@ -91,6 +92,21 @@ Building is **not possible** if
 The work and the wood needed for the construction are **not** checked when placing and nothing is
 taken from any stock: the residents do the work over the following weeks and the wood arrives
 week by week.
+
+### Achievements and locked buildings
+
+Building types become available step by step. A resource is **achieved** once the settlement has
+had a finished building that produces it: **planks** by the first finished sawmill, **energy**
+by the first finished energy producer (solar field, wind turbine, hydro power plant). Wood, food
+and labor are achieved from the start. A construction site achieves nothing, and an achievement
+is **permanent**: demolishing or replacing the last sawmill or power plant locks nothing again.
+
+A building type is **unlocked** when every resource in its cost (planks) and in its consumption
+(energy, planks) is achieved. The rule is derived from the building definitions. At the start
+this locks the apartment building (needs a sawmill), the sawmill (needs a power plant) and the
+agro-industrial farm (needs both). Locked types stay visible in the build menu, disabled and with
+a lock instead of the cost; hovering or focusing the entry shows what is needed. Existing
+buildings and sites are never affected.
 
 ## 4. Construction
 
