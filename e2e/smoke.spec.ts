@@ -2,6 +2,7 @@ import { test, expect } from "./fixtures";
 import {
   grantWood,
   installClockWithNativeFrames,
+  openCategory,
   openDropdown,
   selectBuilding,
   tilePosition,
@@ -65,21 +66,21 @@ test("one mountain mesh stands behind the board, visible and not pickable", asyn
   expect(stats.inView).toBe(true);
 });
 
-test("the build panel shows a tab per category and the buildings of a tab", async ({
+test("the build bar shows a button per category and the buildings of a category", async ({
   page,
 }) => {
   await page.goto("./");
-  const build = page.getByRole("button", { name: "Build", exact: true });
-  await expect(build).toHaveAttribute("aria-expanded", "false");
-  await expect(page.getByTestId("build-panel")).toHaveCount(0);
-  await build.click();
-  await expect(build).toHaveAttribute("aria-expanded", "true");
   const categories = Object.values(BuildingCategories).filter(
     (category) => category.buildable,
   );
-  await expect(page.getByRole("tab")).toHaveText(
+  await expect(page.getByTestId("build-bar").getByRole("button")).toHaveText(
     categories.map((category) => category.label),
   );
+  await expect(page.getByTestId("build-panel")).toHaveCount(0);
+  const farms = page.getByRole("button", { name: "Farms", exact: true });
+  await expect(farms).toHaveAttribute("aria-expanded", "false");
+  await farms.click();
+  await expect(farms).toHaveAttribute("aria-expanded", "true");
   const expected = Object.entries(BuildingTypes)
     .filter(([, building]) => building.category === "FARM")
     .map(([type]) => getLabel(type as keyof typeof BuildingTypes));
@@ -290,7 +291,8 @@ test("clicking in the HUD, a dropdown or a panel builds nothing", async ({
   await page.waitForFunction(() => window.__solarpunk !== undefined);
   await grantWood(page);
   await selectBuilding(page, "Farms", "Organic homestead");
-  // the HUD, the dropdown and the panel cover buildable tiles of the map
+  await openCategory(page, "Farms");
+  // the HUD, the dropdown and the list cover buildable tiles of the map
   for (const id of ["hud", "hud-more", "build-panel"]) {
     await openDropdown(page, "more");
     const box = (await page.getByTestId(id).boundingBox())!;
@@ -319,7 +321,7 @@ test("the HUD and the panels have a translucent background and fit the viewport"
   ]) {
     await page.setViewportSize(size);
     await page.goto("./");
-    await page.getByRole("button", { name: "Build", exact: true }).click();
+    await openCategory(page, "Farms");
     await page.getByTestId("hud-more-button").click();
     for (const id of ["hud", "build-panel", "hud-more"]) {
       const element = page.getByTestId(id);

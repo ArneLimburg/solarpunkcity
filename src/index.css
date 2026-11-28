@@ -132,23 +132,63 @@ canvas {
 .hud-row .max {
   text-align: left;
 }
-/* desktop: Build at the top left, the HUD stays centered */
-@media (min-width: 601px) {
-  .hud-top {
-    position: relative;
-  }
-  .hud-build {
-    position: absolute;
-    left: 0.5rem;
-    top: 0.5rem;
-  }
-  /* the left panel starts below the Build button */
+/* the bottom bar of the build menu (desktop) */
+.hud-bottom {
+  display: flex;
+  justify-content: center;
+  padding: 0 0.5rem 0.5rem;
+}
+.hud-bar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 0.5rem;
+  max-width: 100%;
+  box-sizing: border-box;
+  padding: 0.5rem;
+  pointer-events: auto;
+}
+.hud-bar-item {
+  position: relative;
+}
+.hud-bar-list.hud-panel {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-bottom: 1rem;
+  width: var(--hud-panel-width);
+  max-width: 90vw;
+  max-height: 60dvh;
+}
+.hud-bar-list .hud-list {
+  margin-top: 0;
+}
+.hud-category {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.125rem;
+  height: auto;
+  min-width: 5rem;
+  margin: 0;
+  padding: 0.25rem 0.5rem;
+}
+.hud-cancel {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+}
+/* desktop: the details sit at the bottom left, above the bar */
+@media (min-width: 600px) {
   .hud-left {
-    margin-top: 2.5rem;
+    align-self: flex-end;
   }
 }
 /* narrow: the HUD wraps across the full width, panels sit below / at the bottom */
-@media (max-width: 600px) {
+@media (max-width: 599px) {
   .hud-top {
     justify-content: flex-start;
   }
@@ -193,5 +233,17 @@ canvas {
   .hud-left .hud-panel,
   .hud-right .hud-panel {
     max-height: 100%;
+  }
+  /* the details card sits at the bottom edge, at most half the viewport high */
+  .hud-left:has(.hud-details) {
+    flex: 1;
+    max-height: none;
+  }
+  .hud-left .hud-details {
+    margin-top: auto;
+    max-height: 50dvh;
+  }
+  .hud-left .hud-details:not(:only-child) {
+    max-height: 40dvh;
   }
 }

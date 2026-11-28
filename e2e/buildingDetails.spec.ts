@@ -1,6 +1,12 @@
 import type { Page } from "@playwright/test";
 import { test, expect } from "./fixtures";
-import { buildingAt, grantWood, selectBuilding, tilePosition } from "./helpers";
+import {
+  buildingAt,
+  grantWood,
+  openCategory,
+  selectBuilding,
+  tilePosition,
+} from "./helpers";
 
 const origin = { q: 0, r: 0 };
 
@@ -97,10 +103,10 @@ test("hides after Escape and deselecting, stays while placing", async ({
   await expect(panel(page)).toHaveCount(0);
 
   await selectBuilding(page, "Farms", "Organic homestead");
-  await row(page, "Organic homestead").click();
+  await selectBuilding(page, "Farms", "Organic homestead");
   await expect(panel(page)).toHaveCount(0);
 
-  await row(page, "Organic homestead").click();
+  await selectBuilding(page, "Farms", "Organic homestead");
   await expect(panel(page)).toBeVisible();
   const { x, y } = await tilePosition(page, origin);
   await page.mouse.move(x, y, { steps: 5 });
@@ -113,29 +119,38 @@ test("hides after Escape and deselecting, stays while placing", async ({
   await expect(panel(page)).toHaveCount(0);
 });
 
-test("sits in the left area below the list on mobile and fits the screen", async ({
+test("sits at the bottom edge on mobile, fits the screen and keeps the selection", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 375, height: 812 });
   await setup(page);
-  await selectBuilding(page, "Farms", "Organic homestead");
-  await expect(panel(page)).toBeVisible();
-  const list = (await page.getByTestId("build-panel").boundingBox())!;
+  await selectBuilding(page, "Residential", "Wooden house");
+  await expect(page.getByTestId("build-panel")).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Build: Wooden house" }),
+  ).toBeVisible();
   const details = (await panel(page).boundingBox())!;
-  expect(details.y).toBeGreaterThanOrEqual(list.y + list.height - 1);
   expect(details.x).toBeGreaterThanOrEqual(0);
   expect(details.x + details.width).toBeLessThanOrEqual(375);
+  expect(details.width).toBeGreaterThan(375 * 0.9);
+  expect(details.height).toBeLessThanOrEqual(812 / 2 + 1);
+  expect(details.y + details.height).toBeGreaterThan(812 - 24);
+  expect(details.y + details.height).toBeLessThanOrEqual(812);
 });
 
-test("sits at the left below the list on desktop", async ({ page }) => {
+test("sits above the bar at the left on desktop", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   await setup(page);
-  await selectBuilding(page, "Farms", "Organic homestead");
-  const list = (await page.getByTestId("build-panel").boundingBox())!;
+  await selectBuilding(page, "Residential", "Wooden house");
+  await expect(page.getByTestId("build-panel")).toHaveCount(0);
+  const bar = (await page.getByTestId("build-bar").boundingBox())!;
   const details = (await panel(page).boundingBox())!;
-  expect(details.y).toBeGreaterThanOrEqual(list.y + list.height - 1);
+  expect(details.y + details.height).toBeLessThanOrEqual(bar.y + 1);
   expect(details.x).toBeLessThan(400);
   expect(details.width).toBeLessThanOrEqual(360);
+  await expect(
+    page.getByRole("button", { name: "Cancel placement" }),
+  ).toBeVisible();
 });
 
 test("has a close icon, a pointer cursor and an aria-label", async ({
@@ -160,43 +175,38 @@ test("hides on click, keeps the selection and shows again on reselect", async ({
   const homestead = row(page, "Organic homestead");
   await panel(page).click();
   await expect(panel(page)).toHaveCount(0);
+  await openCategory(page, "Farms");
   await expect(homestead).toHaveAttribute("aria-pressed", "true");
 
   await homestead.click();
   await expect(panel(page)).toHaveCount(0);
-  await homestead.click();
+  await selectBuilding(page, "Farms", "Organic homestead");
   await expect(panel(page)).toBeVisible();
 
   await panel(page).click();
   await expect(panel(page)).toHaveCount(0);
-  await row(page, "Agro-industrial Farm").click();
+  await selectBuilding(page, "Farms", "Agro-industrial Farm");
   await expect(panel(page)).toBeVisible();
 });
 
-test("hiding the details keeps the selection, collapsing shows it on the button", async ({
+test("hiding the details keeps the blueprint, Cancel placement clears it", async ({
   page,
 }) => {
   await setup(page);
   await selectBuilding(page, "Farms", "Organic homestead");
   await panel(page).click();
-  await page.getByRole("button", { name: "Build", exact: true }).click();
   await expect(page.getByTestId("build-panel")).toHaveCount(0);
-  await expect(
-    page.getByRole("button", { name: "Build: Organic homestead" }),
-  ).toHaveAttribute("aria-expanded", "false");
   const { x, y } = await tilePosition(page, origin);
   await page.mouse.move(x, y, { steps: 5 });
   await page.mouse.click(x, y);
   await page.waitForTimeout(500);
   expect(await buildingAt(page, origin)).toBe("OrganicHomestead");
-  // the building stays selected for the next copy until Escape
-  await expect(
-    page.getByRole("button", { name: "Build: Organic homestead" }),
-  ).toBeVisible();
-  await page.keyboard.press("Escape");
-  await expect(
-    page.getByRole("button", { name: "Build", exact: true }),
-  ).toBeVisible();
+  // the building stays selected for the next copy until it is cancelled
+  const cancel = page.getByRole("button", { name: "Cancel placement" });
+  await expect(cancel).toBeVisible();
+  await cancel.click();
+  await expect(cancel).toHaveCount(0);
+  await expect(panel(page)).toHaveCount(0);
 });
 
 test("clicking the panel does not build below it, building still works", async ({
