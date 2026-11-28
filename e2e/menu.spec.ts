@@ -201,7 +201,8 @@ test.describe("locked building types", () => {
     await openCategory(page, "Residential");
     await expect(apartment).not.toHaveAttribute("aria-disabled", "true");
     await apartment.click();
-    await expect(apartment).toHaveAttribute("aria-pressed", "true");
+    // selecting closes the list
+    await expect(cancelButton(page)).toHaveCount(1);
     await clickOrigin(page);
     expect(await buildingAt(page, origin)).toBe("AppartmentBuilding");
   });
