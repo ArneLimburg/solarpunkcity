@@ -309,10 +309,28 @@ export type Walker = {
   needsRoute: boolean; // the route is searched in one of the next frames
   blocked: boolean; // no route: the settler waits until the map changes
   working: boolean; // arrived at the workplace
+  // The visit: the community garden (key) the settler walks to (route, then
+  // the spot) and tends a bed in; it shares the route machinery of the task.
+  visit: VisitPlan | undefined;
+  visitStage: "route" | "spot" | "tending";
+  visitLeft: number; // seconds of tending that are left
+  cooldown: number; // seconds until the next visit may start
+};
+
+export const VISIT_DURATION = 20; // seconds of real time at the bed
+export const VISIT_COOLDOWN = 30; // seconds after a visit before the next one
+
+export type VisitPlan = {
+  garden: string;
+  x: number; // scene coordinates of the spot
+  z: number;
+  heading: number; // facing the bed
 };
 
 export type Activity =
   | "Walking"
+  | "Walking to the community garden"
+  | "Tending the community garden"
   | "Working"
   | "Gardening"
   | "Observing a butterfly"
@@ -430,6 +448,10 @@ export function createWalker(
     needsRoute: false,
     blocked: false,
     working: false,
+    visit: undefined,
+    visitStage: "route",
+    visitLeft: 0,
+    cooldown: 0,
   };
   walker.phase = random(walker) * Math.PI * 2;
   const tiles = getUsableTiles();
@@ -494,8 +516,17 @@ function walkToward(
   goal: HexCoordinates,
   seconds: number,
 ): number {
-  const dx = tileX(goal) - walker.x;
-  const dz = tileZ(goal) - walker.z;
+  return walkToPoint(walker, tileX(goal), tileZ(goal), seconds);
+}
+
+function walkToPoint(
+  walker: Walker,
+  goalX: number,
+  goalZ: number,
+  seconds: number,
+): number {
+  const dx = goalX - walker.x;
+  const dz = goalZ - walker.z;
   const distance = Math.hypot(dx, dz);
   const step = Math.min(seconds, distance / WALK_SPEED);
   const fraction = (step * WALK_SPEED) / distance;
@@ -505,8 +536,8 @@ function walkToward(
   walker.phase += step * BOB_FREQUENCY;
   turn(walker, Math.atan2(dx, dz), step);
   if (step * WALK_SPEED >= distance - 1e-9) {
-    walker.x = tileX(goal);
-    walker.z = tileZ(goal);
+    walker.x = goalX;
+    walker.z = goalZ;
   }
   return seconds - step;
 }
@@ -521,8 +552,9 @@ function approach(walker: Walker, seconds: number): number {
   return left;
 }
 
-// Walks along the planned route; arriving at its end means working.
-function advanceTask(walker: Walker, seconds: number) {
+// Walks along the planned route; returns the seconds that are left and whether
+// the settler arrived at its end (the route is then used up).
+function followPath(walker: Walker, seconds: number): [number, boolean] {
   let remaining = seconds;
   while (remaining > 0 && walker.step < walker.path.length) {
     const goal = walker.path[walker.step];
@@ -531,15 +563,50 @@ function advanceTask(walker: Walker, seconds: number) {
       walker.step++;
     }
   }
-  if (walker.path.length > 0 && walker.step >= walker.path.length) {
+  const arrived = walker.path.length > 0 && walker.step >= walker.path.length;
+  if (arrived) {
     walker.rest = walker.path[walker.path.length - 1];
     walker.path = [];
     walker.step = 0;
-    walker.working = true;
   }
+  return [remaining, arrived];
+}
+
+function setBob(walker: Walker) {
   walker.bob = walker.walking
     ? Math.abs(Math.sin(walker.phase)) * BOB_HEIGHT
     : 0;
+}
+
+// Walks along the planned route; arriving at its end means working.
+function advanceTask(walker: Walker, seconds: number) {
+  walker.working ||= followPath(walker, seconds)[1];
+  setBob(walker);
+}
+
+// Walks the route to the garden, then to the visitor spot, and tends the bed
+// there until the visit time is over (the renderer ends the visit).
+function advanceVisit(walker: Walker, visit: VisitPlan, seconds: number) {
+  let remaining = seconds;
+  if (walker.visitStage === "route") {
+    const [left, arrived] = followPath(walker, remaining);
+    remaining = left;
+    if (arrived) {
+      walker.visitStage = "spot";
+    }
+  }
+  if (walker.visitStage === "spot") {
+    remaining = walkToPoint(walker, visit.x, visit.z, remaining);
+    if (walker.x === visit.x && walker.z === visit.z) {
+      walker.visitStage = "tending";
+      walker.visitLeft = VISIT_DURATION;
+    }
+  }
+  if (walker.visitStage === "tending") {
+    turn(walker, visit.heading, remaining);
+    walker.visitLeft = Math.max(0, walker.visitLeft - remaining);
+  }
+  setBob(walker);
 }
 
 // Moves the walker along its loop by the elapsed seconds. Random numbers are
@@ -548,6 +615,11 @@ function advanceTask(walker: Walker, seconds: number) {
 export function advanceWalker(walker: Walker, seconds: number) {
   let remaining = seconds;
   walker.walking = false;
+  walker.cooldown = Math.max(0, walker.cooldown - seconds);
+  if (walker.visit) {
+    advanceVisit(walker, walker.visit, remaining);
+    return;
+  }
   if (walker.task !== undefined) {
     advanceTask(walker, remaining);
     return;
@@ -606,6 +678,7 @@ function nearestTile(
 function isAffected(walker: Walker): boolean {
   return (
     walker.task === undefined &&
+    walker.visit === undefined &&
     (walker.loop.length === 0 || !walker.loop.every(isUsable))
   );
 }
@@ -617,6 +690,11 @@ function isAffected(walker: Walker): boolean {
 export function getActivity(walker: Walker): Activity {
   if (walker.working) {
     return "Working";
+  }
+  if (walker.visit) {
+    return walker.visitStage === "tending"
+      ? "Tending the community garden"
+      : "Walking to the community garden";
   }
   if (walker.walking || (walker.task !== undefined && !walker.blocked)) {
     return "Walking";
@@ -682,10 +760,46 @@ export function startTask(
   walker.path = [];
   walker.step = 0;
   walker.task = task;
+  walker.visit = undefined; // work wins
   walker.destination = destination;
   walker.working = false;
   walker.blocked = false;
   walker.needsRoute = true;
+}
+
+// Sends the settler to a visitor spot of a garden: it leaves its loop and
+// waits for its route to the garden tile.
+export function startVisit(
+  walker: Walker,
+  plan: VisitPlan,
+  destination: HexCoordinates[],
+) {
+  stay(walker, getStandingTile(walker));
+  walker.path = [];
+  walker.step = 0;
+  walker.task = undefined;
+  walker.visit = plan;
+  walker.visitStage = "route";
+  walker.destination = destination;
+  walker.working = false;
+  walker.blocked = false;
+  walker.needsRoute = true;
+}
+
+// Ends the visit (or drops its plan); the settler picks another way like after
+// a change of the board (updateWalkers). With `rest` the next visit has to wait
+// for the cooldown.
+export function endVisit(walker: Walker, rest: boolean) {
+  stay(walker, getStandingTile(walker));
+  walker.path = [];
+  walker.step = 0;
+  walker.visit = undefined;
+  walker.destination = [];
+  walker.blocked = false;
+  walker.needsRoute = false;
+  if (rest) {
+    walker.cooldown = VISIT_COOLDOWN;
+  }
 }
 
 // Takes the workplace away; the settler picks another way like after a change

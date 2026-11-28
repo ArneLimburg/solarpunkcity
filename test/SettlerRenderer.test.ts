@@ -570,3 +570,186 @@ test("a changed board moves the affected figures to other ways", async () => {
   );
   expect(meshes[0].thinInstanceBufferUpdated).toHaveBeenCalled();
 });
+
+const GARDEN = { q: -5, r: 2 }; // forest west of the camp, like the workplace
+const DIRECTIONS = [
+  { q: 1, r: 0 },
+  { q: 1, r: -1 },
+  { q: 0, r: -1 },
+  { q: -1, r: 0 },
+  { q: -1, r: 1 },
+  { q: 0, r: 1 },
+];
+const TO_GARDEN = "Walking to the community garden";
+const TENDING = "Tending the community garden";
+
+// n residents who all garden (the hobby is drawn per resident otherwise)
+function gardeners(n: number) {
+  return syncRoster(createRoster(3), n).map((resident) => ({
+    ...resident,
+    hobby: "Gardening" as const,
+  }));
+}
+
+async function placeGarden(center = GARDEN, remainingWork = 0) {
+  const board = await import("../src/board");
+  const { BuildingDefinition } = await import("../src/gameDefinitions");
+  board.placeBuilding(
+    center,
+    BuildingDefinition.CommunityGarden,
+    remainingWork,
+  );
+}
+
+async function restoreForest(tiles: { q: number; r: number }[]) {
+  const board = await import("../src/board");
+  const { BuildingDefinition } = await import("../src/gameDefinitions");
+  for (const tile of tiles) {
+    board.setBuilding(tile, BuildingDefinition.Forest);
+  }
+}
+
+function runUntil(done: () => boolean, limit = 1000) {
+  for (let i = 0; i < limit && !done(); i++) {
+    frame.render();
+  }
+}
+
+test("a gardener walks to the garden, tends a bed for 20 s and rests for 30 s", async () => {
+  await placeGarden();
+  const renderer = createSettlerRenderer(createScene(), 1);
+  renderer.sync(gardeners(1));
+  renderer.select(1);
+  renderer.assignWork([]);
+  // the route goes through the shared queue: it is searched in the next frame
+  expect(renderer.getActivity(1)).toBe(TO_GARDEN);
+  expect(renderer.getRoute().tiles).toEqual([]);
+  frame.render();
+  expect(renderer.getRoute().tiles.at(-1)).toEqual(GARDEN);
+
+  // the weekly tick keeps the walk going
+  renderer.assignWork([]);
+  runFrames(2);
+  expect(renderer.getActivity(1)).toBe(TO_GARDEN);
+  expect(renderer.getRoute().tiles.at(-1)).toEqual(GARDEN);
+
+  runUntil(() => renderer.getActivity(1) === TENDING);
+  expect(renderer.getActivity(1)).toBe(TENDING);
+  runFrames(5);
+  const [settler] = renderer.getSettlers();
+  expect(settler.x).toBeCloseTo(
+    Math.sqrt(3) * GARDEN.q + (Math.sqrt(3) / 2) * GARDEN.r - 0.2,
+  );
+  expect(settler.z).toBeCloseTo(1.5 * GARDEN.r);
+  expect(Math.cos(settler.heading)).toBeCloseTo(-1); // faces the bed
+  expect(settler.walking).toBe(false);
+
+  // a new week does not restart the visit
+  renderer.assignWork([]);
+  runFrames(180);
+  expect(renderer.getActivity(1)).toBe(TENDING);
+  runFrames(30);
+  expect(renderer.getActivity(1)).not.toBe(TENDING);
+  expect(renderer.getActivity(1)).not.toBe(TO_GARDEN);
+
+  // the cooldown: not before 30 s
+  renderer.assignWork([]);
+  expect(renderer.getActivity(1)).not.toBe(TO_GARDEN);
+  runFrames(250);
+  renderer.assignWork([]);
+  expect(renderer.getActivity(1)).not.toBe(TO_GARDEN);
+  runFrames(60);
+  renderer.assignWork([]);
+  expect(renderer.getActivity(1)).toBe(TO_GARDEN);
+  await restoreForest([GARDEN]);
+});
+
+test("a garden takes two visitors, a task, leaving and demolition free spots", async () => {
+  await placeGarden();
+  const renderer = createSettlerRenderer(createScene(), 1);
+  const residents = gardeners(3);
+  renderer.sync(residents);
+  renderer.assignWork([]);
+  const visitors = () =>
+    [1, 2, 3].filter((id) => renderer.getActivity(id) === TO_GARDEN);
+  expect(visitors()).toEqual([1, 2]);
+  runFrames(3);
+
+  // work wins: the settler leaves, the third gardener takes the spot
+  renderer.assignWork([slot(1)]);
+  expect(renderer.getActivity(1)).toBe("Walking");
+  expect(visitors()).toEqual([2, 3]);
+
+  // a resident who leaves frees the spot at the next tick
+  renderer.assignWork([]);
+  renderer.sync(residents.filter(({ id }) => id !== 2));
+  renderer.assignWork([]);
+  expect(visitors()).toEqual([1, 3]);
+
+  // demolition frees the spots at once
+  await restoreForest([GARDEN]);
+  renderer.boardChanged();
+  expect(visitors()).toEqual([]);
+  renderer.assignWork([]);
+  expect(visitors()).toEqual([]);
+});
+
+test("construction sites are not visited", async () => {
+  await placeGarden(GARDEN, 12);
+  const renderer = createSettlerRenderer(createScene(), 1);
+  renderer.sync(gardeners(1));
+  renderer.assignWork([]);
+  expect(renderer.getActivity(1)).not.toBe(TO_GARDEN);
+  await restoreForest([GARDEN]);
+});
+
+test("an unreachable garden frees the spot at once", async () => {
+  const board = await import("../src/board");
+  const { BuildingDefinition } = await import("../src/gameDefinitions");
+  await placeGarden();
+  const around = DIRECTIONS.map(({ q, r }) => ({
+    q: GARDEN.q + q,
+    r: GARDEN.r + r,
+  }));
+  for (const tile of around) {
+    board.setBuilding(tile, BuildingDefinition.WoodStorage);
+  }
+  const renderer = createSettlerRenderer(createScene(), 1);
+  renderer.sync(gardeners(2));
+  renderer.assignWork([]);
+  expect(renderer.getActivity(1)).toBe(TO_GARDEN);
+  frame.render();
+  expect(renderer.getActivity(1)).not.toBe(TO_GARDEN);
+  expect(renderer.getActivity(2)).not.toBe(TO_GARDEN);
+
+  // the way opens again: the next tick sends them
+  await restoreForest([around[0]]);
+  renderer.boardChanged();
+  renderer.assignWork([]);
+  expect(renderer.getActivity(1)).toBe(TO_GARDEN);
+  expect(renderer.getActivity(2)).toBe(TO_GARDEN);
+  frame.render();
+  expect(renderer.getActivity(1)).toBe(TO_GARDEN);
+
+  // the way gets blocked again on the walk
+  board.setBuilding(around[0], BuildingDefinition.WoodStorage);
+  renderer.boardChanged();
+  frame.render();
+  expect(renderer.getActivity(1)).not.toBe(TO_GARDEN);
+  await restoreForest([GARDEN, ...around]);
+});
+
+test("visits leave production, construction and the weekly results unchanged", async () => {
+  const game = await import("../src/game");
+  await placeGarden();
+  const renderer = createSettlerRenderer(createScene(), 1);
+  renderer.sync(gardeners(3));
+  const before = game.calculateWeek();
+  const slots = game.getWorkSlots();
+  renderer.assignWork([]);
+  runFrames(600);
+  // the week's resources, workforce and satisfaction stay as they were
+  expect(game.getState()).toEqual(before);
+  expect(game.getWorkSlots()).toEqual(slots);
+  await restoreForest([GARDEN]);
+});
