@@ -41,10 +41,11 @@ export const BuildingCategories = {
     icon: "energy/energy.svg",
     label: "Energy",
   },
-  // the model and the menu entry (label, icon) follow
   LEISURE: {
     name: "LEISURE",
-    buildable: false,
+    buildable: true,
+    icon: "leisure/leisure.svg",
+    label: "Leisure",
   },
   FOREST: {
     name: "FOREST",
@@ -119,6 +120,7 @@ export const BuildingTypes = {
   CommunityGarden: {
     category: "LEISURE",
     icon: "leisure/community-garden.svg",
+    label: "Community garden",
   },
   Forest: {
     category: "FOREST",

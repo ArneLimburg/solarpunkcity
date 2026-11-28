@@ -57,6 +57,8 @@ Always run `npm run lint`, `npm run build` and `npm test` before considering a c
 - `src/sawmill.ts` – layout of the sawmill model (pure parts, rendered by `FarmRenderer.ts`)
 - `src/solarField.ts` – layout of the solar field model (three tilted panel rows on timber posts and
   an inverter box, pure parts, rendered by `FarmRenderer.ts`)
+- `src/communityGarden.ts` – layout of the community garden model (gravel path, four raised beds,
+  flowers, rainwater barrel, pure parts rendered by `FarmRenderer.ts`) and its visitor spots
 - `src/windTurbine.ts`, `src/WindTurbineRenderer.ts` – wind turbine model (pure layout, wind
   direction, rotor angle and matrix) and its rotor as one thin-instanced mesh turning in real time
   (tower and rotor templates come from `FarmRenderer.ts`)
