@@ -134,7 +134,9 @@ in only when the agents give up or the owner reviews on their own.
    `pr`) after every push to `main` and every 30 minutes: for an open "changes requested" review
    of the owner on the current commit, for `review:changes` on a conflicting pull request, and
    for every agent pull request behind `main`. A rebase without conflicts is done by a script and
-   keeps the `agent-review` approval; conflicts are resolved by the agent. A comment on the pull
+   keeps the `agent-review` approval; conflicts are resolved by the agent, except those in
+   `CLAUDE.md` (which agents must not touch there): git's union driver keeps both sides, and a
+   pull request whose only conflicts are there is rebased by the script. A comment on the pull
    request announces the rebase as soon as it starts. After that, an approved pull request gets
    `review:rebase` and is reviewed again by Opus (not a new round), and one under owner review
    goes back to the owner once the build passes. A failed build of a pull
