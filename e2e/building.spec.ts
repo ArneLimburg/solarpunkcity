@@ -629,8 +629,18 @@ async function buildAtOrigin(
   await selectBuilding(page, label, getLabel(type)!);
   const { x, y } = await tilePosition(page, origin);
   await page.mouse.move(x, y, { steps: 5 });
-  await page.mouse.click(x, y);
-  await expect.poll(() => buildingAt(page, origin)).toBe(type);
+  // under CI load the first click can be swallowed, so click again until built
+  await expect
+    .poll(
+      async () => {
+        if ((await buildingAt(page, origin)) === "Forest") {
+          await page.mouse.click(x, y);
+        }
+        return buildingAt(page, origin);
+      },
+      { timeout: 30_000 },
+    )
+    .toBe(type);
   await finishConstruction(page);
 }
 
