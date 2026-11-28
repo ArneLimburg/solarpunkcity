@@ -97,7 +97,11 @@ Game state currently lives in module-level variables in `board.ts` and `game.ts`
 
 Tickets become pull requests without manual steps; the repository owner reviews at the end.
 
-1. `/grill-ticket` (local) specifies a ticket and creates the issue with label `ready`.
+1. `/grill-ticket` (local) specifies a ticket and creates the issue with label `ready`. A ticket
+   that waits for others gets `planned` instead and GitHub "blocked by" relationships to them;
+   when a pull request merged into `main` closes its last open blocker,
+   `.github/workflows/promote-dependents.yaml` replaces `planned` with `ready`. To check a closed
+   issue by hand: `gh workflow run promote-dependents.yaml -f issue=<n>`.
 2. `.github/workflows/implement.yaml` (Sonnet) implements it on `agent/issue-<n>` and opens a
    pull request labeled `agent-pr`.
 3. After each Build, `.github/workflows/agent-review.yaml` (Opus) reviews it. `review:changes`
