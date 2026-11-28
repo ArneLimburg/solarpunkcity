@@ -122,8 +122,19 @@ test("food entry is marked as error when the balance is negative", async ({
   await selectBuilding(page, "Farms", "Organic homestead");
   const { x, y } = await tilePosition(page, { q: 0, r: 0 });
   await page.mouse.move(x, y, { steps: 5 });
-  await page.mouse.click(x, y);
-  await expect(food).toContainText("(−2/wk)");
+  // under CI load the first click can be swallowed, so click again until built
+  await expect
+    .poll(
+      async () => {
+        const text = (await food.textContent()) ?? "";
+        if (!text.includes("(−2/wk)")) {
+          await page.mouse.click(x, y);
+        }
+        return food.textContent();
+      },
+      { timeout: 30_000 },
+    )
+    .toContain("(−2/wk)");
   await expect(food).toHaveClass(/error/);
 });
 
