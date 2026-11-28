@@ -37,9 +37,11 @@ test("a gardener without work walks to the community garden and tends a bed", as
     .toBe(first.id);
 
   const activity = page.getByTestId("settler-activity");
-  await expect(activity).toHaveText("Walking to the community garden", {
-    timeout: 60_000,
-  });
+  // the settler may already be tending when the profile opens
+  await expect(activity).toHaveText(
+    /^(Walking to|Tending) the community garden$/,
+    { timeout: 60_000 },
+  );
   await expect(activity).toHaveText("Tending the community garden", {
     timeout: 120_000,
   });
