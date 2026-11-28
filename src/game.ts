@@ -54,6 +54,10 @@ import {
   getWoodOutput,
   WOOD_PER_WORKER,
 } from "./woodcutter";
+import { getWeather, type Weather } from "./weather";
+
+// drawn once at game start; the weather of a week is derived from it
+const weatherSeed = Math.floor(Math.random() * 2 ** 32);
 
 export const INITIAL_RESOURCES: Resources = {
   ...emptyResources,
@@ -421,6 +425,7 @@ export type GameState = {
   energyProduced: number; // of the last tick
   energyUsed: number; // of the last tick
   buildingsWithoutEnergy: number; // consumers without energy in the last tick
+  weather: Weather; // type and effective sun and wind factors of the week
 };
 
 // how the workers were used in the last weekly tick
@@ -505,6 +510,7 @@ export function getState(): GameState {
     energyProduced: currentEnergyProduced,
     energyUsed: currentEnergyUsed,
     buildingsWithoutEnergy: currentBuildingsWithoutEnergy,
+    weather: getWeather(weatherSeed, currentWeek),
   };
 }
 
@@ -530,11 +536,19 @@ export function getHomeEnergyReport(
 // all others, each group in placement order; a consumer gets its full demand
 // or nothing (no partial supply). Computed in milli-energy so sums are exact.
 // Batteries will later charge from the surplus and discharge into the deficit.
-export function distributeEnergy(): EnergyDistribution {
+// Solar fields and wind turbines produce by the weather of the week.
+export function distributeEnergy(week = currentWeek): EnergyDistribution {
   const finished = getPlacedBuildings();
+  const weather = getWeather(weatherSeed, week);
   let produced = 0;
   for (const { building } of finished) {
-    produced += milli(building.produces.energy);
+    const factor =
+      building.type === "SolarField"
+        ? weather.sun
+        : building.type === "WindTurbine"
+          ? weather.wind
+          : 1;
+    produced += milli(building.produces.energy * factor);
   }
   const occupants = new Map<PlacedBuilding, number>();
   const requests = new Map<PlacedBuilding, number>();

@@ -46,6 +46,8 @@ Always run `npm run lint`, `npm run build` and `npm test` before considering a c
   (population growth, food, labor, other production)
 - `src/achievements.ts` – achieved resources and the unlock rule of building types (pure:
   `isUnlocked`, `getLockReason`); tracked by `game.ts`, `canBuild` rejects locked types
+- `src/weather.ts` – weekly weather (pure): types, probabilities per season, seasonal curves,
+  `getWeather(seed, week)` and the effective sun and wind factors
 - `src/App.tsx` – wires game tick (1 s interval), menu and map
 - `src/Map.tsx` – React component that wires the map modules below together and places models
 - `src/hexGeometry.ts` – `HEX_SIZE`, `hexToPixel`, `pixelToHex`, `tileKey`, hex corner polygon

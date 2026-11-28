@@ -238,8 +238,8 @@ storage it is still built: forestry delivers the missing wood to the site, it ju
   whole river. The river stays visible below it, and the plant cannot be built over.
 - **Solar field.** A finished solar field produces 2 energy per week without workers. It costs
   4 wood and 8 worker-weeks, has an ecology value of +0.5 (a flower meadow grows below the
-  panels), gives back 2 wood when built over and cannot be placed on the river. The output is
-  constant. It is not offered in the build menu yet.
+  panels), gives back 2 wood when built over and cannot be placed on the river. Its output
+  depends on the weather (see below). It is not offered in the build menu yet.
 - **Consuming.** A finished sawmill needs 2 energy per week, a finished agro-industrial farm 4.
   All other buildings are energy neutral and do not appear in the energy balance.
 - **Apartment buildings.** A finished apartment building needs
@@ -261,6 +261,41 @@ storage it is still built: forestry delivers the missing wood to the site, it ju
   nothing and has the status "missing resources". Energy that is left over is lost.
 - **Example.** One plant (10) powers one agro-industrial farm and three sawmills (4 + 3 × 2 = 10).
   A fourth sawmill would stand still; the top bar then shows `10 / 10` in the error style.
+
+### Weather
+
+Every week has a weather type that changes the output of solar fields (× `sun`) and wind turbines
+(× `wind`), computed in thousandths. Hydro power and all other buildings are unchanged; rooftop
+systems of homes are not affected yet. The weather of week n is a pure function of the game seed
+(drawn once at game start) and n, so the same week always has the same weather.
+
+| Type   | Sun | Wind                   |
+| ------ | --- | ---------------------- |
+| Sunny  | 1.3 | 0.7                    |
+| Cloudy | 0.7 | 1.0                    |
+| Rainy  | 0.4 | 1.1                    |
+| Windy  | 0.9 | 1.6                    |
+| Storm  | 0.3 | 0 (turbines shut down) |
+
+Probabilities by season (month of the in-game calendar):
+
+| Season           | Sunny | Cloudy | Rainy | Windy | Storm |
+| ---------------- | ----- | ------ | ----- | ----- | ----- |
+| Winter (Dec–Feb) | 0.15  | 0.35   | 0.20  | 0.20  | 0.10  |
+| Spring (Mar–May) | 0.30  | 0.30   | 0.20  | 0.15  | 0.05  |
+| Summer (Jun–Aug) | 0.50  | 0.20   | 0.15  | 0.10  | 0.05  |
+| Autumn (Sep–Nov) | 0.20  | 0.30   | 0.25  | 0.17  | 0.08  |
+
+Seasonal curves by month (January first), before scaling:
+
+- sun: 0.35, 0.6, 0.95, 1.35, 1.55, 1.6, 1.6, 1.4, 1.05, 0.7, 0.4, 0.35
+- wind: 1.35, 1.3, 1.2, 1.0, 0.85, 0.75, 0.7, 0.7, 0.85, 1.05, 1.2, 1.35
+
+Each curve is divided by its mean over the twelve months, so that the mean is exactly 1. The
+effective factor of a week is `seasonal(month) × typeFactor / expectedTypeFactor(month)`, where
+`expectedTypeFactor` is the probability-weighted mean of the type factors in that month's season.
+The expected output over a year therefore equals the constant output without weather. The game
+state exposes the type and the effective sun and wind factors of the current week.
 
 ### Background of the numbers
 

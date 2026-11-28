@@ -34,6 +34,7 @@ const state: GameState = {
   energyProduced: 0,
   energyUsed: 0,
   buildingsWithoutEnergy: 0,
+  weather: { type: "Cloudy", sun: 1, wind: 1 },
 };
 
 test("people, food and wood", () => {

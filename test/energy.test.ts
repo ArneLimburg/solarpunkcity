@@ -1,6 +1,12 @@
 import { beforeEach, expect, test, vi } from "vitest";
 import type { Building } from "../src/gameDefinitions";
 
+// neutral weather: these tests check the energy rules, not the weather
+vi.mock("../src/weather", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../src/weather")>()),
+  getWeather: () => ({ type: "Cloudy", sun: 1, wind: 1 }),
+}));
+
 let board: typeof import("../src/board");
 let game: typeof import("../src/game");
 let definitions: typeof import("../src/gameDefinitions");
