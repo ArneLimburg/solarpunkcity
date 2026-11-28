@@ -3,6 +3,7 @@ import {
   buildingAt,
   finishConstruction,
   grantWood,
+  openCategory,
   selectBuilding,
   tilePosition,
 } from "./helpers";
@@ -15,8 +16,9 @@ test("the menu offers the solar field under Energy and builds it on a forest til
   await page.goto("./");
   await page.waitForFunction(() => window.__solarpunk !== undefined);
   await grantWood(page);
-  await selectBuilding(page, "Energy", "Solar field");
+  await openCategory(page, "Energy");
   await expect(page.getByTestId("build-cost-SolarField")).toHaveText(/4$/);
+  await selectBuilding(page, "Energy", "Solar field");
   const tile = { q: -2, r: -2 };
   const { x, y } = await tilePosition(page, tile);
   await page.mouse.move(x, y, { steps: 5 });
