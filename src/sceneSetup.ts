@@ -62,6 +62,8 @@ export function setupScene(canvas: HTMLCanvasElement) {
   camera.lowerBetaLimit = 0;
   camera.upperBetaLimit = MAX_CAMERA_BETA;
   camera.minZ = 0.1;
+  // all layers, also the one of the selection marker that the preview leaves out
+  camera.layerMask = 0xffffffff;
 
   // keep the camera inside the skybox and above the ground: clamp the pan target and beta
   scene.onBeforeRenderObservable.add(() => {

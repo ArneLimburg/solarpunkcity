@@ -19,6 +19,7 @@ type FakeMesh = {
   position: { x: number; y: number; z: number; set: (...a: number[]) => void };
   isEnabled: () => boolean;
   dispose: ReturnType<typeof vi.fn>;
+  layerMask?: number;
   color?: unknown;
   alpha?: number;
   points?: unknown[];
@@ -85,6 +86,8 @@ vi.mock("@babylonjs/core", () => {
 });
 
 import {
+  DEFAULT_LAYER_MASK,
+  MARKER_LAYER_MASK,
   ROUTES_PER_FRAME,
   createSettlerRenderer,
 } from "../src/SettlerRenderer";
@@ -95,7 +98,11 @@ import {
   syncRoster,
 } from "../src/settlers";
 
-const frame = { seconds: 0.1, render: () => {} };
+const frame = {
+  seconds: 0.1,
+  render: () => {},
+  activeView: null as unknown,
+};
 const pick = vi.fn();
 
 function createScene(): Scene {
@@ -106,7 +113,12 @@ function createScene(): Scene {
         frame.render = callback;
       },
     },
-    getEngine: () => ({ getDeltaTime: () => frame.seconds * 1000 }),
+    getEngine: () => ({
+      getDeltaTime: () => frame.seconds * 1000,
+      get activeView() {
+        return frame.activeView;
+      },
+    }),
   } as unknown as Scene;
 }
 
@@ -118,6 +130,7 @@ beforeEach(async () => {
   setBuilding({ q: 5, r: 5 }, BuildingDefinition.Forest);
   meshes.length = 0;
   frame.seconds = 0.1;
+  frame.activeView = null;
   pick.mockReset();
   refresh.mockReset();
 });
@@ -191,6 +204,37 @@ test("the figures move every frame", () => {
   frame.render();
   const jumped = renderer.getSettlers()[0];
   expect(Math.hypot(jumped.x - x, jumped.z - z)).toBeLessThan(0.2);
+});
+
+test("a view's pass renders the figures without moving them again", () => {
+  const renderer = createSettlerRenderer(createScene(), 1);
+  renderer.sync(syncRoster(createRoster(3), 2));
+  const before = renderer.getSettlers();
+  frame.activeView = {};
+  for (let i = 0; i < 20; i++) {
+    frame.render();
+  }
+  expect(renderer.getSettlers()).toEqual(before);
+});
+
+test("the pose of a resident is exposed, the marker has a layer of its own", () => {
+  const renderer = createSettlerRenderer(createScene(), 1);
+  expect(meshes[2].layerMask).toBe(MARKER_LAYER_MASK);
+  expect(MARKER_LAYER_MASK & DEFAULT_LAYER_MASK).toBe(0);
+  renderer.sync(syncRoster(createRoster(3), 2));
+  for (let i = 0; i < 10; i++) {
+    frame.render();
+  }
+  const [first] = renderer.getSettlers();
+  const pose = renderer.getPose(first.id)!;
+  expect(pose).toMatchObject({
+    x: first.x,
+    z: first.z,
+    heading: first.heading,
+    pausing: first.pausing,
+  });
+  expect(Number.isFinite(pose.bob)).toBe(true);
+  expect(renderer.getPose(999)).toBeUndefined();
 });
 
 test("an unchanged roster changes nothing, a changed one keeps known figures", () => {

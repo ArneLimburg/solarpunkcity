@@ -5,6 +5,7 @@ import {
   Vector3,
   type ArcRotateCamera,
   type Engine,
+  type FreeCamera,
   type Scene,
 } from "@babylonjs/core";
 import {
@@ -18,7 +19,12 @@ import { build, finishConstruction, grantResources, toWorkSlot } from "./game";
 import { TILE_TOP, hexToPixel, tileKey } from "./hexGeometry";
 import type { Ring } from "./SelectionRing";
 import type { SeaRenderer } from "./SeaRenderer";
-import type { SettlerRenderer } from "./SettlerRenderer";
+import {
+  DEFAULT_LAYER_MASK,
+  MARKER_LAYER_MASK,
+  type SettlerRenderer,
+} from "./SettlerRenderer";
+import { PREVIEW_CAMERA_NAME } from "./settlerPreview";
 
 type DevHooks = NonNullable<Window["__solarpunk"]>;
 
@@ -74,9 +80,23 @@ export function createDevHooks({
   scene.onBeforeRenderObservable.add(() => {
     before = engine._drawCalls.current;
   });
+  // the scene renders once per view: drawCalls is the last pass (the map)
+  let passes = 0;
   scene.onAfterRenderObservable.add(() => {
     drawCalls = engine._drawCalls.current - before;
+    passes++;
   });
+  // the whole last frame, with all its passes
+  let frame = { passes: 0, drawCalls: 0 };
+  let frameStart = 0;
+  engine.onBeginFrameObservable.add(() => {
+    passes = 0;
+    frameStart = engine._drawCalls.current;
+  });
+  engine.onEndFrameObservable.add(() => {
+    frame = { passes, drawCalls: engine._drawCalls.current - frameStart };
+  });
+  const registerView = engine.registerView;
   // canvas position of a scene point, null outside the view
   const toScreen = (world: Vector3) => {
     const width = engine.getRenderWidth();
@@ -111,6 +131,49 @@ export function createDevHooks({
       drawCalls,
     }),
     showSettlers,
+    getFrameStats: () => frame,
+    getPreviewStats: () => {
+      const preview = scene.cameras.filter(
+        ({ name }) => name === PREVIEW_CAMERA_NAME,
+      );
+      const target = (preview[0] as FreeCamera | undefined)?.getTarget();
+      return {
+        views: engine.views?.length ?? 0,
+        cameras: preview.length,
+        observers:
+          scene.onBeforeRenderObservable.observers.length +
+          scene.onAfterRenderObservable.observers.length,
+        target: target && { x: target.x, y: target.y, z: target.z },
+        mainCamera: {
+          alpha: camera.alpha,
+          beta: camera.beta,
+          radius: camera.radius,
+          target: {
+            x: camera.target.x,
+            y: camera.target.y,
+            z: camera.target.z,
+          },
+        },
+        // whether a camera draws the selection marker
+        markerOnPreview:
+          preview.length > 0 &&
+          (preview[0].layerMask & MARKER_LAYER_MASK) !== 0,
+        markerOnMain: (camera.layerMask & MARKER_LAYER_MASK) !== 0,
+        // the route line is on the default layer: both cameras draw it
+        routeOnPreview:
+          preview.length > 0 &&
+          (preview[0].layerMask & DEFAULT_LAYER_MASK) !== 0,
+        routeOnMain: (camera.layerMask & DEFAULT_LAYER_MASK) !== 0,
+      };
+    },
+    // makes registering a view fail (or work again)
+    failPreviews: (fail) => {
+      engine.registerView = fail
+        ? () => {
+            throw new Error("preview failed on purpose");
+          }
+        : registerView;
+    },
     // all settlers walk to the building at the tile (benchmark); undefined
     // sends them back to their loops
     sendSettlers: (coords) => {

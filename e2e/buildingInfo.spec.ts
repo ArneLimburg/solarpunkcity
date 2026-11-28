@@ -265,7 +265,7 @@ test("the profile shows a settler without a home as unhoused", async ({
   await page.keyboard.press("Escape");
 
   // tap a settler until the profile opens (they keep walking)
-  const canvas = (await page.locator("canvas").boundingBox())!;
+  const canvas = (await page.locator("main canvas").boundingBox())!;
   await expect
     .poll(
       async () => {

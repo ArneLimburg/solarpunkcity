@@ -3,7 +3,7 @@ import type { HexCoordinates } from "../src/board";
 
 // pixel position of a tile in page coordinates
 export async function tilePosition(page: Page, coords: HexCoordinates) {
-  const box = await page.locator("canvas").boundingBox();
+  const box = await page.locator("main canvas").boundingBox();
   const position = await page.evaluate(
     (c) => window.__solarpunk?.tileToScreen(c),
     coords,

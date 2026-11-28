@@ -63,6 +63,29 @@ declare global {
         meshes: number;
         drawCalls: number; // of the last frame, all meshes
       };
+      // passes (scene renders) and draw calls of the whole last frame
+      getFrameStats(): { passes: number; drawCalls: number };
+      // the settler preview: registered views, preview cameras, observers of the
+      // scene, the preview camera's target, the state of the main camera and
+      // which camera draws the marker and the route line
+      getPreviewStats(): {
+        views: number;
+        cameras: number;
+        observers: number;
+        target: { x: number; y: number; z: number } | undefined;
+        mainCamera: {
+          alpha: number;
+          beta: number;
+          radius: number;
+          target: { x: number; y: number; z: number };
+        };
+        markerOnPreview: boolean;
+        markerOnMain: boolean;
+        routeOnPreview: boolean;
+        routeOnMain: boolean;
+      };
+      // makes setting up a preview fail (or work again)
+      failPreviews(fail: boolean): void;
       // the sea and beach meshes (names, how many are pickable); draw calls of the last frame
       getBackdropStats(): {
         meshes: string[];

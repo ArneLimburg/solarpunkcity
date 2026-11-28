@@ -23,7 +23,7 @@ test("app loads", async ({ page }) => {
   });
 
   await page.goto("./");
-  const canvas = page.locator("canvas");
+  const canvas = page.locator("main canvas");
   await expect(canvas).toBeVisible();
   const box = await canvas.boundingBox();
   expect(box?.width).toBeGreaterThan(0);
@@ -38,7 +38,7 @@ test("the tile layers hold exactly one finite matrix per board tile", async ({
   page,
 }) => {
   await page.goto("./");
-  await expect(page.locator("canvas")).toBeVisible();
+  await expect(page.locator("main canvas")).toBeVisible();
   await page.waitForFunction(() => window.__solarpunk !== undefined);
   const stats = await page.evaluate(() =>
     window.__solarpunk!.getTileInstanceStats(),
@@ -53,7 +53,7 @@ test("one mountain mesh stands behind the board, visible and not pickable", asyn
   page,
 }) => {
   await page.goto("./");
-  await expect(page.locator("canvas")).toBeVisible();
+  await expect(page.locator("main canvas")).toBeVisible();
   await page.waitForFunction(() => window.__solarpunk !== undefined);
   const stats = await page.evaluate(() =>
     window.__solarpunk!.getMountainStats(),

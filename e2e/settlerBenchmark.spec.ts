@@ -25,9 +25,13 @@ const MAX_P95_INCREASE_MS = 5;
 type Measurement = {
   median: number;
   p95: number;
-  drawCalls: number;
+  drawCalls: number; // of the map pass
+  frameDrawCalls: number; // of the busiest whole frame (map and preview)
   figures: number;
 };
+
+// the p95 of the phase with the preview may exceed the one without by this much
+const MAX_PREVIEW_P95_INCREASE_MS = 8;
 
 // `target`: all settlers get a new destination (the building there) right after
 // the settlers are shown, and the route searches fall into the measured frames
@@ -47,11 +51,16 @@ async function measure(
         await nextFrame();
       }
       const times: number[] = [];
+      let frameDrawCalls = 0; // the most of one whole frame, with all its passes
       let last = await nextFrame();
       for (let i = 0; i < frames; i++) {
         const now = await nextFrame();
         times.push(now - last);
         last = now;
+        frameDrawCalls = Math.max(
+          frameDrawCalls,
+          hooks.getFrameStats().drawCalls,
+        );
       }
       times.sort((a, b) => a - b);
       const stats = hooks.getSettlerStats();
@@ -59,6 +68,7 @@ async function measure(
         median: times[Math.floor(times.length / 2)],
         p95: times[Math.floor(times.length * 0.95)],
         drawCalls: stats.drawCalls,
+        frameDrawCalls,
         figures: stats.count,
       };
     },
@@ -92,6 +102,30 @@ test("1,000 moving settlers cost at most two draw calls and no stale figures rem
   const empty = await measure(page, 0);
   const regrown = await measure(page, 1000);
 
+  // the profile of a real settler with its live preview stays open while the
+  // crowd of generated settlers walks
+  await page.evaluate(() => window.__solarpunk!.showSettlers(undefined));
+  const [real] = await page.evaluate(() => window.__solarpunk!.getSettlers());
+  await expect
+    .poll(
+      async () => {
+        const box = (await page.locator("main canvas").boundingBox())!;
+        const position = await page.evaluate(
+          (id) => window.__solarpunk!.settlerToScreen(id, "head"),
+          real.id,
+        );
+        if (position) {
+          await page.mouse.click(box.x + position.x, box.y + position.y);
+        }
+        return (
+          await page.evaluate(() => window.__solarpunk!.getPreviewStats())
+        ).views;
+      },
+      { timeout: 120_000, intervals: [300] },
+    )
+    .toBe(1);
+  const withPreview = await measure(page, 1000);
+
   const report = {
     baseline,
     crowd,
@@ -100,6 +134,7 @@ test("1,000 moving settlers cost at most two draw calls and no stale figures rem
     dropped,
     empty,
     regrown,
+    "1,000 settlers with the profile and preview open": withPreview,
   };
   console.log(`settler benchmark ${JSON.stringify(report, null, 2)}`);
   await testInfo.attach("settler-benchmark.json", {
@@ -117,12 +152,20 @@ test("1,000 moving settlers cost at most two draw calls and no stale figures rem
   expect(walking.drawCalls - baseline.drawCalls).toBeLessThanOrEqual(2);
   expect(regrown.drawCalls - baseline.drawCalls).toBeLessThanOrEqual(2);
   expect(empty.drawCalls).toBe(baseline.drawCalls);
+  expect(withPreview.figures).toBe(1000);
+  // a preview frame adds at most as many draw calls as the map renders
+  expect(withPreview.frameDrawCalls).toBeLessThanOrEqual(
+    2 * withPreview.drawCalls,
+  );
 
   if (process.env.SETTLER_BENCHMARK_STRICT) {
     expect(crowd.p95 - baseline.p95).toBeLessThanOrEqual(MAX_P95_INCREASE_MS);
     expect(regrown.p95 - baseline.p95).toBeLessThanOrEqual(MAX_P95_INCREASE_MS);
     expect(redirected.p95 - baseline.p95).toBeLessThanOrEqual(
       MAX_P95_INCREASE_MS,
+    );
+    expect(withPreview.p95 - crowd.p95).toBeLessThanOrEqual(
+      MAX_PREVIEW_P95_INCREASE_MS,
     );
   }
 

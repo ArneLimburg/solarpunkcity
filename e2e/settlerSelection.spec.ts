@@ -22,7 +22,7 @@ async function settlerPosition(
   id: number,
   part: "head" | "body" = "body",
 ) {
-  const box = (await page.locator("canvas").boundingBox())!;
+  const box = (await page.locator("main canvas").boundingBox())!;
   const position = await page.evaluate(
     ([i, p]) => window.__solarpunk!.settlerToScreen(i as number, p as never),
     [id, part] as const,
@@ -330,8 +330,16 @@ for (const size of [
         ([px, py]) => document.elementFromPoint(px, py)?.tagName,
         [x, y],
       );
-    expect(await top(box.x + box.width / 2, box.y + box.height / 2)).not.toBe(
-      "CANVAS",
+    const inCard = (x: number, y: number) =>
+      page.evaluate(
+        ([px, py]) =>
+          !!document
+            .elementFromPoint(px, py)
+            ?.closest("[data-testid='settler-profile']"),
+        [x, y],
+      );
+    expect(await inCard(box.x + box.width / 2, box.y + box.height / 2)).toBe(
+      true,
     );
     expect(await top(size.width / 2, size.height / 2)).toBe("CANVAS");
 
