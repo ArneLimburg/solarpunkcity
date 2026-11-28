@@ -16,6 +16,7 @@ import {
 import { BuildingDefinition, type BuildingType } from "./gameDefinitions";
 import {
   build,
+  expireResident,
   finishConstruction,
   grantResources,
   toWorkSlot,
@@ -189,6 +190,7 @@ export function createDevHooks({
       );
     },
     unlockAll,
+    expireResident,
     finishConstruction: () =>
       finishConstruction().forEach(({ coords, type }) =>
         showBuilding(coords, type),

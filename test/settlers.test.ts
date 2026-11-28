@@ -15,6 +15,16 @@ beforeEach(async () => {
   definitions = await import("../src/gameDefinitions");
 });
 
+test("removeResidents removes by ID and keeps the others", () => {
+  const roster = settlers.createRoster(1);
+  settlers.syncRoster(roster, 4);
+  const [a, b, c, d] = roster.residents;
+  settlers.removeResidents(roster, [b.id, c.id]);
+  expect(roster.residents).toEqual([a, d]);
+  settlers.syncRoster(roster, 3);
+  expect(roster.residents.map(({ id }) => id)).toEqual([a.id, d.id, 5]);
+});
+
 const ORIGIN = { q: 0, r: 0 };
 
 function areaTiles(): HexCoordinates[] {

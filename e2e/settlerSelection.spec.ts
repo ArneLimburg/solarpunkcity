@@ -173,6 +173,21 @@ test("the profile and the marker go when the resident leaves", async ({
   expect((await marker(page)).visible).toBe(false);
 });
 
+test("the profile and the marker go when the resident dies of old age", async ({
+  page,
+}) => {
+  test.setTimeout(240_000);
+  await start(page);
+  const [first] = await getSettlers(page);
+  await clickUntilSelected(page, first.id, "body", (x, y) =>
+    mouseClick(page, x, y),
+  );
+  await expect(profile(page)).toBeVisible();
+  await page.evaluate((id) => window.__solarpunk!.expireResident(id), first.id);
+  await expect(profile(page)).toHaveCount(0);
+  expect((await marker(page)).visible).toBe(false);
+});
+
 test("an open profile shows the new age on the birthday", async ({ page }) => {
   test.setTimeout(240_000);
   await installClockWithNativeFrames(page); // the weekly ticks are run by hand

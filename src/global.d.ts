@@ -92,6 +92,8 @@ declare global {
       addCommunityGarden(coords: HexCoordinates): void;
       // achieves all resources, so that every building type is unlocked
       unlockAll(): void;
+      // the resident turns 120 with the next weekly tick and dies then
+      expireResident(id: number): void;
       // finishes all construction sites at once
       finishConstruction(): void;
     };
