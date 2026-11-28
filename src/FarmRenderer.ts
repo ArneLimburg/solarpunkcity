@@ -9,6 +9,7 @@ import { buildGeometry } from "./farmGeometry";
 import { getApartmentLayout, getApartmentRotorLayout } from "./apartment";
 import { getHydroPowerPlantLayout } from "./hydroPowerPlant";
 import { getSawmillLayout } from "./sawmill";
+import { getSolarFieldLayout } from "./solarField";
 import { getWoodenHouseLayout } from "./woodenHouse";
 import { getWindTurbineLayout, getWindTurbineRotorLayout } from "./windTurbine";
 import { getSupermarketLayout } from "./supermarket";
@@ -31,6 +32,7 @@ export type ModelType =
   | "Sawmill"
   | "Supermarket"
   | "HydroPowerPlant"
+  | "SolarField"
   | "WindTurbine";
 
 export function isModelType(type: string): type is ModelType {
@@ -42,6 +44,7 @@ export function isModelType(type: string): type is ModelType {
     type === "Sawmill" ||
     type === "Supermarket" ||
     type === "HydroPowerPlant" ||
+    type === "SolarField" ||
     type === "WindTurbine"
   );
 }
@@ -61,6 +64,9 @@ function getLayout(type: ModelType, hexSize: number): FarmPart[] {
   }
   if (type === "HydroPowerPlant") {
     return getHydroPowerPlantLayout(hexSize);
+  }
+  if (type === "SolarField") {
+    return getSolarFieldLayout(hexSize);
   }
   if (type === "WindTurbine") {
     return getWindTurbineLayout(hexSize);

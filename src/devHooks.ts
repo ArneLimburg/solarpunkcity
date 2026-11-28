@@ -165,6 +165,10 @@ export function createDevHooks({
       build("HydroPowerPlant", coords);
       showBuilding(coords, "HydroPowerPlant");
     },
+    addSolarField: (coords) => {
+      build("SolarField", coords);
+      showBuilding(coords, "SolarField");
+    },
     addWindTurbine: (coords) => {
       build("WindTurbine", coords);
       showBuilding(coords, "WindTurbine");

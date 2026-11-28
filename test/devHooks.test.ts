@@ -185,6 +185,14 @@ test("addHydroPowerPlant builds the plant on a river tile and shows it", () => {
   expect(hooks.getBuildingType(tile)).toBe("HydroPowerPlant");
 });
 
+test("addSolarField builds the field and shows it", () => {
+  const { hooks, showBuilding } = setup();
+  const tile = { q: 3, r: 3 };
+  hooks.addSolarField(tile);
+  expect(showBuilding).toHaveBeenCalledWith(tile, "SolarField");
+  expect(hooks.getBuildingType(tile)).toBe("SolarField");
+});
+
 test("addWindTurbine builds the turbine and shows it, the rotor matrix is passed on", () => {
   const { hooks, showBuilding } = setup();
   const tile = { q: 4, r: 4 };
