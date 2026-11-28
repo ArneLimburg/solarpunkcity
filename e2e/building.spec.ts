@@ -489,6 +489,9 @@ test("the camp is shown as one model and disappears when built over", async ({
   await selectBuilding(page, "Farms", "Organic homestead");
   const { x, y } = await tilePosition(page, origin);
   await page.mouse.move(x, y, { steps: 5 });
+  await expect
+    .poll(() => page.evaluate(() => window.__solarpunk?.getRingTile()))
+    .toEqual(origin);
   await page.mouse.click(x, y);
   await expect.poll(() => buildingAt(page, origin)).toBe("OrganicHomestead");
   expect(await modelCount()).toBe(0);
