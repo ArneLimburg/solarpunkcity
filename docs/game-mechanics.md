@@ -216,10 +216,21 @@ storage it is still built: forestry delivers the missing wood to the site, it ju
   constant. It is not offered in the build menu yet.
 - **Consuming.** A finished sawmill needs 2 energy per week, a finished agro-industrial farm 4.
   All other buildings are energy neutral and do not appear in the energy balance.
+- **Apartment buildings.** A finished apartment building needs
+  `0.040 + occupants × 0.023` energy per week (common areas plus about 1,200 kWh per person and
+  year); the occupants are the residents assigned to it at the start of the weekly tick. Its rooftop
+  wind turbines supply 0.050 of that first, only the rest is requested from the grid
+  (`max(0, demand − 0.050)`); unused rooftop output is not exported. A full building (15
+  residents) requests 0.335, an empty one nothing. Wooden houses, the settlers' camp, unfinished
+  sites and unhoused residents add no demand. All values are computed in thousandths, so sums are
+  exact. The weekly tick stores per apartment building the demand, the rooftop supply used, the
+  grid supply received and the unmet demand.
 - **Distribution.** At the start of every week the energy of all finished plants is distributed
-  to the finished consumers. Food producers (the agro-industrial farm) come first, then all other
-  consumers; within each group the building that was placed first comes first. A consumer gets
-  its full demand or nothing. A consumer whose demand no longer fits is without energy this week.
+  to the finished consumers. Food producers (the agro-industrial farm) come first, then apartment
+  buildings, then all other consumers; within each group the building that was placed first comes
+  first. A consumer gets its full demand or nothing. A consumer whose demand no longer fits is
+  without energy this week. An apartment building without energy counts as without energy in the
+  top bar, but its residents, assignments and the population are not affected.
 - **Without energy** a building does not work: it needs no workers, produces nothing, consumes
   nothing and has the status "missing resources". Energy that is left over is lost.
 - **Example.** One plant (10) powers one agro-industrial farm and three sawmills (4 + 3 × 2 = 10).
