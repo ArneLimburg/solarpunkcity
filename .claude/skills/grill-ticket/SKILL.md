@@ -46,8 +46,10 @@ run that hits the limit loses all its work. Keep every ticket small enough:
   this from the files the ticket touches and their tests; split if the estimate is larger.
 - Each part must be mergeable on its own (lint, build and tests pass) and leave the game
   playable: no part may make something unbuildable that a later part makes buildable again.
-  Name the order under `## Dependencies` and create later parts without the label `ready`, so
-  they wait for the earlier ones.
+  Name the order under `## Dependencies`, create later parts with the label `planned`
+  instead of `ready` and mark each of them as blocked by the parts it needs (see step 4).
+  Once the last blocker is merged, `.github/workflows/promote-dependents.yaml` swaps
+  `planned` for `ready`, which starts the implementation agent.
 
 Example: a sawmill that turns wood into planks, with apartments built from planks (#86), is
 three tickets in this order:
@@ -100,7 +102,19 @@ gh issue create --title "<title>" --label ready --body-file - <<'EOF'
 EOF
 ```
 
+For a part that waits for others, use `--label planned` instead and then add a "blocked by"
+relationship for every issue it needs (the API takes the blocker's ID, not its number):
+
+```bash
+gh api repos/{owner}/{repo}/issues/<dependent>/dependencies/blocked_by \
+  -F issue_id="$(gh api repos/{owner}/{repo}/issues/<blocker> --jq .id)"
+```
+
+Only these relationships count: a `planned` issue without one is never labeled `ready`
+automatically.
+
 If the user wants to review it on GitHub first, create it without `--label ready` and tell them
 that adding the label starts the implementation agent.
 
-Report the issue URL and that the implementation agent has started.
+Report the issue URL and that the implementation agent has started (or, for a `planned` issue,
+which issues it waits for).

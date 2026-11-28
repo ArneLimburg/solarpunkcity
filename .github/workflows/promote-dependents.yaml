@@ -1,0 +1,81 @@
+# Releases tickets that wait for others. When a pull request is merged into main, every issue
+# it closes is checked for issues it blocks (GitHub's native "blocked by" relationship). Each
+# blocked issue labeled `planned` whose blockers are now all closed loses `planned` and gets
+# `ready`, which starts implement.yaml.
+# Runs as the GitHub App from AGENT_APP_ID, because labels set with github.token start no
+# workflow.
+name: Promote Dependents
+
+on:
+  pull_request:
+    types: [closed]
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      issue:
+        description: Closed issue whose planned dependents should be checked
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: promote-dependents
+  cancel-in-progress: false
+
+jobs:
+  promote:
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/create-github-app-token@v2
+        id: app
+        with:
+          app-id: ${{ vars.AGENT_APP_ID }}
+          private-key: ${{ secrets.AGENT_APP_PRIVATE_KEY }}
+
+      - name: Label unblocked planned issues ready
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          ISSUE: ${{ inputs.issue }}
+        run: |
+          owner=${GH_REPO%/*}
+          name=${GH_REPO#*/}
+
+          if [ -n "$PR_NUMBER" ]; then
+            # Issues the pull request closes ("Closes #n"). The merge closes them a moment later.
+            closed=$(gh api graphql -F owner="$owner" -F name="$name" -F pr="$PR_NUMBER" -f query='
+              query($owner: String!, $name: String!, $pr: Int!) {
+                repository(owner: $owner, name: $name) {
+                  pullRequest(number: $pr) { closingIssuesReferences(first: 50) { nodes { number } } }
+                }
+              }' --jq '.data.repository.pullRequest.closingIssuesReferences.nodes[].number')
+          else
+            closed=$ISSUE
+          fi
+          [ -z "$closed" ] && { echo "The pull request closes no issue"; exit 0; }
+
+          for issue in $closed; do
+            # Wait until the merge has closed the issue, so it no longer counts as a blocker.
+            for _ in $(seq 1 12); do
+              [ "$(gh issue view "$issue" --json state --jq .state)" = "CLOSED" ] && break
+              sleep 5
+            done
+
+            dependents=$(gh api --paginate "repos/$GH_REPO/issues/$issue/dependencies/blocking" \
+              --jq '.[] | select(.state == "open") | select([.labels[].name] | index("planned")) | .number')
+            for dependent in $dependents; do
+              open_blockers=$(gh api --paginate "repos/$GH_REPO/issues/$dependent/dependencies/blocked_by" \
+                --jq '.[] | select(.state == "open") | "#\(.number)"' | paste -sd ' ' -)
+              if [ -n "$open_blockers" ]; then
+                echo "#$dependent: still blocked by $open_blockers"
+              else
+                echo "#$dependent: unblocked by #$issue, labeling it ready"
+                gh issue edit "$dependent" --remove-label planned --add-label ready
+              fi
+            done
+          done
