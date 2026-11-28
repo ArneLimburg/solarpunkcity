@@ -4,6 +4,7 @@ import {
   buildingAt,
   finishConstruction,
   grantWood,
+  openCategory,
   selectBuilding,
   tilePosition,
 } from "./helpers";
@@ -14,10 +15,11 @@ test("the menu offers the hydro power plant under Energy with its details", asyn
   await page.goto("./");
   await page.waitForFunction(() => window.__solarpunk !== undefined);
   await grantWood(page);
-  await selectBuilding(page, "Energy", "Hydro power plant");
+  await openCategory(page, "Energy");
   await expect(page.getByTestId("build-cost-HydroPowerPlant")).toHaveText(
     /20$/,
   );
+  await selectBuilding(page, "Energy", "Hydro power plant");
   const details = page.getByTestId("building-details");
   await expect(details.getByTestId("details-river-only")).toHaveText(
     "Can only be built on the river",

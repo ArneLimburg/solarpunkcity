@@ -350,9 +350,7 @@ test("Escape and the building icon exit blueprint mode", async ({ page }) => {
   await clickTile(page, row[1]);
   await expect.poll(() => buildingAt(page, row[1])).toBe("OrganicHomestead");
   // a click on the selected building deselects it
-  await page
-    .getByRole("button", { name: "Organic homestead", exact: true })
-    .click();
+  await selectBuilding(page, "Farms", "Organic homestead");
   await clickTile(page, row[2]);
   await page.waitForTimeout(300);
   expect(await buildingAt(page, row[2])).toBe("Forest");

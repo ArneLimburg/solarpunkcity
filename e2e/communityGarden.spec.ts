@@ -3,6 +3,7 @@ import {
   buildingAt,
   finishConstruction,
   grantWood,
+  openCategory,
   selectBuilding,
   tilePosition,
 } from "./helpers";
@@ -15,8 +16,9 @@ test("the menu offers the community garden under Leisure and builds it on a fore
   await page.goto("./");
   await page.waitForFunction(() => window.__solarpunk !== undefined);
   await grantWood(page);
-  await selectBuilding(page, "Leisure", "Community garden");
+  await openCategory(page, "Leisure");
   await expect(page.getByTestId("build-cost-CommunityGarden")).toHaveText(/4$/);
+  await selectBuilding(page, "Leisure", "Community garden");
   const tile = { q: -2, r: -2 };
   const { x, y } = await tilePosition(page, tile);
   await page.mouse.move(x, y, { steps: 5 });

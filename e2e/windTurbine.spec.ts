@@ -3,6 +3,7 @@ import {
   buildingAt,
   finishConstruction,
   grantWood,
+  openCategory,
   selectBuilding,
   tilePosition,
 } from "./helpers";
@@ -15,8 +16,9 @@ test("the menu offers the wind turbine under Energy and builds it on a forest ti
   await page.goto("./");
   await page.waitForFunction(() => window.__solarpunk !== undefined);
   await grantWood(page);
-  await selectBuilding(page, "Energy", "Wind turbine");
+  await openCategory(page, "Energy");
   await expect(page.getByTestId("build-cost-WindTurbine")).toHaveText(/10$/);
+  await selectBuilding(page, "Energy", "Wind turbine");
   const tile = { q: -2, r: -2 };
   const { x, y } = await tilePosition(page, tile);
   await page.mouse.move(x, y, { steps: 5 });
