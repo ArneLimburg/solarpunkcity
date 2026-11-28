@@ -1,6 +1,7 @@
 # Keeps the commit status `agent-review` of every pull request up to date; a ruleset on main
 # requires it. Pull requests labeled `agent-pr` need an approval by Agent Review
-# (agent-review.yaml) or an approving review by the repository owner, and every new commit
+# (agent-review.yaml) or an approving review by the repository owner; a "changes requested" review
+# by the owner sets it back to pending, so an enabled auto-merge waits. Every new commit
 # resets them to pending, except a success that implement.yaml already carried over to a commit
 # rebased onto main without conflicts. All other pull requests pass immediately.
 # pull_request_target runs the workflow from main and never checks out pull request code.
@@ -22,7 +23,7 @@ jobs:
         (github.event.action == 'opened' || github.event.action == 'reopened' ||
          github.event.action == 'synchronize' || github.event.label.name == 'agent-pr')) ||
       (github.event_name == 'pull_request_review' &&
-        github.event.review.state == 'approved' &&
+        (github.event.review.state == 'approved' || github.event.review.state == 'changes_requested') &&
         github.event.review.user.login == github.repository_owner &&
         contains(github.event.pull_request.labels.*.name, 'agent-pr'))
     runs-on: ubuntu-latest
@@ -35,9 +36,15 @@ jobs:
           AGENT_PR: ${{ contains(github.event.pull_request.labels.*.name, 'agent-pr') }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           REVIEW_SHA: ${{ github.event.review.commit_id }}
+          REVIEW_STATE: ${{ github.event.review.state }}
         run: |
           if [ "$EVENT" = "pull_request_review" ]; then
-            sha=$REVIEW_SHA state=success desc="Approved by the repository owner"
+            if [ "$REVIEW_STATE" = "approved" ]; then
+              sha=$REVIEW_SHA state=success desc="Approved by the repository owner"
+            else
+              # Keeps an enabled auto-merge from landing the commit the owner rejected.
+              sha=$REVIEW_SHA state=pending desc="Changes requested by the repository owner"
+            fi
           elif [ "$AGENT_PR" = "true" ]; then
             current=$(gh api "repos/$GH_REPO/commits/$HEAD_SHA/status" \
               --jq '[.statuses[] | select(.context == "agent-review")][0].state // empty')

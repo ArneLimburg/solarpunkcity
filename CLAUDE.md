@@ -100,7 +100,8 @@ Game state currently lives in module-level variables in `board.ts` and `game.ts`
 
 ## Agent workflow
 
-Tickets become pull requests without manual steps; the repository owner reviews at the end.
+Tickets become pull requests and land on `main` without manual steps; the repository owner steps
+in only when the agents give up or the owner reviews on their own.
 
 1. `/grill-ticket` (local) specifies a ticket and creates the issue with label `ready`. A ticket
    that waits for others gets `planned` instead and GitHub "blocked by" relationships to them;
@@ -110,8 +111,10 @@ Tickets become pull requests without manual steps; the repository owner reviews 
 2. `.github/workflows/implement.yaml` (Sonnet) implements it on `agent/issue-<n>` and opens a
    pull request labeled `agent-pr`.
 3. After each Build, `.github/workflows/agent-review.yaml` (Opus) reviews it. `review:changes`
-   sends it back to step 2 (at most 3 times), `review:approved` or `review:max-rounds` requests
-   a review from the owner. `agent-blocked` means an agent gave up and a human must take over.
+   sends it back to step 2 (at most 3 times). `review:approved` enables auto-merge (rebase): the
+   pull request lands on `main` once `build` and `agent-review` pass; if auto-merge cannot be
+   enabled, the owner is asked to review. `review:max-rounds` requests a review from the owner.
+   `agent-blocked` means an agent gave up and a human must take over.
    A comment on the pull request announces each run that addresses a review (agent or owner,
    step 4) as soon as it starts, and likewise each Opus review.
    An implementation agent that stops without a commit and without a reason is started once more
@@ -138,7 +141,8 @@ Tickets become pull requests without manual steps; the repository owner reviews 
    `gh workflow run implement.yaml -f pr=<n>` (add `-f review=<id>` for an owner review).
 6. Merging into `main` requires the commit status `agent-review` (ruleset). For `agent-pr` pull
    requests it is set by Agent Review (success on approval) or by an approving review of the owner
-   (`.github/workflows/agent-review-gate.yaml`); every new commit resets it to pending, except a
+   (`.github/workflows/agent-review-gate.yaml`); a "changes requested" review of the owner sets it
+   back to pending, so an enabled auto-merge waits; every new commit resets it to pending, except a
    rebase without conflicts. All other pull requests pass immediately.
 
 Agents run as the GitHub App from `AGENT_APP_ID` / `AGENT_APP_PRIVATE_KEY` so their pushes,
