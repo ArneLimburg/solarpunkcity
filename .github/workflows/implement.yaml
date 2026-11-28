@@ -17,8 +17,9 @@
 #   outdated; on a pull request labeled `review:changes`, addresses the latest agent review;
 #   otherwise only brings the branch up to date with main (mode `rebase`). A rebase without
 #   conflicts is done by a script and keeps an approval (`agent-review` status); only conflicts
-#   start the agent. A comment on the pull request announces the rebase or the review fix when
-#   it starts.
+#   start the agent. Conflicts in `CLAUDE.md`, which the agent must not touch on a pull request,
+#   are merged by git's union driver (both sides kept), by the script and in the agent's rebase.
+#   A comment on the pull request announces the rebase or the review fix when it starts.
 #   Resolved conflicts of an approved pull request are reviewed again (label `review:rebase`,
 #   not a new review round).
 # Runs as the GitHub App from AGENT_APP_ID so that its pushes and pull requests trigger
@@ -195,15 +196,23 @@ jobs:
             main=behind
             git merge-tree --write-tree origin/main HEAD > /dev/null || main=conflicts
           fi
+          if [ "$MODE" != "issue" ]; then
+            # The agent must not touch CLAUDE.md on a pull request, so it cannot resolve a conflict
+            # there. Both sides usually only add lines (e.g. to the architecture list), so keep both
+            # with git's union driver, for the scripted rebase below and the agent's own. Set after
+            # the check above, so such a conflict still counts as one and is reviewed again.
+            echo 'CLAUDE.md merge=union' >> "$(git rev-parse --git-path info/attributes)"
+          fi
           before=$(git rev-parse HEAD)
           agent=true
           if [ "$MODE" = "rebase" ]; then
             if [ "$main" = "current" ]; then
               echo "The branch is already up to date with main"
               echo "noop=true" >> "$GITHUB_OUTPUT"
-            elif [ "$main" = "behind" ]; then
-              # No conflicts with main: rebase without the agent. Single commits may still
-              # conflict while they are replayed; then the agent resolves them.
+            else
+              # No conflicts with main (or only in CLAUDE.md, see above): rebase without the agent.
+              # Single commits may still conflict while they are replayed; then the agent resolves
+              # them.
               if git rebase origin/main; then
                 agent=false
               else
@@ -242,6 +251,8 @@ jobs:
             *)
               if [ "$AGENT" = "true" ]; then
                 printf '🤖 Rebasing onto main; the agent resolves the merge conflicts ([run](%s)).\n' "$run_url"
+              elif [ "$MAIN" = "conflicts" ]; then
+                printf '🤖 Rebasing onto main; the conflicts in `CLAUDE.md` keep both sides ([run](%s)).\n' "$run_url"
               else
                 printf '🤖 Rebasing onto main without conflicts ([run](%s)).\n' "$run_url"
               fi
@@ -347,6 +358,7 @@ jobs:
           BRANCH: ${{ steps.ctx.outputs.branch }}
           BEFORE: ${{ steps.git.outputs.before }}
           AGENT: ${{ steps.git.outputs.agent }}
+          MAIN: ${{ steps.git.outputs.main }}
           STATUS_TOKEN: ${{ github.token }}
           EXECUTION_FILE: ${{ steps.claude.outputs.execution_file }}
         run: |
@@ -362,7 +374,8 @@ jobs:
           # anything is pushed. On pull requests claude-code-action resets .claude/ and CLAUDE.md
           # to main and copies the PR's version to .claude-pr/, so committing them reverts the PR.
           # A rebase brings in main's changes to these files, so compare what the branch changes
-          # relative to main before and after the agent ran, file by file.
+          # relative to main before and after the agent ran, file by file. Without context lines
+          # (-U0), so that main's lines next to the branch's own do not count as a change.
           pattern='^(\.github/|\.claude/|\.claude-pr/)'
           [ "$MODE" = "issue" ] || pattern='^(\.github/|\.claude/|\.claude-pr/|CLAUDE\.md$|CLAUDE\.local\.md$)'
           base_before=$(git merge-base origin/main "$BEFORE")
@@ -370,8 +383,8 @@ jobs:
           protected=$(
             { git diff --name-only "$base_before" "$BEFORE"; git diff --name-only "$base_after" HEAD; } |
               grep -E "$pattern" | sort -u | while read -r file; do
-                [ "$(git diff "$base_before" "$BEFORE" -- "$file" | git patch-id --stable)" = \
-                  "$(git diff "$base_after" HEAD -- "$file" | git patch-id --stable)" ] || echo "$file"
+                [ "$(git diff -U0 "$base_before" "$BEFORE" -- "$file" | git patch-id --stable)" = \
+                  "$(git diff -U0 "$base_after" HEAD -- "$file" | git patch-id --stable)" ] || echo "$file"
               done
           )
           if [ -n "$protected" ]; then
@@ -461,7 +474,7 @@ jobs:
 
           if [ "$MODE" = "rebase" ]; then
             new_head=$(git rev-parse HEAD)
-            if [ "$AGENT" = "false" ]; then
+            if [ "$AGENT" = "false" ] && [ "$MAIN" != "conflicts" ]; then
               # Nothing but main's changes was added, so an approval stays valid. Build still runs.
               # agent-review-gate.yaml keeps a success it finds on the new commit.
               approval=$(GH_TOKEN="$STATUS_TOKEN" gh api "repos/$GH_REPO/commits/$BEFORE/status" \
