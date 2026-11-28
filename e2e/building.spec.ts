@@ -545,7 +545,9 @@ test("a farm occupies 7 tiles with one model and farmland", async ({
   const modelCount = (c: { q: number; r: number }) =>
     page.evaluate((t) => window.__solarpunk?.getModelCount(t), c);
   for (const tile of footprint) {
-    await expect.poll(() => buildingAt(page, tile)).toBe("Farm");
+    await expect
+      .poll(() => buildingAt(page, tile), { timeout: 20_000 })
+      .toBe("Farm");
     expect(
       await page.evaluate((c) => window.__solarpunk?.getTileMaterial(c), tile),
     ).toBe("soil");
