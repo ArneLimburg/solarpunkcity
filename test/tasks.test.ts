@@ -50,6 +50,16 @@ test("a resident keeps the task while the place is still available", () => {
   expect([...fewer]).toEqual([[1, "a"]]);
 });
 
+test("when a resident dies, the survivors keep their workplaces", () => {
+  const slots = [slot("a", 2), slot("b", 2)];
+  const before = assignTasks(new Map(), [1, 2, 3, 4], slots);
+  const after = assignTasks(before, [1, 3, 4], slots);
+  expect(after.has(2)).toBe(false);
+  for (const id of [1, 3, 4]) {
+    expect(after.get(id)).toBe(before.get(id));
+  }
+});
+
 test("the work slots of the game are the staffed places of the last week", async () => {
   const game = await import("../src/game");
   expect(getWorkSlots()).toEqual([]);

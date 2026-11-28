@@ -478,6 +478,7 @@ export function takeCompletedBuildings() {
 // (cheat for the e2e tests)
 export function expireResident(id: number) {
   const index = roster.residents.findIndex((resident) => resident.id === id);
+  if (index < 0) return;
   roster.residents[index] = {
     ...roster.residents[index],
     birthDate: birthTime(currentWeek + 1, MAX_LIFE_AGE, 0),
