@@ -3,7 +3,8 @@
 # - Build passed: Opus reviews against the issue's acceptance criteria; a comment on the pull
 #   request announces the review as soon as it starts.
 # Verdict CHANGES labels `review:changes`, which starts implement.yaml again. After
-# MAX_PING_PONG change requests, or on APPROVE, the repository owner is asked to review.
+# MAX_PING_PONG change requests the repository owner is asked to review; on APPROVE auto-merge
+# is enabled, so the pull request lands on main without the owner once the required checks pass.
 # Skips pull requests handed over to a human (`review:max-rounds`, `agent-blocked`) and approved
 # ones (`review:approved`) whose build passes.
 # `review:owner` (set by implement.yaml after it addressed an owner review): no Opus review; a
@@ -96,7 +97,7 @@ jobs:
           if echo "$labels" | grep -qx 'review:owner'; then
             owner=true
           elif echo "$labels" | grep -qx 'review:approved'; then
-            [ "$CONCLUSION" = "success" ] && skip "#$pr is approved and waits for the owner"
+            [ "$CONCLUSION" = "success" ] && skip "#$pr is approved and waits for auto-merge"
             # E.g. a rebase without conflicts broke the build: fix it, then review the fix again.
             gh label create review:rebase --color C2E0C6 --description "Review agent checks a conflict resolution" --force
             gh pr edit "$pr" --remove-label review:approved --add-label review:rebase
@@ -296,8 +297,18 @@ jobs:
           }
 
           if [ "$verdict" = "APPROVE" ]; then
-            handover review:approved 0E8A16 "Approved by the review agent" \
-              "The review agent approved this pull request in round $ROUND$suffix. Please review and merge."
+            gh label create review:approved --color 0E8A16 --description "Approved by the review agent" --force
+            gh pr edit "$PR" --add-label review:approved
+            # GitHub merges as soon as the required checks (build, agent-review) pass; a branch
+            # behind main is rebased by agent-sync.yaml first. Idempotent after a re-review.
+            if gh pr merge "$PR" --auto --rebase; then
+              printf '🤖 The review agent approved this pull request in round %s%s. Auto-merge is enabled; it lands on main once the required checks pass.\n' \
+                "$ROUND" "$suffix" | gh pr comment "$PR" --body-file -
+            else
+              gh pr edit "$PR" --add-reviewer "$OWNER"
+              printf '@%s The review agent approved this pull request in round %s%s, but auto-merge could not be enabled. Please review and merge.\n' \
+                "$OWNER" "$ROUND" "$suffix" | gh pr comment "$PR" --body-file -
+            fi
           elif [ "$verdict" = "CHANGES" ] && [ "$ROUND" -le "$MAX_PING_PONG" ]; then
             gh label create review:changes --color FBCA04 --description "Review agent requests changes" --force
             gh pr edit "$PR" --add-label review:changes
