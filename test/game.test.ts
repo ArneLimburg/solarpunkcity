@@ -127,6 +127,31 @@ test("a resident who turns 120 dies, the others keep their IDs and the populatio
   expect(state.residents.map(({ id }) => id)).toEqual([second.id]);
 });
 
+test("a death keeps the homes of the survivors and frees the home of the dead", () => {
+  board.placeBuilding(
+    { q: 2, r: 5 },
+    { ...definitions.BuildingDefinition.WoodenHouse, resident: 3 },
+  );
+  game.finishConstruction();
+  storeFood(1000);
+  game.grantResources({ food: 1000 });
+  game.calculateWeek();
+  const state = game.calculateWeek();
+  const ids = state.residents.map(({ id }) => id);
+  expect(ids.length).toBeGreaterThan(2);
+  const homes = new Map(ids.map((id) => [id, game.getHome(id)]));
+  expect(homes.get(ids[0])).toBeDefined();
+  const [dead, ...survivors] = ids;
+  game.expireResident(dead);
+  game.expireResident(-1); // unknown IDs are ignored
+  const next = game.calculateWeek();
+  expect(next.residents.map(({ id }) => id)).not.toContain(dead);
+  expect(game.getHome(dead)).toBeUndefined();
+  for (const id of survivors) {
+    expect(game.getHome(id)).toBe(homes.get(id));
+  }
+});
+
 test("homestead lets the population grow", () => {
   board.setBuilding(
     { q: 0, r: 0 },
