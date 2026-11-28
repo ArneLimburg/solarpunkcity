@@ -124,6 +124,7 @@ export function createDevHooks({
       const placed = coords && getPlacedBuilding(coords);
       settlers.assignWork(placed ? [toWorkSlot(placed, Infinity)] : []);
     },
+    advanceSettlers: settlers.advance,
     getSettlerRoute: settlers.getRoute,
     getBackdropStats: () => ({
       meshes: backdrop.meshes.map((mesh) => mesh.name),

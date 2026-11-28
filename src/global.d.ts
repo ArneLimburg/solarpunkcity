@@ -75,6 +75,8 @@ declare global {
       showSettlers(count: number | undefined): void;
       // sends all settlers to the building at the tile (undefined: no task)
       sendSettlers(coords: HexCoordinates | undefined): void;
+      // moves the settlers forward by the given seconds, independent of frames
+      advanceSettlers(seconds: number): void;
       // the route line of the selected settler: shown, remaining tiles
       getSettlerRoute(): { visible: boolean; tiles: HexCoordinates[] };
       addResources(resources: Partial<Resources>): void;

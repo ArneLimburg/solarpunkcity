@@ -66,6 +66,14 @@ test("a builder's profile shows the occupation and the way to the construction s
   );
   const activity = page.getByTestId("settler-activity");
   await expect(activity).toHaveText("Walking to construction site");
-  // the arrival is not awaited: slow CI frames are capped per frame, so the
-  // walk can take arbitrarily long there ("Building" is covered by unit tests)
+  // the simulation is moved forward by hand: independent of the CI frame rate
+  await expect
+    .poll(
+      async () => {
+        await page.evaluate(() => window.__solarpunk!.advanceSettlers(5));
+        return activity.textContent();
+      },
+      { timeout: 60_000 },
+    )
+    .toBe("Building");
 });

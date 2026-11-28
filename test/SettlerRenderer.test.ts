@@ -193,6 +193,22 @@ test("the figures move every frame", () => {
   expect(Math.hypot(jumped.x - x, jumped.z - z)).toBeLessThan(0.2);
 });
 
+test("advance simulates the seconds in capped steps, independent of frames", () => {
+  const residents = syncRoster(createRoster(3), 2);
+  const framed = createSettlerRenderer(createScene(), 1);
+  framed.sync(residents);
+  frame.seconds = 0.25;
+  for (let i = 0; i < 6; i++) {
+    frame.render();
+  }
+  const advanced = createSettlerRenderer(createScene(), 1);
+  advanced.sync(residents);
+  advanced.advance(1.5);
+  expect(advanced.getSettlers()).toEqual(framed.getSettlers());
+  advanced.advance(0); // nothing to simulate
+  expect(advanced.getSettlers()).toEqual(framed.getSettlers());
+});
+
 test("an unchanged roster changes nothing, a changed one keeps known figures", () => {
   const renderer = createSettlerRenderer(createScene(), 1);
   const roster = createRoster(3);

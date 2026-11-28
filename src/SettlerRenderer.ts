@@ -57,6 +57,8 @@ export type SettlerInfo = {
 };
 
 export type SettlerRenderer = {
+  // simulates the given seconds at once, in steps of at most one capped frame
+  advance: (seconds: number) => void;
   // shows exactly the given residents (keeps the figures of known IDs)
   sync: (residents: Resident[]) => void;
   // the buildings changed: affected figures pick another way
@@ -330,11 +332,7 @@ export function createSettlerRenderer(
     }
   };
 
-  scene.onBeforeRenderObservable.add(() => {
-    const seconds = Math.min(
-      scene.getEngine().getDeltaTime() / 1000,
-      MAX_FRAME_SECONDS,
-    );
+  const step = (seconds: number) => {
     planRoutes();
     for (let i = 0; i < walkers.length; i++) {
       const walker = walkers[i];
@@ -348,9 +346,18 @@ export function createSettlerRenderer(
       }
     }
     write();
-  });
+  };
+
+  scene.onBeforeRenderObservable.add(() =>
+    step(Math.min(scene.getEngine().getDeltaTime() / 1000, MAX_FRAME_SECONDS)),
+  );
 
   return {
+    advance: (seconds) => {
+      for (let left = seconds; left > 0; left -= MAX_FRAME_SECONDS) {
+        step(Math.min(left, MAX_FRAME_SECONDS));
+      }
+    },
     sync: (residents) => {
       if (
         residents.length === walkers.length &&

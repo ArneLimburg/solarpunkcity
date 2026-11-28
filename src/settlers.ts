@@ -773,7 +773,7 @@ export function getActivity(walker: Walker): Activity {
       ? "Tending the community garden"
       : "Walking to the community garden";
   }
-  if (walker.walking || (walker.task !== undefined && !walker.blocked)) {
+  if (walker.walking) {
     return "Walking";
   }
   if (walker.pause > 0) {

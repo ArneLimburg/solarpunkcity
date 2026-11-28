@@ -26,6 +26,7 @@ function setup() {
   const showBuilding = vi.fn();
   const showSettlers = vi.fn();
   const assignWork = vi.fn();
+  const advance = vi.fn();
   const toGlobal = vi.fn(() => "viewport");
   const backdrop = {
     meshes: [
@@ -76,6 +77,7 @@ function setup() {
       getActivity: () => "Idle",
       getOccupation: () => "No current job",
       assignWork,
+      advance,
       getRoute: () => ({ visible: false, tiles: [] }),
       getTriangleCount: () => 164,
       getMeshCount: () => 2,
@@ -114,10 +116,17 @@ function setup() {
     showBuilding,
     showSettlers,
     assignWork,
+    advance,
     frame,
     backdrop,
   };
 }
+
+test("advanceSettlers moves the settler simulation forward", () => {
+  const { hooks, advance } = setup();
+  hooks.advanceSettlers(5);
+  expect(advance).toHaveBeenCalledWith(5);
+});
 
 test("sendSettlers sends everybody to the building at the tile, or nowhere", () => {
   const { hooks, assignWork } = setup();
